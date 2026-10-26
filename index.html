@@ -653,10 +653,9 @@
         스마트폰 기본 카메라로 아래 QR 코드를 스캔하세요.
       </p>
       <div style="background: #FFFFFF; padding: 12px; border-radius: 16px; border: 1.5px solid #DBEAFE; display: inline-block; box-shadow: 0 8px 24px rgba(37,99,235,0.12);">
-        <img src="assets/mobile_qr.png" alt="갈지도 모바일 접속 QR 코드" style="width: 220px; height: 220px; display: block;" />
+        <img id="mobile-qr-img" alt="갈지도 모바일 접속 QR 코드" style="width: 220px; height: 220px; display: block; image-rendering: pixelated;" />
       </div>
-      <div style="margin-top: 16px; font-size: 0.82rem; color: #1E3A8A; font-weight: 700; word-break: break-all; background: #EFF6FF; padding: 10px 12px; border-radius: 10px;">
-        https://centuries-boot-agricultural-champions.trycloudflare.com/app/
+      <div id="mobile-qr-url" style="margin-top: 16px; font-size: 0.82rem; color: #1E3A8A; font-weight: 700; word-break: break-all; background: #EFF6FF; padding: 10px 12px; border-radius: 10px;">
       </div>
       <p style="margin-top: 8px; font-size: 0.76rem; color: #94A3B8;">
         ※ HTTPS 보안 연결 지원 (스마트폰 블루투스 및 음성 마이크 자동 허용)
@@ -668,6 +667,8 @@
   <div id="toast-box" class="toast-container" aria-live="polite"></div>
 
   <!-- 스크립트 로드 -->
+  <script src="vendor/qrcode.js"></script>
+  <script src="config.js"></script>
   <script src="audio.js"></script>
   <script src="speech.js"></script>
   <script src="app.js"></script>

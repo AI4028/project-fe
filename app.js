@@ -6,6 +6,15 @@
 (function () {
   'use strict';
 
+  // 백엔드 주소: 주소창 ?api=... > config.js 의 apiBase > 이 페이지를 제공한 서버
+  const API_BASE = (
+    new URLSearchParams(location.search).get('api') || (window.GALJIDO_CONFIG || {}).apiBase || ''
+  ).replace(/\/+$/, '');
+
+  function wsUrl(path) {
+    return (API_BASE || location.origin).replace(/^http/, 'ws') + path;
+  }
+
   // ==========================================
   // 기본 오프라인/대체 매장 & 메뉴 데이터 (GIST Cafe점)
   // ==========================================
@@ -111,7 +120,9 @@
     deviceToken: null,
     kioskId: 'GK01',
     kioskName: '키오스크 1',
-    kioskKey: null,
+    kioskKey: null, // 코드에 넣지 않음: loadKioskKey() 참고
+    kioskSimulatorStarted: false,
+    kioskHeartbeatTimer: null,
     sessionId: null,
     sessionWs: null,
     kioskWs: null,
@@ -319,19 +330,31 @@
   // 백엔드 API 통신 모듈
   // ==========================================
   const api = {
+    // kiosk: true 이면 키오스크 키로, 아니면 스마트폰 디바이스 토큰으로 인증
     async request(path, options = {}) {
-      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-      if (state.deviceToken && !headers['Authorization']) {
+      const { kiosk = false, ...fetchOptions } = options;
+      const headers = { 'Content-Type': 'application/json', ...(fetchOptions.headers || {}) };
+      if (kiosk) {
+        if (!state.kioskKey) {
+          const error = new Error('키오스크 키가 설정되지 않았습니다.');
+          error.code = 'no-kiosk-key';
+          throw error;
+        }
+        headers['Authorization'] = `Bearer ${state.kioskKey}`;
+      } else if (state.deviceToken && !headers['Authorization']) {
         headers['Authorization'] = `Bearer ${state.deviceToken}`;
       }
 
-      let res = await fetch(path, { ...options, headers });
-      if (res.status === 401 && path !== '/devices') {
+      const url = API_BASE + path;
+      let res = await fetch(url, { ...fetchOptions, headers });
+      if (res.status === 401 && kiosk) {
+        forgetKioskKey();
+      } else if (res.status === 401 && path !== '/devices') {
         console.warn('디바이스 토큰 만료 (401): 재등록 후 재시도');
         try {
           const newDev = await this.registerDevice();
           headers['Authorization'] = `Bearer ${newDev.token}`;
-          res = await fetch(path, { ...options, headers });
+          res = await fetch(url, { ...fetchOptions, headers });
         } catch (e) {
           console.error('재등록 실패:', e);
         }
@@ -398,7 +421,7 @@
     // 5-1. 키오스크 활성 세션 조회 (GET /kiosk/session)
     async getKioskActiveSession() {
       return await this.request('/kiosk/session', {
-        headers: { Authorization: `Bearer ${state.kioskKey}` },
+        kiosk: true,
       });
     },
 
@@ -442,7 +465,7 @@
     async kioskEndSession(sessionId) {
       return await this.request(`/kiosk/sessions/${sessionId}/end`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${state.kioskKey}` },
+        kiosk: true,
       });
     },
 
@@ -450,7 +473,7 @@
     async kioskHeartbeat() {
       return await this.request('/kiosk/heartbeat', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${state.kioskKey}` },
+        kiosk: true,
       });
     },
 
@@ -458,7 +481,7 @@
     async getKioskOrders(status = null) {
       const q = status ? `?status=${encodeURIComponent(status)}` : '';
       return await this.request(`/kiosk/orders${q}`, {
-        headers: { Authorization: `Bearer ${state.kioskKey}` },
+        kiosk: true,
       });
     },
 
@@ -466,7 +489,7 @@
     async updateOrderStatus(orderId, status) {
       return await this.request(`/kiosk/orders/${orderId}/status`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${state.kioskKey}` },
+        kiosk: true,
         body: JSON.stringify({ status }),
       });
     },
@@ -475,7 +498,7 @@
     async resolveHelp(sessionId) {
       return await this.request(`/kiosk/sessions/${sessionId}/resolve-help`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${state.kioskKey}` },
+        kiosk: true,
       });
     },
 
@@ -483,7 +506,7 @@
     async setItemAvailability(itemId, available) {
       return await this.request(`/kiosk/menu/${itemId}/availability`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${state.kioskKey}` },
+        kiosk: true,
         body: JSON.stringify({ available }),
       });
     },
@@ -526,8 +549,8 @@
     renderCategories(state.menuItems);
     renderMenuItems(state.menuItems);
 
-    // 3. 키오스크 디스플레이 백그라운드 하트비트 & WebSocket
-    initKioskSimulator();
+    // 3. 키오스크 디스플레이 백그라운드 하트비트 & WebSocket (이 브라우저에 키오스크 키가 저장된 경우만)
+    ensureKioskSimulator(false);
 
     // 4. 갈지도 시작 음성 안내 (주위 매장 탐색)
     setTimeout(() => {
@@ -651,11 +674,10 @@
       state.sessionWs.close();
     }
 
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${location.host}/ws/sessions/${sessionId}?token=${state.deviceToken}`;
-    console.log('Connecting Phone Session WS:', wsUrl);
+    const url = wsUrl(`/ws/sessions/${sessionId}?token=${state.deviceToken}`);
+    console.log('Connecting Phone Session WS:', url);
 
-    state.sessionWs = new WebSocket(wsUrl);
+    state.sessionWs = new WebSocket(url);
 
     state.sessionWs.onopen = () => {
       console.log('Phone Session WS Connected');
@@ -1448,6 +1470,45 @@
   // ==========================================
   // 키오스크 디스플레이 시뮬레이터 (매장 화면)
   // ==========================================
+  const KIOSK_KEY_STORAGE = 'barrier_free_kiosk_key';
+
+  // 키오스크 키(ksk_...)는 공개 저장소이므로 코드에 넣지 않습니다.
+  // 주소창의 ?kioskKey=... 또는 최초 1회 입력으로 받아 이 브라우저에만 저장합니다.
+  function loadKioskKey(ask) {
+    const params = new URLSearchParams(location.search);
+    const fromUrl = params.get('kioskKey');
+    if (fromUrl) {
+      localStorage.setItem(KIOSK_KEY_STORAGE, fromUrl);
+      params.delete('kioskKey');
+      const q = params.toString();
+      history.replaceState(null, '', location.pathname + (q ? `?${q}` : '') + location.hash);
+    }
+    let key = localStorage.getItem(KIOSK_KEY_STORAGE);
+    if (!key && ask) {
+      key = (prompt('키오스크 키(ksk_...)를 입력하세요.\n발급: python -m scripts.create_kiosk GK01') || '').trim();
+      if (key) localStorage.setItem(KIOSK_KEY_STORAGE, key);
+    }
+    state.kioskKey = key && key.startsWith('ksk_') ? key : null;
+    return state.kioskKey;
+  }
+
+  // 서버가 키를 거부(401)하면 저장된 키를 지우고 시뮬레이터를 멈춤. 키오스크 화면을 다시 열면 새로 입력받음.
+  function forgetKioskKey() {
+    if (!state.kioskKey) return;
+    localStorage.removeItem(KIOSK_KEY_STORAGE);
+    state.kioskKey = null;
+    state.kioskSimulatorStarted = false;
+    clearInterval(state.kioskHeartbeatTimer);
+    if (state.kioskWs) state.kioskWs.close();
+    showToast('키오스크 키가 올바르지 않습니다. 키오스크 화면을 다시 열어 입력해 주세요.', 'danger');
+  }
+
+  function ensureKioskSimulator(ask) {
+    if (state.kioskSimulatorStarted || !loadKioskKey(ask)) return;
+    state.kioskSimulatorStarted = true;
+    initKioskSimulator();
+  }
+
   function initKioskSimulator() {
     // 1. 하트비트 주기적 호출 (토큰 자동 갱신)
     const runHeartbeat = async () => {
@@ -1460,13 +1521,11 @@
     };
 
     runHeartbeat();
-    setInterval(runHeartbeat, 25000);
+    state.kioskHeartbeatTimer = setInterval(runHeartbeat, 25000);
 
     // 2. 키오스크 웹소켓 연결
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${location.host}/ws/kiosk?token=${state.kioskKey}`;
     try {
-      state.kioskWs = new WebSocket(wsUrl);
+      state.kioskWs = new WebSocket(wsUrl(`/ws/kiosk?token=${state.kioskKey}`));
       state.kioskWs.onopen = () => console.log('Kiosk Screen WS Connected');
       state.kioskWs.onmessage = (e) => {
         try {
@@ -2142,6 +2201,25 @@
       dom.kioskView.style.display = 'flex';
       announce('스마트폰과 키오스크 동시 시연 화면으로 전환했습니다.');
     }
+    if (mode !== 'phone') ensureKioskSimulator(true);
+  }
+
+  // 지금 열린 주소(+ ?api=)로 QR 생성: 터널 주소가 바뀌어도 항상 맞는 QR이 나옴
+  function renderMobileQr() {
+    const params = new URLSearchParams();
+    const api = new URLSearchParams(location.search).get('api');
+    if (api) params.set('api', api);
+    const url = location.origin + location.pathname + (params.toString() ? `?${params}` : '');
+
+    const img = document.getElementById('mobile-qr-img');
+    const text = document.getElementById('mobile-qr-url');
+    if (text) text.textContent = url;
+    if (img && window.qrcode) {
+      const qr = window.qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      img.src = qr.createDataURL(8, 2);
+    }
   }
 
   // ==========================================
@@ -2250,6 +2328,7 @@
     if (btnShowQr && mobileQrModal) {
       btnShowQr.onclick = () => {
         if (window.soundFeedback) window.soundFeedback.tick();
+        renderMobileQr();
         mobileQrModal.classList.add('open');
       };
     }
@@ -2757,14 +2836,13 @@
 
   // 실시간 근접 WebSocket 연결 (scripts/arduino_bt_bridge.py -> FastAPI -> 브라우저)
   function initProximityWebSocket() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${proto}//${location.host}/ws/proximity`;
+    const url = wsUrl('/ws/proximity');
 
     try {
-      const ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(url);
 
       ws.onopen = () => {
-        console.log('Proximity WS connected to', wsUrl);
+        console.log('Proximity WS connected to', url);
         if (dom.bleStatusText) {
           dom.bleStatusText.textContent = '실시간 브릿지 연동됨 (Wi-Fi)';
         }
@@ -2843,7 +2921,7 @@
 
     if (prox.level === 'very_close' && !state.proximity.arrivedAnnounced) {
       state.proximity.arrivedAnnounced = true;
-      if (window.soundFeedback) window.soundFeedback.chime();
+      if (window.soundFeedback) window.soundFeedback.beaconFound();
       announce(`키오스크 매우 근접했습니다. 바로 앞에서 주문하실 수 있습니다.`);
     } else if (prox.level === 'far') {
       state.proximity.arrivedAnnounced = false;
