@@ -19,6 +19,7 @@ class SpeechService {
     this.onResultCallback = null;
     this.onStatusChangeCallback = null;
     this.onCommandCallback = null;
+    this.oneShotCallback = null;
 
     this._initTTS();
     this._initSTT(SpeechRecognition);
@@ -92,6 +93,11 @@ class SpeechService {
       if (this.onStatusChangeCallback) {
         this.onStatusChangeCallback({ listening: false, text: errorMsg });
       }
+      if (this.oneShotCallback) {
+        const callback = this.oneShotCallback;
+        this.oneShotCallback = null;
+        callback(null);
+      }
     };
 
     this.recognition.onend = () => {
@@ -101,6 +107,12 @@ class SpeechService {
       }
       if (this.onStatusChangeCallback) {
         this.onStatusChangeCallback({ listening: false, text: '마이크 대기 중' });
+      }
+      // 결과도 오류도 없이 끝난 경우 (onresult 가 먼저 오면 이미 비워져 있음)
+      if (this.oneShotCallback) {
+        const callback = this.oneShotCallback;
+        this.oneShotCallback = null;
+        callback(null);
       }
     };
   }
@@ -188,6 +200,17 @@ class SpeechService {
     }
   }
 
+  // --- 한 번만 듣기: 다음 인식 결과를 주문 명령 대신 callback(text)으로 전달 ---
+  // (예: 첫 화면의 장애 유형 선택). 인식에 실패하면 callback(null)
+  listenOnce(callback) {
+    if (!this.sttSupported) {
+      callback(null);
+      return;
+    }
+    this.oneShotCallback = callback;
+    this.startListening();
+  }
+
   // --- 한국어 자연어 명령 파서 ---
   _handleRecognizedText(text) {
     const cleaned = text.replace(/[.,?!]/g, '').trim();
@@ -195,6 +218,13 @@ class SpeechService {
 
     if (this.onStatusChangeCallback) {
       this.onStatusChangeCallback({ listening: false, text: `인식 완료: "${cleaned}"` });
+    }
+
+    if (this.oneShotCallback) {
+      const callback = this.oneShotCallback;
+      this.oneShotCallback = null;
+      callback(cleaned);
+      return;
     }
 
     const command = this._parseKoreanCommand(cleaned);

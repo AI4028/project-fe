@@ -552,11 +552,32 @@
     // 3. 키오스크 디스플레이 백그라운드 하트비트 & WebSocket (이 브라우저에 키오스크 키가 저장된 경우만)
     ensureKioskSimulator(false);
 
-    // 4. 갈지도 시작 음성 안내 (주위 매장 탐색)
-    setTimeout(() => {
-      announce('안녕하세요 갈지도 입니다. 주위 매장을 탐색하고 있어요.');
-    }, 600);
+    // 4. 첫 화면(장애 유형 선택 / 지도)과 시작 안내는 map.js 가 담당
   }
+
+  // 지도 단계(map.js)의 화면들. 매장에 연결되어 주문 화면으로 넘어가면 숨김
+  function hideMapScreens() {
+    ['onboarding-view', 'map-view'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
+
+  // 지도에서 매장을 고르거나 매장에 도착하면 블루투스 탐색 화면으로
+  function showDiscovery() {
+    hideMapScreens();
+    if (dom.galjidoOrderView) dom.galjidoOrderView.style.display = 'none';
+    if (dom.galjidoDiscoveryView) dom.galjidoDiscoveryView.style.display = 'flex';
+    announce('주위 매장을 탐색하고 있어요. 블루투스 신호가 잡히면 주문 화면이 열립니다.');
+  }
+
+  // map.js 에서 쓰는 기능
+  window.galjido = {
+    apiBase: API_BASE,
+    announce: (...args) => announce(...args),
+    showToast: (...args) => showToast(...args),
+    showDiscovery,
+  };
 
   // ==========================================
   // 키오스크 연결 플로우
@@ -624,6 +645,7 @@
       renderMenuItems(state.menuItems);
 
       // 3. UI 화면 전환 (탐색 뷰 숨기고 주문 화면 활성화!)
+      hideMapScreens();
       if (dom.galjidoDiscoveryView) dom.galjidoDiscoveryView.style.display = 'none';
       if (dom.galjidoOrderView) dom.galjidoOrderView.style.display = 'block';
       if (dom.connectionDot) dom.connectionDot.className = 'status-dot connected';
@@ -653,6 +675,7 @@
     } catch (renderErr) {
       console.error('주문 화면 전환 오류:', renderErr);
       // 어떤 상황에서도 무조건 화면 전환 보장
+      hideMapScreens();
       if (dom.galjidoDiscoveryView) dom.galjidoDiscoveryView.style.display = 'none';
       if (dom.galjidoOrderView) dom.galjidoOrderView.style.display = 'block';
     } finally {
