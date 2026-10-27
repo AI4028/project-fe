@@ -1,163 +1,139 @@
-# Galjido Web Frontend (갈지도)
+# 갈지도 · Galjido
 
-Accessible web prototype for kiosk ordering. It has two views in one page:
+Accessible kiosk ordering for iOS, Android and web, built with **React Native,
+Expo SDK 58, TypeScript and Expo Router**. Customer and staff screens share the
+same backend contracts from [project-be](https://github.com/AI4028/project-be).
 
-- **Phone view** (스마트폰): for blind, low-vision and physically disabled
-  customers. The user picks their disability type and gets a map of nearby
-  stores with accessibility info. Arriving at a store leads into connecting to
-  the kiosk and ordering by voice or touch, with screen-reader announcements
-  and sound feedback.
-- **Kiosk view** (키오스크): the store's screen. It shows the pairing token, the
-  phone's live cart, incoming orders and help requests, and lets staff mark
-  items sold out.
+## Run
 
-Plain HTML, CSS and JavaScript. There is no build step. The backend is
-[project-be](https://github.com/AI4028/project-be).
+Use Node 22.16+ (see `.nvmrc`) and pnpm 10.11:
 
-## Run it for a demo
+```sh
+nvm use
+corepack enable
+pnpm install --frozen-lockfile
+cp .env.example .env
+pnpm start
+```
 
-The backend serves this folder at `/app/`. Clone both repos side by side:
+`pnpm start` / `pnpm dev` run Metro and the automatic typecheck/test watcher
+alongside it. Press `w` for web. For native, build once with `pnpm ios` or
+`pnpm android` (Xcode or Android Studio required), then open the development
+build from Metro. **Use a development build, not Expo Go:** the installed
+`expo-speech-recognition` module needs native microphone/speech permissions.
+
+Set `EXPO_PUBLIC_API_URL` to the backend address. A physical phone needs your
+computer's LAN IP or a reachable HTTPS URL; `127.0.0.1` points to the phone itself.
+The in-app settings can change the API address. Backend `CORS_ORIGINS` must allow
+the web origin. Use HTTPS for deployed web microphone/location access and native
+production APIs. Native release builds may reject cleartext HTTP.
+
+Start the backend as documented in its README. Seed the cafe and create a kiosk
+key locally; enter the key in `/kiosk`. **Never commit the key.** Native tokens use
+Keychain/Keystore. Web credentials last for the browser session. Credentials are
+scoped to the configured API URL; changing servers does not forward old tokens.
+
+## Customer and kiosk flow
+
+1. Choose 시각 / 지체 / 휠체어 by voice or touch. The preference persists locally;
+   유형 변경 lets you change it. As in the upstream map feature, the three profiles
+   currently share a map layout while their visual distinctions are being designed.
+2. Request foreground location to see nearby stores and arrival announcements.
+   Permission denial leaves the full accessible store list available. The map uses
+   `/stores/nearby`; an older backend without that endpoint falls back to local
+   distance filtering of `/stores`. Unknown access information says 확인 필요.
+3. Read store access/indoor details, then connect using the kiosk ID and rotating
+   8-character pairing code or its QR link. QR links ask the user to connect; they
+   never include a kiosk secret. The phone and kiosk must use the same API server.
+4. Select menu options/quantity, edit the cart, request help, and confirm the order.
+   Cart totals come from the server. Payment happens at the counter or kiosk.
+5. Follow live order status; cancel before staff accepts. The kiosk sees the live
+   cart/help requests, handles order progression, and marks menu items sold out.
+
+Korean speech commands include menu names and quantities (아메리카노 아이스 두 잔),
+option selection, 담기, 장바구니, 직원 호출, 메뉴 읽어줘, 다시 듣기 and 연결 종료.
+Ordering always opens a review dialog before submission. Touch and OS screen
+readers remain available when speech recognition is unsupported or denied.
+High contrast, larger text and spoken guidance are available in settings.
+
+### Maps and demo hardware
+
+- Web uses Kakao Maps when `EXPO_PUBLIC_KAKAO_MAP_KEY` is configured. Register the
+  web origin in Kakao's JavaScript SDK domains and enable the Maps product. Without
+  a key, the accessible store list is fully usable.
+- iOS uses Apple Maps. Android uses Google Maps; set a restricted
+  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` and rebuild the native app.
+- For a demo without receiving a hardware token, explicitly set
+  `EXPO_PUBLIC_DEMO_MODE=true` and backend `DEMO_MODE=1`. This enables the demo
+  token endpoint, demo location button, and `/ws/proximity` bridge readings.
+  Keep both flags off in production.
+- Direct Bluetooth scanning/broadcasting is not implemented in this migration.
+  The existing Arduino bridge can still publish proximity readings. Native BLE
+  integration needs the team's final advertisement/transport specification;
+  current pairing works with QR or manual codes.
+- Desktop split-screen demonstration is replaced by separate customer/kiosk
+  routes. Open two windows (or a phone plus kiosk) for simultaneous use.
+
+## Routes and shared code
 
 ```text
-ai4028/
-  project-be/
-  project-fe/
+src/app/
+  _layout.tsx             # providers, theme, Stack and PortalHost
+  index.tsx               # nearby-store map and accessible list
+  onboarding.tsx          # remembered accessibility profile
+  store.tsx               # store details
+  connect.tsx             # pairing code, QR target and demo proximity
+  guide.tsx               # indoor/accessibility guidance
+  menu/index.tsx          # categories, menu and availability
+  menu/[itemId].tsx        # options and quantity
+  cart.tsx                # server-priced cart and confirmation dialog
+  orders/[orderId].tsx     # order tracking/cancellation
+  kiosk.tsx               # authenticated staff console
+  settings.tsx            # accessibility and API address
+  +not-found.tsx
+src/components/ui/        # React Native Reusables, source owned by this app
+src/providers/            # customer session/cart/order state
+src/lib/                  # typed API, storage, live events, domain rules/tokens
 ```
 
-Then, in `project-be` (PowerShell, first time only: seed and make a kiosk key):
+The old DOM prototype was replaced; its sources remain in Git history.
+The migration includes upstream frontend `0a782e6` (map/profile feature).
+The sibling backend repository is not modified.
 
-```powershell
-.\.venv\Scripts\python.exe -m scripts.seed seed\gist-cafe.json
-.\.venv\Scripts\python.exe -m scripts.create_kiosk GK01   # prints the kiosk key once; save it
+## Checks and agent feedback
 
-$env:DEMO_MODE = "1"; $env:FRONTEND_DIR = "..\project-fe"
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0
+```sh
+pnpm tsc --noEmit     # direct typechecker access
+pnpm test            # unit and React integration tests
+pnpm verify          # typecheck + unit tests, exits nonzero on failure
+pnpm check:watch     # both checks after edits, also runs immediately
+pnpm export:all      # Metro/Hermes bundles for web, Android and iOS
 ```
 
-Open `http://127.0.0.1:8000/app/` on the laptop.
+The watcher serializes runs, coalesces rapid writes, and queues another complete
+run when files change during a check. `.checks/latest.json` records success and
+whether that run covers the current revision. Generated output and dependencies
+are excluded. `AGENTS.md` makes this loop part of future agent edits. CI repeats
+the checks and all-platform export on pushes and pull requests.
 
-`DEMO_MODE=1` is required. Browsers can't read the kiosk's Bluetooth
-broadcast, so the page asks the backend for the pairing token instead. See
-"Demo mode" in the project-be README.
+## Web deployment
 
-### Phones
+`pnpm export:web` writes `dist/`. Serve it at the **root of a dedicated web
+origin**, with unknown routes rewritten to `index.html` (SPA routing). Do not
+point the backend's old `/app/` static mount at the source directory: it no
+longer contains a standalone HTML app. Native binaries are built separately
+using Expo's development/release build workflow.
 
-Phones need **HTTPS** for the microphone and Bluetooth. Put the laptop behind
-an HTTPS tunnel, for example
-[Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/):
+## UI source and maintenance
 
-```powershell
-cloudflared tunnel --url http://localhost:8000
+The installed Button, Text, Input, Card and Dialog components are from
+[React Native Reusables](https://reactnativereusables.com/), backed by
+`@rn-primitives` and NativeWind. `components.json` configures future additions:
+
+```sh
+pnpm dlx @react-native-reusables/cli@latest add <component>
 ```
 
-Open `https://<the-printed-address>/app/`, then press **📷 모바일 QR** to show a QR code
-for phones to scan. The QR code is generated from the address you opened, so
-it is always current.
-
-### Kiosk view
-
-The kiosk view needs the kiosk key (`ksk_...`). **Never commit it: this repo is
-public.** The first time you open the 매장 키오스크 or 분할 시연 tab, the page asks for the
-key and saves it in that browser only. You can also open
-`/app/?kioskKey=ksk_...` once; the page saves the key and removes it from the
-address bar. If the backend rejects the key (for example after
-`create_kiosk` was run again), the page forgets it and asks again.
-
-The phone view never needs the key.
-
-## Map (지도)
-
-Flow (project-be `docs/map-flow.md`):
-
-1. **First visit:** the user picks 시각 / 지체 / 휠체어 by button or by voice
-   (말로 선택하기). The choice is kept in the `galjido_disability` cookie, so
-   later visits open the map directly. 유형 변경 on the map lets them pick again.
-2. **Map:** a Kakao map with the user's location and nearby stores
-   (`GET /stores/nearby`). The list below the map shows the same stores with
-   distance, accessibility and ordering methods, and screen readers read the
-   list. Tap a store for details.
-3. **Arrival:** inside a store's geofence (`geofenceRadiusM`), the app announces
-   arrival. 주문하러 가기 opens the Bluetooth screen, and from there ordering
-   works as before. The ← button returns to the map.
-
-The three map types share one screen for now (`data-map-type` on `#map-view`).
-How they should differ is still being decided by the team.
-
-### Kakao Maps key (카카오맵 키)
-
-One person on the team does this once and shares the key. Kakao's free map
-quota only covers the first app an account turns Kakao Map on for.
-
-1. Sign in at [developers.kakao.com](https://developers.kakao.com) with a
-   Kakao account. The first time, it asks you to register as a developer.
-2. Open the [app console](https://developers.kakao.com/console/app) →
-   **[앱 생성]**. Fill in 앱 이름 (e.g. 갈지도), 회사명, 카테고리 and
-   앱 대표 도메인 → **[저장]**. 앱 대표 도메인 must be a real website and rejects
-   `localhost`; use e.g. `https://github.com/AI4028/project-fe`. It is only
-   informational; the map checks the domains from step 5.
-3. In the new app: **[카카오맵] → [사용 설정] → 상태 ON**. Without this, the
-   map does not load.
-4. **[앱] → [플랫폼 키] → [JavaScript 키]**: copy the key.
-5. In the same place, **[JavaScript SDK 도메인]**: add every address you open
-   the app from, exactly including the port, e.g. `http://localhost:8000`,
-   `http://127.0.0.1:8000` and your HTTPS tunnel address (up to 10).
-6. Put the key in [config.js](config.js) → `kakaoMapKey: '...'`.
-
-The JavaScript key is visible to anyone who opens the page; Kakao only accepts
-it from the registered domains. A free `trycloudflare.com` tunnel gets a new
-address every run, which would have to be registered each time. Use a tunnel
-with a fixed address for demos (a named Cloudflare tunnel, or ngrok's free
-static domain).
-
-Without a key, the map area shows a notice and the store list still works.
-
-### Testing the map away from the store
-
-- Open `/app/?lat=35.2290&lng=126.8436` to pretend to be at that position.
-- On the map, **📍 데모: 매장 앞으로 이동** moves you next to the nearest store,
-  which triggers the arrival flow.
-
-### Simulating the beacon
-
-Without the Arduino beacon you can trigger "store detected" by:
-
-- pressing **D** on the keyboard, or
-- double-clicking the radar circle on the phone view.
-
-With the beacon, run `hardware/bt_bridge.py` from project-be. Its distance
-readings arrive over `/ws/proximity`.
-
-## Backend address
-
-By default the page calls the server it was loaded from. To host the frontend
-somewhere else, point it at the backend in one of two ways:
-
-- set `apiBase` in [config.js](config.js), e.g. `'https://api.example.com'`, or
-- add `?api=https://...` to the page address (the QR code keeps it).
-
-The backend allows cross-origin calls (`CORS_ORIGINS` in project-be).
-
-## Good to know
-
-- **One phone per kiosk.** If another phone connected in the last 10 minutes,
-  a second phone gets "kiosk busy" and falls back to an offline session that
-  doesn't reach the backend. To free the kiosk, end the session from the kiosk
-  view or wait 10 minutes.
-- Menu photos are 640×640 JPEGs in `assets/menu/`.
-- `vendor/qrcode.js` is [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)
-  1.4.4 (MIT). It is bundled so QR codes work offline.
-
-## Structure
-
-```text
-index.html        # Both views, modals
-styles.css
-map.css           # Disability-type choice and map screens
-config.js         # Backend address (apiBase), Kakao Maps key
-app.js            # App logic: API calls, WebSockets, phone and kiosk views
-map.js            # Disability-type choice, map, nearby stores, arrival
-speech.js         # Speech recognition and TTS (Korean)
-audio.js          # Sound feedback
-vendor/qrcode.js  # QR code generator
-assets/menu/      # Menu photos
-```
+All app design tokens live in `src/lib/theme.ts`; see `THIRD_PARTY_NOTICES.md`
+for upstream attribution. Navigation follows the
+[Expo Router file conventions](https://docs.expo.dev/router/installation/).
