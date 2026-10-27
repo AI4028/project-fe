@@ -6,7 +6,7 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "types": ["jest", "node", "react"]
+    "types": ["expo/types", "jest", "node", "react"]
   },
   "include": [
     "src/**/*.ts",
