@@ -1,0 +1,4 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* Runtime tokens: src/lib/theme.ts, applied using NativeWind vars(). */
