@@ -1,13 +1,31 @@
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
+import { requireOptionalNativeModule } from 'expo';
 import { router } from 'expo-router';
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import * as Speech from 'expo-speech';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
 import { useApp } from '@/providers/app-provider';
 import { voiceSelection } from '@/lib/voice';
-export function VoiceControls({ onTranscript }: { onTranscript?: (text: string) => boolean }) {
+type SpeechRecognition = typeof import('expo-speech-recognition');
+type VoiceControlsProps = { onTranscript?: (text: string) => boolean };
+// Expo Go has no ExpoSpeechRecognition native module and the package throws on import there,
+// so only load it when the build (or the browser implementation on web) provides it.
+const recognition: SpeechRecognition | null =
+  Platform.OS === 'web' || requireOptionalNativeModule('ExpoSpeechRecognition')
+    ? require('expo-speech-recognition')
+    : null;
+export function VoiceControls(props: VoiceControlsProps) {
+  return recognition ? (
+    <RecognitionVoiceControls {...props} recognition={recognition} />
+  ) : (
+    <TouchOnlyVoiceControls />
+  );
+}
+function RecognitionVoiceControls({
+  onTranscript,
+  recognition: { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent },
+}: VoiceControlsProps & { recognition: SpeechRecognition }) {
   const app = useApp();
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -76,6 +94,21 @@ export function VoiceControls({ onTranscript }: { onTranscript?: (text: string) 
         {transcript
           ? `들은 말: ${transcript}`
           : '“아메리카노 아이스 두 잔”, “장바구니”, “직원 호출”'}
+      </Text>
+    </View>
+  );
+}
+function TouchOnlyVoiceControls() {
+  const app = useApp();
+  return (
+    <View className="gap-2 border-t border-border pt-4">
+      <View className="flex-row flex-wrap gap-2">
+        <Button variant="outline" onPress={app.repeat}>
+          <Text>다시 듣기</Text>
+        </Button>
+      </View>
+      <Text variant="muted">
+        이 환경에서는 음성 주문을 사용할 수 없습니다. 터치로 주문해 주세요.
       </Text>
     </View>
   );
