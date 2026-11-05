@@ -21,6 +21,7 @@ alongside it. Press `w` for web. For native, build once with `pnpm ios` or
 `pnpm android` (Xcode or Android Studio required), then open the development
 build from Metro. **Use a development build, not Expo Go:** the installed
 `expo-speech-recognition` module needs native microphone/speech permissions.
+Expo Go can preview the touch flow with speech recognition disabled.
 
 Set `EXPO_PUBLIC_API_URL` to the backend address. A physical phone needs your
 computer's LAN IP or a reachable HTTPS URL; `127.0.0.1` points to the phone itself.
@@ -35,59 +36,90 @@ scoped to the configured API URL; changing servers does not forward old tokens.
 
 ## Customer and kiosk flow
 
-1. Choose 시각 / 지체 / 휠체어 by voice or touch. The preference persists locally;
-   유형 변경 lets you change it. As in the upstream map feature, the three profiles
-   currently share a map layout while their visual distinctions are being designed.
-2. Request foreground location to see nearby stores and arrival announcements.
-   Permission denial leaves the full accessible store list available. The map uses
-   `/stores/nearby`; an older backend without that endpoint falls back to local
-   distance filtering of `/stores`. Unknown access information says 확인 필요.
-3. Read store access/indoor details, then connect using the kiosk ID and rotating
-   8-character pairing code or its QR link. QR links ask the user to connect; they
-   never include a kiosk secret. The phone and kiosk must use the same API server.
-4. Select menu options/quantity, edit the cart, request help, and confirm the order.
-   Cart totals come from the server. Payment happens at the counter or kiosk.
-5. Follow live order status; cancel before staff accepts. The kiosk sees the live
-   cart/help requests, handles order progression, and marks menu items sold out.
+The UX follows the [Service Diagram / Flowchart](https://app.notion.com/p/Service-Diagram-Flowchart-3f3e09a12c88809ebef5ccaa8a0235b5)
+reviewed on **2026-11-05**. It is a design proposal, not a claim that all optional
+services exist. The current integration targets backend `origin/develop` at
+`e2e706e`; backend files are unchanged by this branch.
 
-Korean speech commands include menu names and quantities (아메리카노 아이스 두 잔),
-option selection, 담기, 장바구니, 직원 호출, 메뉴 읽어줘, 다시 듣기 and 연결 종료.
-Ordering always opens a review dialog before submission. Touch and OS screen
-readers remain available when speech recognition is unsupported or denied.
-High contrast, larger text and spoken guidance are available in settings.
+1. **Discover or order directly.** The home screen starts with an accessible store
+   list and name/address search. Users already at a store can enter a connection
+   code immediately. No disability category, location permission, or map gesture
+   is required. Map and foreground location are optional; denial/failure leaves
+   the list usable. Distances are approximate straight-line distances, not routes.
+2. **Review the store.** Details show branch/address, registered access information,
+   ordering methods, and indoor descriptions. Missing facts, provenance, contact,
+   and availability remain unknown. Store details can be opened with
+   `/store?storeId=...`; menus can be previewed before connecting.
+3. **Confirm the connection.** Code/link input first uses `GET /kiosks/{id}` and
+   `GET /stores/{id}` to show the actual store. A code for a different selected
+   store is blocked. The user confirms before a session is created. Busy/expired
+   codes offer retry, another code, leaving, and direct staff assistance. No queue
+   position or response time is invented. QR is optional, never the only entry.
+4. **Browse and correct.** The menu begins with category/item counts. Options show
+   required choices and extra charges. Cart editing replaces the existing line,
+   including options and quantity; it does not add a duplicate. Failed updates
+   preserve the last confirmed cart. Removing a line requires confirmation.
+5. **Review and submit.** `/review` displays the store, options, quantities, total,
+   payment location and note. Going back retains selections within the session.
+   Prices are refreshed before review and again before submission. A changed
+   price requires another review. Voice commands never submit an order directly.
+6. **Recover uncertain submissions.** Before POST, the session ID is persisted as
+   pending. A lost response blocks another submission, cart changes and session
+   termination until the user checks `GET /sessions/{id}` and, if present,
+   `GET /orders/{orderId}`. Reload also attempts recovery. No POST is automatically
+   retried. Backend idempotency/quote guarantees are still required (see below).
+7. **Track distinct outcomes.** Sending, submitted, accepted, preparing, ready,
+   picked up and cancelled are different states. Order status shows the last
+   successful check and retains it with an error notice when offline. Cancellation
+   requires confirmation and refreshes after races with staff acceptance. Payment
+   is at the counter/kiosk; the app never claims payment or refund completion.
+8. **Leave or ask for help.** `/leave` offers keeping the cart in its current
+   session or explicitly discarding it and ending the connection. Session expiry
+   still applies. `/help` distinguishes request sent from an explicit staff event.
+   Before connection/after submission it offers direct staff guidance because the
+   current API only accepts help for active sessions. Pickup remains a staff action.
 
-### Maps and demo hardware
+Settings are independent preferences: contrast, text size, extra speech, and
+optional voice input. New users start with extra speech/voice input off. Existing
+preferences are preserved. Screen reader announcements do not additionally play
+TTS when a screen reader is enabled. Final VoiceOver/TalkBack usability still needs
+real-device testing; automated tests are not an accessibility certification.
 
-- Web uses Kakao Maps when `EXPO_PUBLIC_KAKAO_MAP_KEY` is configured. Register the
-  web origin in Kakao's JavaScript SDK domains and enable the Maps product. Without
-  a key, the accessible store list is fully usable.
-- iOS uses Apple Maps. Android uses Google Maps; set a restricted
-  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` and rebuild the native app.
-- For a demo without receiving a hardware token, explicitly set
-  `EXPO_PUBLIC_DEMO_MODE=true` and backend `DEMO_MODE=1`. This enables the demo
-  token endpoint, demo location button, and `/ws/proximity` bridge readings.
-  Keep both flags off in production.
-- Direct Bluetooth scanning/broadcasting is not implemented in this migration.
-  The existing Arduino bridge can still publish proximity readings. Native BLE
-  integration needs the team's final advertisement/transport specification;
-  current pairing works with QR or manual codes.
-- Desktop split-screen demonstration is replaced by separate customer/kiosk
-  routes. Open two windows (or a phone plus kiosk) for simultaneous use.
+### Maps, optional voice, and hardware
+
+- Web uses Kakao Maps with `EXPO_PUBLIC_KAKAO_MAP_KEY`; register the origin and enable
+  Maps in Kakao. iOS uses Apple Maps. Android uses Google Maps with a restricted
+  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` and a native rebuild. The list works without keys.
+- The current location feature uses foreground coordinates and server/local radius
+  comparisons. It is not background geofencing or indoor navigation. A nearby
+  store is not automatically selected or connected.
+- Direct BLE scanning/broadcasting is not implemented. No RSSI-based meter/floor
+  claim is shown. The old Arduino demo transport is not proof of phone-side BLE.
+- `EXPO_PUBLIC_DEMO_MODE=true` plus backend `DEMO_MODE=1` enables a clearly labelled
+  demo code fetch. Both default off. The customer UX no longer uses the shared
+  `/ws/proximity` demo feed as a real location measurement.
+- Speech recognition requires a native development build. Expo Go falls back to
+  touch controls if the native module is absent. Browser recognition support varies.
+- Open separate customer and `/kiosk` windows for the demo. Online payment,
+  background alerts and live indoor positioning are not enabled by this UX update.
 
 ## Routes and shared code
 
 ```text
 src/app/
   _layout.tsx             # providers, theme, Stack and PortalHost
-  index.tsx               # nearby-store map and accessible list
-  onboarding.tsx          # remembered accessibility profile
+  index.tsx               # list/search, direct order entry, optional map
+  onboarding.tsx          # optional preference introduction
   store.tsx               # store details
-  connect.tsx             # pairing code, QR target and demo proximity
+  connect.tsx             # code/link, branch confirmation, retry/alternatives
   guide.tsx               # indoor/accessibility guidance
   menu/index.tsx          # categories, menu and availability
   menu/[itemId].tsx        # options and quantity
-  cart.tsx                # server-priced cart and confirmation dialog
-  orders/[orderId].tsx     # order tracking/cancellation
+  cart.tsx                # server-priced cart, edit/remove
+  review.tsx              # final review, submission and recovery
+  leave.tsx               # keep cart or confirm ending session
+  help.tsx                # session help and direct-contact fallback
+  orders/[orderId].tsx     # status, payment/pickup guidance, cancel confirmation
   kiosk.tsx               # authenticated staff console
   settings.tsx            # accessibility and API address
   +not-found.tsx
@@ -137,3 +169,66 @@ pnpm dlx @react-native-reusables/cli@latest add <component>
 All app design tokens live in `src/lib/theme.ts`; see `THIRD_PARTY_NOTICES.md`
 for upstream attribution. Navigation follows the
 [Expo Router file conventions](https://docs.expo.dev/router/installation/).
+
+## Backend handoff: API gaps and proposed contracts
+
+**No nonexistent endpoint is called by this frontend.** The table below separates
+working integrations from missing data/endpoints required to complete the UX.
+Proposals are for backend review; they are not deployed routes. Keep device/store
+ownership checks on every private operation. Never put a kiosk secret in a link.
+
+### Existing endpoints used by the new UX
+
+| UX operation             | Existing contract                                                                          | Current limitation                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| List/search/nearby       | `GET /stores`, `GET /stores/nearby?lat=&lng=&radiusM=3000`                                 | Search is client-side over the returned list; no pagination/search endpoint needed for this pilot.            |
+| Store/menu preview       | `GET /stores/{storeId}`                                                                    | No verification/contact/operational metadata.                                                                 |
+| Confirm branch           | `GET /kiosks/{kioskId}` → `kioskId, storeId, name`; then store GET                         | Code cannot be discovered from a store ID alone.                                                              |
+| Connect                  | `POST /devices`; `POST /sessions` with `kioskId, token` and device bearer                  | `kiosk-busy` means busy, not queued.                                                                          |
+| Edit/remove/reprice cart | `PUT /sessions/{id}/cart` with complete `items` array                                      | Existing API supports replacement and empty array; no new edit endpoint is needed.                            |
+| Submit/recover           | `POST /sessions/{id}/order`; `GET /sessions/{id}` → optional `orderId`; `GET /orders/{id}` | Recovery depends on retained session ID and device credential.                                                |
+| Cancel                   | `POST /orders/{id}/cancel`, then order GET                                                 | Allowed only while `status=submitted`; acceptance race can return `too-late-to-cancel`.                       |
+| Active-session help      | `POST /sessions/{id}/help`, `help_resolved` websocket event                                | `helpRequested=false` after reload does not establish acknowledgement; no durable acknowledged state exposed. |
+| Status/pickup            | order GET and session WebSocket; staff `POST /kiosk/orders/{id}/status`                    | `ready` and `picked_up` are separate; frontend never marks pickup automatically.                              |
+
+### Missing capabilities (proposed, not called)
+
+| Priority                        | Backend change to agree                                                                              | Minimum response/behavior                                                                                                                                                                                                                                                                 | Frontend fallback today                                                                                                                                                                                |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| P0: safe order retry            | Add `Idempotency-Key` to `POST /sessions/{id}/order`; optionally `GET /order-requests/{requestId}`   | Scope key to device + session; identical retry returns the original order, conflicting payload → 409. Persist result atomically with order. Return `pending`, `succeeded` + `orderId`, or explicit `failed`.                                                                              | Persist pending session and perform GET recovery before allowing manual retry. An active-session snapshot alone cannot rule out an earlier in-flight POST; server-side idempotency is still necessary. |
+| P0: exact price confirmation    | Add a server-issued `cartVersion`/`quoteId` to cart response and require it on order POST            | Atomically reject stale quote with `409 price-changed` / `availability-changed` and a fresh cart; do not create an order. Scope quote to session, items and menu version.                                                                                                                 | Reprice before POST and ask for another review if changed. A price change between reprice and POST cannot be eliminated in the frontend.                                                               |
+| P1: help outside active session | `POST /orders/{orderId}/help`, `GET /orders/{orderId}/help`; staff acknowledgement endpoint          | Return `requestId`, `status: requested                                                                                                                                                                                                                                                    | acknowledged                                                                                                                                                                                           | resolved`, timestamps; require order ownership, prevent duplicate active requests; emit separate events. Extend session GET with the same durable state. | After submission, direct staff guidance and order number; no disabled or fake help POST. Acknowledged does not mean assistance delivered. |
+| P1: verified store/support data | Extend `GET /stores/{storeId}`                                                                       | Proposed nullable fields: `contactPhone`, `staffLocationInstructions`, `pickupInstructions`, `accessibilitySource`, `accessibilityVerifiedAt`, `phoneOrderingAvailable`, `connectionMethods`, `paymentLocations`, `operatingStatus` + `operatingStatusUpdatedAt`. Define null as unknown. | Show registered details and unknowns; current counter/kiosk choices reflect backend enum, not verified per-store availability. No fabricated phone, pickup point or opening state.                     |
+| P1: connection instructions     | Extend store response with supported entry instructions; optionally `GET /stores/{id}/ordering-info` | Public kiosk IDs, supported code/link methods, human-readable instructions and temporary-unavailability reason. Do not return secret keys or make rotating tokens public outside explicit demo mode.                                                                                      | User obtains code/link from the store, then public kiosk lookup verifies branch. No queue position or estimated wait shown.                                                                            |
+| P1: cancellation explanation    | Extend order GET with `cancelledBy`, `cancellationReason`, `canCancel`                               | Return current server-authoritative eligibility, nullable reason, timestamps. Keep direct cancel race-safe.                                                                                                                                                                               | Only submitted orders offer cancellation; absent reasons refer user to staff.                                                                                                                          |
+| Optional: online payment        | Define payment create/status/cancel/refund contracts separately before exposing a payment action     | Provider-confirmed state, payment/order correlation, webhook verification and idempotency; distinguish paid-but-order-failed and refund pending/completed.                                                                                                                                | No online payment button. Choosing counter/kiosk is not payment confirmation.                                                                                                                          |
+| Optional: background alerts     | Device push registration/revocation endpoint and delivery policy                                     | Per-device consent, current order linkage, token rotation, no claim of delivery without evidence.                                                                                                                                                                                         | Explicit order-status route and foreground refresh.                                                                                                                                                    |
+
+Suggested examples for the two P0 extensions:
+
+```json
+{
+  "quoteId": "server-issued-session-quote",
+  "total": 3000,
+  "lines": [{ "itemId": "americano", "qty": 1, "lineTotal": 3000, "options": [] }],
+  "summary": "아메리카노 1개"
+}
+```
+
+Order POST would carry the existing `items`, `paymentMethod`, `note`, plus
+`quoteId`, and an `Idempotency-Key` header. Exact names are proposals. Existing
+clients must be considered during rollout; the current frontend intentionally
+sends only fields the current backend accepts. These additions need backend
+implementation, contract tests and a follow-up frontend integration.
+
+### Acceptance checks for this branch
+
+- No onboarding or map gate; direct code entry and searchable list work without permissions.
+- Wrong branch is caught before session POST; busy/expired codes have a way out.
+- Editing options replaces one line; a failed edit retains the confirmed cart.
+- Changed totals stop submission; unknown POST results block another POST until recovery.
+- Cancel has a confirmation step; an acceptance race retains access to current order.
+- Ready, collected, submitted, accepted and paid are never conflated.
+- Missing contact/pickup/verification data and unsupported help remain explicit.
+- Run typechecking/unit tests and web smoke tests; repeat VoiceOver/TalkBack and
+  microphone/location checks on actual devices before claiming native validation.

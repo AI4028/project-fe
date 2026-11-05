@@ -46,8 +46,8 @@ function RecognitionVoiceControls({
         pathname: '/menu/[itemId]',
         params: { itemId: selected.item.id, speech: text },
       });
-    } else if (/연결.*(종료|해제|끊)/.test(text)) void app.disconnect().catch(app.report);
-    else if (/직원|도움|도와/.test(text)) void app.help().catch(app.report);
+    } else if (/연결.*(종료|해제|끊)/.test(text)) router.push('/leave');
+    else if (/직원|도움|도와/.test(text)) router.push('/help');
     else if (/다시|반복/.test(text)) app.repeat();
     else if (/장바구니|주문|결제/.test(text)) router.push('/cart');
     else if (/고대비|글자|설정/.test(text)) router.push('/settings');

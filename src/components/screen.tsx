@@ -1,5 +1,5 @@
 import { useState, useCallback, type ReactNode } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, View } from 'react-native';
 import { Link, router, useFocusEffect, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from './ui/text';
@@ -64,23 +64,26 @@ export function Screen({
           {app.busy && <ActivityIndicator accessibilityLabel="요청 처리 중" />}
           {!!app.notice && (
             <View className="rounded-lg border border-border bg-secondary p-4">
-              <Text accessibilityLiveRegion="polite">{app.notice}</Text>
+              <Text accessibilityLiveRegion={Platform.OS === 'web' ? 'polite' : undefined}>
+                {app.notice}
+              </Text>
             </View>
           )}
           {children}
-          {voice && focused && <VoiceControls onTranscript={onTranscript} />}
+          {voice && app.settings.voiceInput && focused && (
+            <VoiceControls onTranscript={onTranscript} />
+          )}
           <View className="flex-row flex-wrap gap-2">
             <NavLink href="/">매장 찾기</NavLink>
             <NavLink href="/menu">메뉴</NavLink>
             <NavLink href="/cart">장바구니</NavLink>
-            {app.connection && (
-              <Button
-                variant="secondary"
-                disabled={app.busy}
-                onPress={() => void app.help().catch(app.report)}
+            <NavLink href="/help">도움 요청</NavLink>
+            {app.order && (
+              <NavLink
+                href={{ pathname: '/orders/[orderId]', params: { orderId: app.order.orderId } }}
               >
-                <Text>직원 호출</Text>
-              </Button>
+                주문 상태
+              </NavLink>
             )}
           </View>
         </View>

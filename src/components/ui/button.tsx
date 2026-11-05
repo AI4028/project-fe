@@ -102,6 +102,14 @@ function Button({ className, variant, size, ...props }: ButtonProps) {
       <Pressable
         className={cn(props.disabled && 'opacity-50', buttonVariants({ variant, size }), className)}
         role={props.accessibilityRole ? undefined : 'button'}
+        {...(Platform.OS === 'web'
+          ? {
+              'aria-checked': props.accessibilityState?.checked,
+              'aria-selected': props.accessibilityState?.selected,
+              'aria-expanded': props.accessibilityState?.expanded,
+              'aria-busy': props.accessibilityState?.busy,
+            }
+          : {})}
         {...props}
       />
     </TextClassContext.Provider>

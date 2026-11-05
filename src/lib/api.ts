@@ -121,7 +121,7 @@ const messages: Record<string, string> = {
   'item-unavailable': '품절된 메뉴입니다. 메뉴를 새로고침해 주세요.',
   'choice-unavailable': '선택한 옵션이 품절되었습니다.',
   'missing-option': '필수 옵션을 모두 선택해 주세요.',
-  'too-late-to-cancel': '이미 준비가 시작되었습니다. 직원에게 문의해 주세요.',
+  'too-late-to-cancel': '매장에서 이미 접수한 주문입니다. 직원에게 문의해 주세요.',
   'not-signed-in': '기기 인증이 만료되었습니다. 다시 연결해 주세요.',
   'not-kiosk': '키오스크 키를 확인해 주세요.',
   'demo-disabled': '데모 연결이 꺼져 있습니다. 키오스크의 연결 코드를 입력해 주세요.',

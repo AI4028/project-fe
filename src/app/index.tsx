@@ -1,68 +1,64 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { View } from 'react-native';
-import { Redirect, router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { Screen, NavLink } from '@/components/screen';
 import StoreMap from '@/components/store-map';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Problem, SubmissionRecovery } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
-import { ApiError } from '@/lib/api';
-import {
-  accessibilitySummary,
-  assistanceLabels,
-  knownText,
-  nearbyStores,
-  distanceM,
-  type Position,
-} from '@/lib/location';
+import { ApiError, errorMessage } from '@/lib/api';
+import { accessibilitySummary, nearbyStores, distanceM, type Position } from '@/lib/location';
 import type { Store } from '@/lib/types';
 export default function Discovery() {
   const app = useApp();
-  const [fetchedStores, setStores] = useState<Store[]>([]);
+  const [fetched, setStores] = useState<Store[]>([]);
   const [position, setPosition] = useState<Position | null>(null);
   const [queryPosition, setQueryPosition] = useState<Position | null>(null);
-  const stores = useMemo(
-    () => (position ? nearbyStores(fetchedStores, position) : fetchedStores),
-    [fetchedStores, position],
+  const [search, setSearch] = useState('');
+  const [showMap, setShowMap] = useState(false);
+  const [message, setMessage] = useState('위치 권한 없이 매장 이름이나 주소로 찾을 수 있어요.');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [locating, setLocating] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const watcher = useRef<Location.LocationSubscription | null>(null);
+  const locationRequest = useRef(0);
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        locationRequest.current++;
+        watcher.current?.remove();
+        watcher.current = null;
+        setLocating(false);
+      },
+      [],
+    ),
   );
   useEffect(() => {
     if (position && (!queryPosition || distanceM(queryPosition, position) >= 100))
       setQueryPosition(position);
   }, [position, queryPosition]);
-  const [locationMessage, setLocationMessage] = useState(
-    '위치를 사용하면 가까운 매장을 찾을 수 있습니다.',
-  );
-  const [loading, setLoading] = useState(true);
-  const [revision, setRevision] = useState(0);
-  const locationWatch = useRef<Location.LocationSubscription | null>(null);
-  const mounted = useRef(true);
-  const arrived = useRef(new Set<string>());
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      locationWatch.current?.remove();
-    };
-  }, []);
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setError('');
     const load = queryPosition
-      ? app.api.nearby(queryPosition.lat, queryPosition.lng).catch(async (error) => {
-          // Older backend checkouts do not have /stores/nearby yet.
-          if (error instanceof ApiError && error.status === 404)
+      ? app.api.nearby(queryPosition.lat, queryPosition.lng).catch(async (reason) => {
+          if (reason instanceof ApiError && reason.status === 404)
             return nearbyStores(await app.api.stores(), queryPosition);
-          throw error;
+          throw reason;
         })
       : app.api.stores();
     void load
       .then((list) => {
         if (active) setStores(list);
       })
-      .catch((error) => {
-        if (active) app.report(error);
+      .catch((reason) => {
+        if (active) setError(errorMessage(reason));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -71,115 +67,150 @@ export default function Discovery() {
       active = false;
     };
   }, [app.api, queryPosition, revision]);
-  useEffect(() => {
-    const inside = stores.filter((store) => store.insideGeofence);
-    const next = inside.find((store) => !arrived.current.has(store.storeId));
-    if (next)
-      app.announce(`${next.name} 근처에 도착했어요. 매장을 선택하면 연결을 시작할 수 있습니다.`);
-    arrived.current = new Set(inside.map((store) => store.storeId));
-  }, [stores]);
-  async function locate() {
-    const permission = await Location.requestForegroundPermissionsAsync();
-    if (!permission.granted) {
-      setLocationMessage('위치 권한이 꺼져 있어요. 전체 매장 목록을 이용해 주세요.');
-      return;
-    }
-    locationWatch.current?.remove();
-    const subscription = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 5000 },
-      (result) => {
-        if (!mounted.current) return;
-        setPosition({ lat: result.coords.latitude, lng: result.coords.longitude });
-        setLocationMessage(`내 위치 · 오차 약 ${Math.round(result.coords.accuracy ?? 0)}m`);
-      },
+  const stores = useMemo(() => {
+    const list = position ? nearbyStores(fetched, position) : fetched;
+    const query = search.trim().toLocaleLowerCase();
+    return list.filter((store) =>
+      `${store.name} ${store.address}`.toLocaleLowerCase().includes(query),
     );
-    if (mounted.current) locationWatch.current = subscription;
-    else subscription.remove();
+  }, [fetched, position, search]);
+  function allStores() {
+    locationRequest.current++;
+    watcher.current?.remove();
+    watcher.current = null;
+    setPosition(null);
+    setQueryPosition(null);
+    setLocating(false);
+    setMessage('전체 매장을 표시합니다. 위치를 사용하지 않습니다.');
+  }
+  async function locate() {
+    const id = ++locationRequest.current;
+    setLocating(true);
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (id !== locationRequest.current) return;
+      if (!permission.granted) {
+        allStores();
+        setMessage('위치 권한이 없어도 전체 매장 목록과 검색을 이용할 수 있어요.');
+        return;
+      }
+      watcher.current?.remove();
+      const subscription = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 5000 },
+        (result) => {
+          if (id !== locationRequest.current) return;
+          setPosition({ lat: result.coords.latitude, lng: result.coords.longitude });
+          setMessage(
+            `현재 위치 기준 3km 이내 매장 · 위치 오차 약 ${Math.round(result.coords.accuracy ?? 0)}m`,
+          );
+        },
+      );
+      if (id === locationRequest.current) watcher.current = subscription;
+      else subscription.remove();
+    } catch {
+      allStores();
+      setMessage(
+        '위치를 확인하지 못했습니다. 전체 매장에서 검색하거나 위치 찾기를 다시 선택해 주세요.',
+      );
+    } finally {
+      if (id === locationRequest.current) setLocating(false);
+    }
   }
   const select = (store: Store) =>
-    void app
-      .selectStore(store.storeId)
-      .then(() => router.push('/store'))
-      .catch(app.report);
-  if (!app.settings.assistance) return <Redirect href="/onboarding" />;
+    router.push({ pathname: '/store', params: { storeId: store.storeId } });
   return (
     <Screen
-      title={`${assistanceLabels[app.settings.assistance]} 지도`}
-      subtitle="나의 속도로, 편안하게. 가까운 매장과 접근성 정보를 확인하세요."
+      title="어떤 매장을 찾으세요?"
+      subtitle="방문 전 정보를 확인하거나, 지금 있는 매장에서 주문을 시작하세요."
     >
-      <View className="flex-row flex-wrap gap-2">
-        <NavLink href="/onboarding">유형 변경</NavLink>
-        <Button variant="secondary" onPress={() => void locate().catch(app.report)}>
-          <Text>내 위치 찾기</Text>
-        </Button>
-      </View>
-      <Text accessibilityLiveRegion="polite">{locationMessage}</Text>
-      <StoreMap stores={stores} position={position} onSelect={select} />
-      {app.demo && (
-        <Button
-          variant="outline"
-          onPress={() => {
-            const target = stores.find((store) => store.location)?.location;
-            if (target) {
-              locationWatch.current?.remove();
-              setPosition({ ...target, lat: target.lat - 0.00009 });
-              setLocationMessage('데모 위치 · 매장 앞');
-            }
-          }}
-        >
-          <Text>데모: 매장 앞으로 이동</Text>
-        </Button>
-      )}
+      <SubmissionRecovery />
+      <Card>
+        <CardContent className="gap-3 pt-6">
+          <Text variant="h2">이미 매장에 있어요</Text>
+          <Text>매장에서 받은 코드나 연결 링크로 바로 시작할 수 있어요.</Text>
+          <NavLink href="/connect">이 매장에서 주문 시작</NavLink>
+        </CardContent>
+      </Card>
       {app.connection && (
         <Card>
           <CardContent className="gap-3 pt-6">
-            <Text>{app.store?.name} · 연결 중</Text>
-            <NavLink href="/menu">주문 이어가기</NavLink>
-            <Button
-              variant="outline"
-              disabled={app.busy}
-              onPress={() => void app.disconnect().catch(app.report)}
-            >
-              <Text>연결 종료</Text>
-            </Button>
+            <Text>{app.store?.name} · 주문 중</Text>
+            <NavLink href="/cart">장바구니 · 주문 이어가기</NavLink>
+            <NavLink href="/leave">다른 매장으로 변경 · 주문 중단</NavLink>
           </CardContent>
         </Card>
       )}
-      {app.order && (
-        <NavLink href={{ pathname: '/orders/[orderId]', params: { orderId: app.order.orderId } }}>
-          최근 주문 상태 보기
-        </NavLink>
-      )}
-      <View className="flex-row items-center justify-between">
-        <Text variant="h3">{position ? '주변 매장' : '전체 매장'}</Text>
-        <Button variant="ghost" disabled={loading} onPress={() => setRevision(revision + 1)}>
-          <Text>새로고침</Text>
+      <Text variant="h2">방문할 매장 찾기</Text>
+      <Input
+        accessibilityLabel="매장 이름 또는 주소 검색"
+        placeholder="매장 이름 또는 주소"
+        value={search}
+        onChangeText={setSearch}
+      />
+      <View className="flex-row flex-wrap gap-2">
+        <Button variant="secondary" disabled={locating} onPress={() => void locate()}>
+          <Text>{locating ? '위치 확인 중' : '내 주변 매장 찾기'}</Text>
+        </Button>
+        <Button variant="outline" onPress={allStores}>
+          <Text>전체 매장 보기</Text>
+        </Button>
+        <Button
+          variant="outline"
+          accessibilityState={{ expanded: showMap }}
+          onPress={() => setShowMap(!showMap)}
+        >
+          <Text>{showMap ? '지도 닫기' : '지도도 보기'}</Text>
         </Button>
       </View>
-      {loading && <Text>매장을 불러오는 중입니다.</Text>}
-      {!loading && !stores.length && (
-        <Text>표시할 매장이 없습니다. 위치나 서버 연결을 확인해 주세요.</Text>
+      <Text variant="muted">{message}</Text>
+      {showMap && <StoreMap stores={stores} position={position} onSelect={select} />}
+      {!!error && (
+        <Problem
+          message={`${error}${fetched.length ? ' 이전에 불러온 목록을 표시합니다.' : ''}`}
+          busy={loading}
+          retry={() => setRevision((value) => value + 1)}
+        />
+      )}
+      {loading && <Text accessibilityLiveRegion="polite">매장을 불러오는 중입니다.</Text>}
+      {!loading && !error && (
+        <Text>
+          {stores.length}개 매장
+          {position ? ' · 직선거리 기준이며 실제 이동 경로와 다를 수 있어요.' : ''}
+        </Text>
+      )}
+      {!loading && !error && !stores.length && (
+        <View className="gap-3">
+          <Text>조건에 맞는 매장이 없습니다. 검색어를 바꾸거나 전체 매장을 확인해 주세요.</Text>
+          <Button
+            variant="outline"
+            onPress={() => {
+              setSearch('');
+              allStores();
+            }}
+          >
+            <Text>검색 조건 초기화</Text>
+          </Button>
+        </View>
       )}
       {stores.map((store) => (
         <Card key={store.storeId}>
           <CardContent className="gap-3 pt-6">
             <Text variant="h3">{store.name}</Text>
             <Text>{store.address}</Text>
-            {store.distanceM != null && (
+            {position && store.distanceM != null && (
               <Text>
-                {store.distanceM}m {store.insideGeofence ? '· 매장 근처에 도착했어요' : ''}
+                약 {store.distanceM}m · 직선거리{store.insideGeofence ? ' · 근처 매장' : ''}
               </Text>
             )}
             <Text>{accessibilitySummary(store)}</Text>
-            <Text variant="muted">{knownText(store.accessibility.notes)}</Text>
-            <Button disabled={app.busy} onPress={() => select(store)}>
-              <Text>매장 상세 보기</Text>
+            <Button accessibilityLabel={`${store.name} 상세 보기`} onPress={() => select(store)}>
+              <Text>매장 정보 보기</Text>
             </Button>
           </CardContent>
         </Card>
       ))}
-      <NavLink href="/connect">연결 코드로 키오스크 연결</NavLink>
-      <NavLink href="/kiosk">매장 키오스크</NavLink>
+      <NavLink href="/onboarding">이용 설정 안내</NavLink>
+      <NavLink href="/kiosk">매장 직원 화면</NavLink>
     </Screen>
   );
 }

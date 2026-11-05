@@ -52,6 +52,8 @@ beforeEach(async () => {
     device = value;
   });
   route = (path, method) => {
+    if (path === '/kiosks/GK01')
+      return { data: { kioskId: 'GK01', storeId: 'cafe', name: '카페' } };
     if (path === '/devices') return { data: { token: 'dev_test', deviceId: 'd1' } };
     if (path === '/sessions' && method === 'POST') return { data: connection };
     if (path === '/stores/cafe') return { data: store };
@@ -75,7 +77,10 @@ beforeEach(async () => {
 });
 async function mount() {
   const hook = await renderHook(() => useApp(), { wrapper: AppProvider });
-  await waitFor(() => expect(hook.result.current.ready).toBe(true));
+  await waitFor(() => {
+    expect(hook.result.current.ready).toBe(true);
+    expect(hook.result.current.busy).toBe(false);
+  });
   return hook;
 }
 test('connects, uses authoritative cart totals, submits once, and clears the session', async () => {
@@ -149,4 +154,89 @@ test('clears an expired session so the customer can reconnect', async () => {
   });
   expect(result.current.connection).toBeNull();
   expect(result.current.items).toEqual([]);
+});
+
+test('rejects a wrong-store code before creating an ordering session', async () => {
+  const { result } = await mount();
+  await act(async () => {
+    await expect(result.current.connect('GK01', 'ABCDEFGH', 'other-store')).rejects.toThrow(
+      '매장이 다릅니다',
+    );
+  });
+  expect(fetchMock.mock.calls.some(([url]) => new URL(url).pathname === '/sessions')).toBe(false);
+});
+
+test('requires another review when the server changes the price before submission', async () => {
+  const { result } = await mount();
+  await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+  await act(() => result.current.updateCart([{ itemId: 'coffee', qty: 1, options: {} }]));
+  const previous = route;
+  route = (path, method) =>
+    path.endsWith('/cart')
+      ? { data: { ...cart, total: 3000, lines: [{ ...cart.lines[0], lineTotal: 3000 }] } }
+      : previous(path, method);
+  await act(async () => {
+    await expect(result.current.submit('counter', '')).rejects.toThrow('가격');
+  });
+  expect(result.current.cart.total).toBe(3000);
+  expect(result.current.items).toHaveLength(1);
+  expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'))).toHaveLength(0);
+  await act(() => result.current.submit('counter', ''));
+  expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'))).toHaveLength(1);
+});
+
+test('blocks retries and cart edits after a lost submission response, then recovers the order', async () => {
+  const { result } = await mount();
+  await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+  await act(() => result.current.updateCart([{ itemId: 'coffee', qty: 1, options: {} }]));
+  const previous = route;
+  route = (path, method) => {
+    if (path.endsWith('/order')) throw new TypeError('Connection lost after server commit');
+    return previous(path, method);
+  };
+  await act(async () => {
+    await expect(result.current.submit('counter', '')).rejects.toThrow('Connection lost');
+  });
+  expect(result.current.pendingSubmission).toBe('s1');
+  expect(await AsyncStorage.getItem('pending-order:http://127.0.0.1:8000')).toBe('s1');
+  await act(async () => {
+    await expect(result.current.submit('counter', '')).rejects.toThrow('전송 결과');
+    await expect(result.current.updateCart([])).rejects.toThrow('전송 결과');
+    await expect(result.current.disconnect()).rejects.toThrow('전송 결과');
+  });
+  route = (path, method) =>
+    path === '/sessions/s1'
+      ? { data: { ...connection, status: 'ordered', orderId: 'o1' } }
+      : previous(path, method);
+  await act(() => result.current.recoverSubmission());
+  expect(result.current.order?.orderId).toBe('o1');
+  expect(result.current.pendingSubmission).toBeNull();
+  expect(result.current.connection).toBeNull();
+  expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'))).toHaveLength(1);
+});
+
+test('restores an uncertain submission after restart and clears it only after checking the server', async () => {
+  device = 'dev_test';
+  await AsyncStorage.setItem('pending-order:http://127.0.0.1:8000', 's1');
+  const { result } = await mount();
+  expect(result.current.pendingSubmission).toBe('s1');
+  await act(() => result.current.recoverSubmission());
+  expect(result.current.pendingSubmission).toBeNull();
+  expect(result.current.connection?.sessionId).toBe('s1');
+  expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'))).toHaveLength(0);
+});
+
+test('help submission means sent, not acknowledged or assistance received', async () => {
+  const previous = route;
+  route = (path, method) =>
+    path.endsWith('/help') ? { data: { type: 'help' } } : previous(path, method);
+  const { result } = await mount();
+  await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+  await act(() => result.current.help());
+  expect(result.current.helpState).toBe('sent');
+  await act(() => result.current.updateCart([{ itemId: 'coffee', qty: 1, options: {} }]));
+  await act(() => result.current.submit('counter', ''));
+  await act(async () => {
+    await expect(result.current.help()).rejects.toThrow('직접');
+  });
 });
