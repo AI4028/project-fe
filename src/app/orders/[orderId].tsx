@@ -117,7 +117,9 @@ export default function OrderScreen() {
                   <Text>{store.address}</Text>
                 </>
               )}
-              <Text variant="h2">{statusLabels[order.status]}</Text>
+              <Text variant="h2" accessibilityLiveRegion="polite">
+                {statusLabels[order.status]}
+              </Text>
               <Text>{guidance[order.status]}</Text>
               {checkedAt && (
                 <Text variant="muted">
