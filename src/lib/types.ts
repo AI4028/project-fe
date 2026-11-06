@@ -80,13 +80,6 @@ export type Heartbeat = {
   expiresAtMs: number;
   refreshInMs: number;
 };
-export type Proximity = {
-  type: 'proximity';
-  kioskId: string;
-  storeName: string;
-  distance: number;
-  rssi?: number;
-};
 export type LiveEvent = {
   type: string;
   sessionId?: string;
