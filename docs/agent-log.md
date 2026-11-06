@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-06 · Fresh clone has no pnpm deps
+
+- **Hit:** `pnpm check:watch` failed with `pnpm: command not found`; typecheck/test then failed because `node_modules` was missing.
+- **Why:** this runner clone started without dependencies installed, and pnpm must be invoked via Corepack here.
+- **Fix:** ran `corepack pnpm install --frozen-lockfile`, then used `corepack pnpm ...` for checks.
+- **Rule:** if pnpm commands fail in CI runners, use Corepack and install deps before running project scripts.
+
 ### 2026-11-06 · Tools rewrite `tsconfig.json`
 
 - **Hit:** removed redundant `include` entries; the next `expo export` put `nativewind-env.d.ts` back and reformatted the file.
