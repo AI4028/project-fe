@@ -73,6 +73,7 @@ function useAppState() {
   const api = useMemo(() => new Api(settings.apiBase), [settings.apiBase]);
   const currentApi = useRef(api);
   currentApi.current = api;
+  const selectStoreSeq = useRef(0);
   const pendingToken = useRef<{ base: string; promise: Promise<string> } | null>(null);
   const demo = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
   const announce = useCallback(
@@ -301,11 +302,14 @@ function useAppState() {
     };
   }, [api, connection?.sessionId, order?.sessionId, refresh]);
   async function selectStore(id: string) {
+    const request = ++selectStoreSeq.current;
     if (connection && connection.storeId !== id)
       throw new Error('현재 매장 연결을 종료한 후 다른 매장을 선택해 주세요.');
     const selected = await api.store(id);
+    if (request !== selectStoreSeq.current) return selected;
     if (currentApi.current !== api)
       throw new Error('서버가 변경되었습니다. 매장을 다시 선택해 주세요.');
+    if (connection && connection.storeId !== id) return selected;
     setStore(selected);
     return selected;
   }
