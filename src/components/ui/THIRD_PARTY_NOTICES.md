@@ -2,7 +2,7 @@
 
 Source: https://github.com/founded-labs/react-native-reusables
 
-The NativeWind components in `src/components/ui` were imported on 2026-10-27.
+The NativeWind components in this folder were imported on 2026-10-27.
 Local adaptations: import paths, larger touch targets, text scaling, contrast
 colors and Korean dialog close label.
 

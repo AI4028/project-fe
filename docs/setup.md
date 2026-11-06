@@ -64,4 +64,4 @@ pnpm dlx @react-native-reusables/cli@latest add <component>
 ```
 
 Design tokens live in `src/lib/theme.ts`. Attribution is in
-[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+[THIRD_PARTY_NOTICES.md](../src/components/ui/THIRD_PARTY_NOTICES.md).
