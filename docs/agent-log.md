@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-06 · Async test race needs settled assertions
+
+- **Hit:** new race test asserted `storeId` too early and used `act(async () => ...)` without awaiting, causing a warning and a flaky failure.
+- **Why:** the delayed preview request and the connect flow settle in separate async steps, so immediate assertions can read stale state.
+- **Fix:** started the preview request without `act`, then used `waitFor` around post-connect and post-settle assertions.
+- **Rule:** for concurrent promise tests, avoid un-awaited `act` calls and assert state only after `waitFor` confirms updates.
+
 ### 2026-11-06 · Fresh clone has no pnpm deps
 
 - **Hit:** `pnpm check:watch` failed with `pnpm: command not found`; typecheck/test then failed because `node_modules` was missing.

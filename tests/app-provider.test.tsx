@@ -240,3 +240,41 @@ test('help submission means sent, not acknowledged or assistance received', asyn
     await expect(result.current.help()).rejects.toThrow('직접');
   });
 });
+
+test('ignores a stale preview store response after connecting to another store', async () => {
+  const storeB = { ...store, storeId: 'branch', name: '브랜치' };
+  const connectionB = { sessionId: 's2', kioskId: 'GK02', storeId: 'branch' };
+  const previous = route;
+  route = (path, method) => {
+    if (path === '/kiosks/GK02')
+      return { data: { kioskId: 'GK02', storeId: 'branch', name: '브랜치' } };
+    if (path === '/sessions' && method === 'POST') return { data: connectionB };
+    if (path === '/stores/branch') return { data: storeB };
+    if (path === '/sessions/s2')
+      return {
+        data: { ...connectionB, status: 'active', cart: { lines: [], total: 0, summary: '' } },
+      };
+    return previous(path, method);
+  };
+  let release = () => {};
+  const waitForCafe = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  global.fetch = jest.fn(async (url: string, init: RequestInit) => {
+    const path = new URL(url).pathname;
+    if (path === '/stores/cafe') await waitForCafe;
+    const response = route(path, init.method ?? 'GET');
+    return {
+      ok: (response.status ?? 200) < 400,
+      status: response.status ?? 200,
+      json: async () => response.data,
+    };
+  }) as unknown as typeof fetch;
+  const { result } = await mount();
+  const preview = result.current.selectStore('cafe');
+  await act(() => result.current.connect('GK02', 'ABCDEFGH'));
+  await waitFor(() => expect(result.current.store?.storeId).toBe('branch'));
+  release();
+  await preview;
+  await waitFor(() => expect(result.current.store?.storeId).toBe('branch'));
+});
