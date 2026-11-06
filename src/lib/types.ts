@@ -66,6 +66,8 @@ export type OrderStatus =
   | 'cancelled';
 export type Order = {
   orderId: string;
+  kioskId?: string;
+  updatedAtMs?: number;
   orderNumber: number;
   sessionId: string;
   status: OrderStatus;

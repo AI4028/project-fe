@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
 import * as Haptics from 'expo-haptics';
@@ -30,23 +30,41 @@ type Settings = {
   contrast: boolean;
   largeText: boolean;
   speech: boolean;
+  voiceInput?: boolean;
 };
 const initialSettings: Settings = {
   apiBase: process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8000',
   contrast: false,
   largeText: false,
-  speech: true,
+  speech: false,
+  voiceInput: false,
 };
 const emptyCart: Cart = { lines: [], summary: '', total: 0 };
 function useAppState() {
   const [settings, setSettings] = useState(initialSettings);
   const [ready, setReady] = useState(false);
+  const [restoring, setRestoring] = useState(true);
   const [store, setStore] = useState<Store | null>(null);
   const [connection, setConnection] = useState<Connection | null>(null);
   const [items, setItems] = useState<CartItem[]>([]);
   const [cart, setCart] = useState<Cart>(emptyCart);
   const [order, setOrder] = useState<Order | null>(null);
   const [notice, setNotice] = useState('');
+  const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
+  const pendingRef = useRef<string | null>(null);
+  const [helpState, setHelpState] = useState<'idle' | 'sent' | 'acknowledged'>('idle');
+  const [checkout, setCheckout] = useState<{ payment: 'counter' | 'kiosk'; note: string }>({
+    payment: 'counter',
+    note: '',
+  });
+  async function markPending(id: string | null) {
+    // Persist before POST so a closed tab can recover an uncertain submission.
+    if (id) await AsyncStorage.setItem(`pending-order:${api.base}`, id);
+    else await AsyncStorage.removeItem(`pending-order:${api.base}`);
+    pendingRef.current = id;
+    setPendingSubmission(id);
+  }
+
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const lastSpoken = useRef(
@@ -55,13 +73,16 @@ function useAppState() {
   const api = useMemo(() => new Api(settings.apiBase), [settings.apiBase]);
   const currentApi = useRef(api);
   currentApi.current = api;
+  const currentConnection = useRef(connection);
+  currentConnection.current = connection;
+  const selectStoreSeq = useRef(0);
   const pendingToken = useRef<{ base: string; promise: Promise<string> } | null>(null);
   const demo = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
   const announce = useCallback(
     (message: string) => {
       lastSpoken.current = message;
       setNotice(message);
-      AccessibilityInfo.announceForAccessibility(message);
+      if (Platform.OS !== 'web') AccessibilityInfo.announceForAccessibility(message);
       if (settings.speech)
         void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
           if (!enabled) {
@@ -74,6 +95,7 @@ function useAppState() {
   );
   const report = useCallback((error: unknown) => announce(errorMessage(error)), [announce]);
   async function exclusive<T>(action: () => Promise<T>): Promise<T> {
+    if (restoring) throw new Error('이전 이용 내역을 확인하고 있습니다. 잠시 기다려 주세요.');
     if (lock.current) throw new Error('이전 요청이 완료될 때까지 기다려 주세요.');
     lock.current = true;
     setBusy(true);
@@ -81,6 +103,7 @@ function useAppState() {
       return await action();
     } catch (error) {
       if (
+        !pendingRef.current &&
         error instanceof ApiError &&
         ['session-expired', 'session-not-found'].includes(error.code)
       )
@@ -110,8 +133,38 @@ function useAppState() {
     setConnection(null);
     setItems([]);
     setCart(emptyCart);
+    setHelpState('idle');
     await AsyncStorage.removeItem(`session:${api.base}`);
   }, [api]);
+  async function rememberOrder(placed: Order) {
+    setOrder(placed);
+    await AsyncStorage.setItem(`order:${api.base}`, placed.orderId);
+    await markPending(null);
+    await clearSession();
+    return placed;
+  }
+  async function recoverSubmission(): Promise<Order | null> {
+    return exclusive(async () => {
+      const id = pendingRef.current;
+      if (!id) return null;
+      const session = await api.session(id, await token());
+      if (session.orderId) return rememberOrder(await api.order(session.orderId, await token()));
+      if (session.status === 'active') {
+        const selected = await api.store(session.storeId);
+        setStore(selected);
+        setConnection(session);
+        setCart(session.cart);
+        setItems(restoreCart(session.cart.lines, selected.menu ?? []));
+      } else await clearSession();
+      await markPending(null);
+      announce(
+        session.status === 'active'
+          ? '현재 확인된 주문이 없습니다. 장바구니를 검토한 뒤 다시 제출할 수 있습니다.'
+          : '연결이 종료되었습니다. 주문이 확인되지 않아 직원 확인이 필요합니다.',
+      );
+      return null;
+    });
+  }
   const refresh = useCallback(async () => {
     const device = await secrets.get(api.base, 'device');
     if (!device || currentApi.current !== api) return;
@@ -122,12 +175,12 @@ function useAppState() {
         if (session.orderId) {
           const placed = await api.order(session.orderId, device);
           if (currentApi.current !== api) return;
-          setOrder(placed);
-          await AsyncStorage.setItem(`order:${api.base}`, placed.orderId);
+          await rememberOrder(placed);
         }
         await clearSession();
         return;
       }
+      if (session.helpRequested) setHelpState('sent');
     }
     if (order) {
       const latest = await api.order(order.orderId, device);
@@ -152,36 +205,64 @@ function useAppState() {
   useEffect(() => {
     if (!ready) return;
     let active = true;
+    setRestoring(true);
     void (async () => {
+      const pending = await AsyncStorage.getItem(`pending-order:${api.base}`);
+      if (!active) return;
+      pendingRef.current = pending;
+      setPendingSubmission(pending);
       const device = await secrets.get(api.base, 'device');
-      if (!device) return;
-      const id = await AsyncStorage.getItem(`session:${api.base}`);
+      if (!device) {
+        if (pending)
+          report(
+            new Error(
+              '이전 주문의 기기 인증을 찾을 수 없습니다. 매장 직원에게 주문 여부를 확인해 주세요.',
+            ),
+          );
+        return;
+      }
+      const id = pending || (await AsyncStorage.getItem(`session:${api.base}`));
       if (id) {
         const session = await api.session(id, device);
-        if (active && session.status === 'active') {
+        if (!active) return;
+        if (session.orderId) {
+          const placed = await api.order(session.orderId, device);
+          if (!active) return;
+          await rememberOrder(placed);
+          return;
+        }
+        if (session.status === 'active') {
           const selected = await api.store(session.storeId);
           if (!active) return;
           setStore(selected);
           setConnection(session);
           setCart(session.cart);
+          if (session.helpRequested) setHelpState('sent');
           setItems(restoreCart(session.cart.lines, selected.menu ?? []));
-        } else if (active) await clearSession();
-        if (session.orderId) await AsyncStorage.setItem(`order:${api.base}`, session.orderId);
+        } else await clearSession();
       }
       const lastOrder = await AsyncStorage.getItem(`order:${api.base}`);
       if (lastOrder) {
         const latest = await api.order(lastOrder, device);
         if (active) setOrder(latest);
       }
-    })().catch((error) => {
-      if (active) {
-        report(error);
-        if (error instanceof ApiError && [401, 403, 404, 409].includes(error.status))
-          void clearSession();
-        if (error instanceof ApiError && error.status === 401)
-          void secrets.set(api.base, 'device', null);
-      }
-    });
+    })()
+      .catch((error) => {
+        if (active) {
+          report(error);
+          if (
+            !pendingRef.current &&
+            error instanceof ApiError &&
+            [401, 403, 404, 409].includes(error.status)
+          )
+            void clearSession();
+          if (!pendingRef.current && error instanceof ApiError && error.status === 401)
+            void secrets.set(api.base, 'device', null);
+        }
+      })
+      .finally(() => {
+        if (active) setRestoring(false);
+      });
     return () => {
       active = false;
     };
@@ -199,7 +280,10 @@ function useAppState() {
         stop = subscribe(
           api.wsUrl(`/ws/sessions/${id}`, device),
           (event) => {
-            if (event.type === 'help_resolved') announce('직원이 도움 요청을 확인했습니다.');
+            if (event.type === 'help_resolved') {
+              setHelpState('acknowledged');
+              announce('직원이 도움 요청을 확인했습니다. 실제 도움은 직원에게 확인해 주세요.');
+            }
             sync();
           },
           sync,
@@ -220,17 +304,24 @@ function useAppState() {
     };
   }, [api, connection?.sessionId, order?.sessionId, refresh]);
   async function selectStore(id: string) {
-    if (connection && connection.storeId !== id)
+    const request = ++selectStoreSeq.current;
+    if (currentConnection.current && currentConnection.current.storeId !== id)
       throw new Error('현재 매장 연결을 종료한 후 다른 매장을 선택해 주세요.');
     const selected = await api.store(id);
+    if (request !== selectStoreSeq.current) return selected;
     if (currentApi.current !== api)
       throw new Error('서버가 변경되었습니다. 매장을 다시 선택해 주세요.');
+    if (currentConnection.current && currentConnection.current.storeId !== id) return selected;
     setStore(selected);
     return selected;
   }
-  async function connect(kioskId: string, code: string) {
+  async function connect(kioskId: string, code: string, expectedStoreId?: string) {
     return exclusive(async () => {
       if (connection) throw new Error('기존 연결을 종료한 후 새 키오스크에 연결해 주세요.');
+      if (pendingRef.current) throw new Error('먼저 이전 주문의 전송 결과를 확인해 주세요.');
+      const kiosk = await api.kioskInfo(kioskId.trim().toUpperCase());
+      if (expectedStoreId && kiosk.storeId !== expectedStoreId)
+        throw new Error('선택한 매장과 연결 코드의 매장이 다릅니다. 매장을 다시 확인해 주세요.');
       const device = await token();
       try {
         const result = await api.connect(
@@ -240,6 +331,8 @@ function useAppState() {
         );
         await AsyncStorage.setItem(`session:${api.base}`, result.sessionId);
         setConnection(result);
+        setCheckout({ payment: 'counter', note: '' });
+        setHelpState('idle');
         const selected = await selectStore(result.storeId);
         const session = await api.session(result.sessionId, device);
         setItems(restoreCart(session.cart.lines, selected.menu ?? []));
@@ -254,7 +347,8 @@ function useAppState() {
   }
   async function updateCart(next: CartItem[]) {
     return exclusive(async () => {
-      if (!connection) throw new Error('먼저 키오스크에 연결해 주세요.');
+      if (pendingRef.current) throw new Error('먼저 주문 전송 결과를 확인해 주세요.');
+      if (!connection) throw new Error('먼저 매장에 연결해 주세요.');
       if (next.length > 20) throw new Error('한 번에 20개 메뉴까지 담을 수 있습니다.');
       for (const line of next) {
         const item = store?.menu?.find((entry) => entry.id === line.itemId);
@@ -267,23 +361,46 @@ function useAppState() {
       setCart(result);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       announce(`장바구니가 변경되었습니다. 합계 ${result.total.toLocaleString('ko-KR')}원`);
+      return result;
     });
   }
   async function submit(payment: 'counter' | 'kiosk', note: string) {
     return exclusive(async () => {
+      if (pendingRef.current)
+        throw new Error('전송 결과를 먼저 확인해 주세요. 주문을 다시 보내지 않았습니다.');
       if (!connection || !items.length) throw new Error('연결 상태와 장바구니를 확인해 주세요.');
-      // The server closes a session atomically on order submission. Never retry a
-      // timed-out POST automatically; refresh recovers any already-created order.
-      const placed = await api.submit(connection.sessionId, items, payment, note, await token());
-      setOrder(placed);
-      await AsyncStorage.setItem(`order:${api.base}`, placed.orderId);
-      await clearSession();
-      announce(`주문이 완료되었습니다. 주문 번호 ${placed.orderNumber}번.`);
+      const device = await token();
+      const latest = await api.cart(connection.sessionId, items, device);
+      setCart(latest);
+      if (
+        latest.total !== cart.total ||
+        JSON.stringify(latest.lines) !== JSON.stringify(cart.lines)
+      )
+        throw new Error(
+          '가격 또는 주문 정보가 변경되었습니다. 새 합계를 확인하고 다시 제출해 주세요.',
+        );
+      await markPending(connection.sessionId);
+      let placed: Order;
+      try {
+        placed = await api.submit(connection.sessionId, items, payment, note, device);
+      } catch (error) {
+        // A timeout/5xx or already-closed session can hide a committed order.
+        if (
+          error instanceof ApiError &&
+          error.status < 500 &&
+          !['session-expired', 'session-not-found'].includes(error.code)
+        )
+          await markPending(null);
+        throw error;
+      }
+      await rememberOrder(placed);
+      announce(`주문 ${placed.orderNumber}번을 전송했습니다. 매장 접수를 기다려 주세요.`);
       return placed;
     });
   }
   async function disconnect() {
     return exclusive(async () => {
+      if (pendingRef.current) throw new Error('먼저 주문 전송 결과를 확인해 주세요.');
       if (connection) await api.end(connection.sessionId, await token());
       await clearSession();
       announce('연결을 종료했습니다.');
@@ -293,7 +410,7 @@ function useAppState() {
     if (lock.current && next.apiBase !== api.base)
       throw new Error('요청이 완료된 후 서버를 변경해 주세요.');
     const normalized = { ...next, apiBase: normalizeBase(next.apiBase) };
-    if (connection && normalized.apiBase !== api.base)
+    if ((connection || pendingRef.current) && normalized.apiBase !== api.base)
       throw new Error('서버를 바꾸기 전에 연결을 종료해 주세요.');
     await AsyncStorage.setItem('galjido.settings', JSON.stringify(normalized));
     if (normalized.apiBase !== api.base) {
@@ -307,6 +424,11 @@ function useAppState() {
   }
   return {
     api,
+    pendingSubmission,
+    recoverSubmission,
+    helpState,
+    checkout,
+    setCheckout,
     ready,
     settings,
     saveSettings,
@@ -321,22 +443,33 @@ function useAppState() {
     submit,
     order,
     refresh,
-    busy,
+    busy: busy || restoring,
     notice,
     announce,
     report,
     demo,
     repeat: () => announce(lastSpoken.current),
-    help: async () => {
-      if (!connection) throw new Error('먼저 키오스크에 연결해 주세요.');
-      await api.help(connection.sessionId, await token());
-      announce('직원에게 도움을 요청했습니다.');
+    help: async () =>
+      exclusive(async () => {
+        if (!connection || pendingRef.current)
+          throw new Error('현재는 매장 직원에게 직접 도움을 요청해 주세요.');
+        await api.help(connection.sessionId, await token());
+        setHelpState('sent');
+        announce('도움 요청을 보냈습니다. 직원 확인을 기다리고 있습니다.');
+      }),
+    cancel: async (id: string) =>
+      exclusive(async () => {
+        await api.cancel(id, await token());
+        const latest = await api.order(id, await token());
+        setOrder(latest);
+        return latest;
+      }),
+    getOrder: async (id: string) => {
+      const latest = await api.order(id, await token());
+      if (currentApi.current === api)
+        setOrder((current) => (current?.orderId === id ? latest : current));
+      return latest;
     },
-    cancel: async (id: string) => {
-      await api.cancel(id, await token());
-      await refresh();
-    },
-    getOrder: async (id: string) => api.order(id, await token()),
   };
 }
 const AppContext = createContext<ReturnType<typeof useAppState> | null>(null);

@@ -1,4 +1,4 @@
-import { estimate, restoreCart, validateItem } from '@/lib/cart';
+import { estimate, restoreCart, validateItem, replaceCartItem } from '@/lib/cart';
 import type { MenuItem, PricedLine } from '@/lib/types';
 const item: MenuItem = {
   id: 'coffee',
@@ -54,4 +54,12 @@ test('estimates choice deltas and restores backend choice objects without sendin
   expect(restoreCart(lines, [item])).toEqual([
     { itemId: 'coffee', qty: 2, options: { temp: 'ice', extra: ['shot'] } },
   ]);
+});
+
+test('editing replaces one line and refuses a stale edit instead of adding a duplicate', () => {
+  const original = { itemId: 'coffee', qty: 1, options: { temp: 'ice' } };
+  const another = { itemId: 'tea', qty: 1, options: {} };
+  const edited = { ...original, qty: 2 };
+  expect(replaceCartItem([original, another], 0, original, edited)).toEqual([edited, another]);
+  expect(() => replaceCartItem([another], 0, original, edited)).toThrow('장바구니가 변경');
 });

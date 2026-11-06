@@ -1,32 +1,64 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/providers/app-provider';
-import { estimate, money, validateItem } from '@/lib/cart';
+import { estimate, money, validateItem, replaceCartItem } from '@/lib/cart';
 import { voiceSelection } from '@/lib/voice';
+import { Problem } from '@/components/feedback';
+import { errorMessage } from '@/lib/api';
 import type { Options } from '@/lib/types';
 export default function ItemOptions() {
-  const { itemId, speech } = useLocalSearchParams<{ itemId: string; speech?: string }>();
+  const { itemId, speech, edit } = useLocalSearchParams<{
+    itemId: string;
+    speech?: string;
+    edit?: string;
+  }>();
   const app = useApp();
   const item = app.store?.menu?.find((entry) => entry.id === itemId);
   const initial = voiceSelection(typeof speech === 'string' ? speech : '', []);
-  const [qty, setQty] = useState(initial.qty);
-  const [options, setOptions] = useState<Options>(() =>
-    Object.fromEntries(
-      Object.entries(initial.options).filter(([key]) =>
-        item?.options.some((option) => option.id === key),
+  const index = edit === undefined ? null : Number(edit);
+  const [original, setOriginal] = useState(() => (index !== null ? app.items[index] : undefined));
+  const [error, setError] = useState('');
+  const [qty, setQty] = useState(original?.qty ?? initial.qty);
+  const [options, setOptions] = useState<Options>(
+    () =>
+      original?.options ??
+      Object.fromEntries(
+        Object.entries(initial.options).filter(([key]) =>
+          item?.options.some((option) => option.id === key),
+        ),
       ),
-    ),
   );
+  useEffect(() => {
+    if (index === null || original) return;
+    const restored = app.items[index];
+    if (!restored) return;
+    setOriginal(restored);
+    setQty(restored.qty);
+    setOptions(restored.options);
+  }, [app.items, index, original]);
   async function add() {
     if (!item) return;
     const error = validateItem(item, qty, options);
-    if (error) return app.announce(error);
-    await app.updateCart([...app.items, { itemId: item.id, qty, options }]);
-    router.replace('/cart');
+    if (error) {
+      setError(error);
+      return;
+    }
+    setError('');
+    try {
+      const next = { itemId: item.id, qty, options };
+      if (index !== null && (!original || original.itemId !== item.id))
+        throw new Error('수정할 메뉴를 장바구니에서 다시 선택해 주세요.');
+      await app.updateCart(
+        index === null ? [...app.items, next] : replaceCartItem(app.items, index, original!, next),
+      );
+      router.replace('/cart');
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
   }
   return (
     <Screen
@@ -59,11 +91,33 @@ export default function ItemOptions() {
         return false;
       }}
     >
+      {!!error && <Problem message={error} />}
       {!item ? (
         <NavLink href="/">매장 선택으로 돌아가기</NavLink>
       ) : (
         <>
-          <Text>{item.description}</Text>
+          <Text>
+            {index === null
+              ? item.description
+              : '옵션과 수량을 바꾸면 기존 장바구니 항목이 수정됩니다.'}
+          </Text>
+          {!item.available && (
+            <Text accessibilityRole="alert">
+              이 메뉴는 현재 품절입니다. 장바구니에서 삭제하거나 다른 메뉴를 선택해 주세요.
+            </Text>
+          )}
+          <Button
+            variant="outline"
+            disabled={app.busy}
+            onPress={() => {
+              if (app.store)
+                void app
+                  .selectStore(app.store.storeId)
+                  .catch((reason) => setError(errorMessage(reason)));
+            }}
+          >
+            <Text>가격 · 판매 상태 새로고침</Text>
+          </Button>
           {item.options.map((option) => (
             <View key={option.id} className="gap-3">
               <Text variant="h3">
@@ -75,15 +129,19 @@ export default function ItemOptions() {
                   const selected = Array.isArray(current)
                     ? current.includes(choice.id)
                     : current === choice.id;
+                  const canDeselectUnavailable =
+                    selected && (option.type === 'multi' || !option.required);
+                  const disabled =
+                    choice.available === false && !canDeselectUnavailable;
                   return (
                     <Button
                       key={choice.id}
                       variant={selected ? 'default' : 'outline'}
-                      disabled={choice.available === false}
+                      disabled={disabled}
                       accessibilityRole={option.type === 'multi' ? 'checkbox' : 'radio'}
                       accessibilityState={{
                         checked: selected,
-                        disabled: choice.available === false,
+                        disabled,
                       }}
                       onPress={() => {
                         const next = { ...options };
@@ -135,14 +193,17 @@ export default function ItemOptions() {
           <Text variant="h3">예상 금액 {money(estimate(item, qty, options))}</Text>
           {app.connection ? (
             <Button
-              disabled={app.busy || !item.available}
+              disabled={app.busy || !item.available || !!app.pendingSubmission}
               onPress={() => void add().catch(app.report)}
             >
-              <Text>장바구니에 담기</Text>
+              <Text>{index === null ? '장바구니에 담기' : '수정 내용 저장'}</Text>
             </Button>
           ) : (
-            <NavLink href="/connect">먼저 키오스크에 연결하기</NavLink>
+            <NavLink href={{ pathname: '/connect', params: { storeId: app.store!.storeId } }}>
+              먼저 매장에 연결하기
+            </NavLink>
           )}
+          <NavLink href={index === null ? '/menu' : '/cart'}>변경하지 않고 돌아가기</NavLink>
         </>
       )}
     </Screen>

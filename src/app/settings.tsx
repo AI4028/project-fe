@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { Screen } from '@/components/screen';
+import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,12 +10,12 @@ export default function Settings() {
   const [base, setBase] = useState(app.settings.apiBase);
   return (
     <Screen title="접근성 · 설정" voice={false}>
-      {(['contrast', 'largeText', 'speech'] as const).map((key) => (
+      {(['contrast', 'largeText', 'speech', 'voiceInput'] as const).map((key) => (
         <View key={key} className="gap-2">
           <Button
             variant={app.settings[key] ? 'default' : 'outline'}
             accessibilityRole="switch"
-            accessibilityState={{ checked: app.settings[key] }}
+            accessibilityState={{ checked: !!app.settings[key] }}
             onPress={() =>
               void app
                 .saveSettings({ ...app.settings, [key]: !app.settings[key] })
@@ -23,8 +23,15 @@ export default function Settings() {
             }
           >
             <Text>
-              {{ contrast: '고대비 화면', largeText: '큰 글자', speech: '음성 안내' }[key]} ·{' '}
-              {app.settings[key] ? '켜짐' : '꺼짐'}
+              {
+                {
+                  contrast: '고대비 화면',
+                  largeText: '큰 글자',
+                  speech: '추가 음성 안내',
+                  voiceInput: '음성 명령 사용',
+                }[key]
+              }{' '}
+              · {app.settings[key] ? '켜짐' : '꺼짐'}
             </Text>
           </Button>
         </View>
@@ -51,15 +58,11 @@ export default function Settings() {
       >
         <Text>서버 주소 저장</Text>
       </Button>
-      {app.connection && (
-        <Button
-          variant="outline"
-          disabled={app.busy}
-          onPress={() => void app.disconnect().catch(app.report)}
-        >
-          <Text>키오스크 연결 종료</Text>
-        </Button>
-      )}
+      <Text variant="muted">
+        추가 음성 안내는 스크린 리더가 켜져 있으면 재생하지 않습니다. 음성 명령을 켜도 마이크 권한은
+        음성 입력을 시작할 때만 요청합니다.
+      </Text>
+      {app.connection && <NavLink href="/leave">주문 중단 · 매장 연결 종료</NavLink>}
     </Screen>
   );
 }
