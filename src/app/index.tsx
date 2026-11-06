@@ -108,6 +108,7 @@ export default function Discovery() {
       if (id === locationRequest.current) watcher.current = subscription;
       else subscription.remove();
     } catch {
+      if (id !== locationRequest.current) return;
       allStores();
       setMessage(
         '위치를 확인하지 못했습니다. 전체 매장에서 검색하거나 위치 찾기를 다시 선택해 주세요.',
