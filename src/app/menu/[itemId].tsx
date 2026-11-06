@@ -121,15 +121,19 @@ export default function ItemOptions() {
                   const selected = Array.isArray(current)
                     ? current.includes(choice.id)
                     : current === choice.id;
+                  const canDeselectUnavailable =
+                    selected && (option.type === 'multi' || !option.required);
+                  const disabled =
+                    choice.available === false && !canDeselectUnavailable;
                   return (
                     <Button
                       key={choice.id}
                       variant={selected ? 'default' : 'outline'}
-                      disabled={choice.available === false}
+                      disabled={disabled}
                       accessibilityRole={option.type === 'multi' ? 'checkbox' : 'radio'}
                       accessibilityState={{
                         checked: selected,
-                        disabled: choice.available === false,
+                        disabled,
                       }}
                       onPress={() => {
                         const next = { ...options };
