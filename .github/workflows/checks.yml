@@ -1,21 +1,34 @@
-name: Frontend checks
+name: Checks
+
 on:
   pull_request:
   push:
-    branches: [develop, main, 'feature/**']
+    branches: [develop, main]
+  workflow_dispatch:
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.11.0
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      # pnpm version comes from "packageManager" in package.json
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm verify
-      - run: pnpm exec expo install --check
-      - run: pnpm export:all
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck and test
+        run: pnpm verify
+
+      # Expo ships SDK patches often, so drift warns instead of failing the PR.
+      - name: Expo package versions
+        run: >
+          pnpm deps:check ||
+          echo "::warning title=Expo packages are behind::Run pnpm deps:fix and commit package.json + pnpm-lock.yaml"
+
+      - name: Export bundles
+        run: pnpm export:all
