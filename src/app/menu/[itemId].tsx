@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
@@ -20,7 +20,7 @@ export default function ItemOptions() {
   const item = app.store?.menu?.find((entry) => entry.id === itemId);
   const initial = voiceSelection(typeof speech === 'string' ? speech : '', []);
   const index = edit === undefined ? null : Number(edit);
-  const [original] = useState(() => (index !== null ? app.items[index] : undefined));
+  const [original, setOriginal] = useState(() => (index !== null ? app.items[index] : undefined));
   const [error, setError] = useState('');
   const [qty, setQty] = useState(original?.qty ?? initial.qty);
   const [options, setOptions] = useState<Options>(
@@ -32,6 +32,14 @@ export default function ItemOptions() {
         ),
       ),
   );
+  useEffect(() => {
+    if (index === null || original) return;
+    const restored = app.items[index];
+    if (!restored) return;
+    setOriginal(restored);
+    setQty(restored.qty);
+    setOptions(restored.options);
+  }, [app.items, index, original]);
   async function add() {
     if (!item) return;
     const error = validateItem(item, qty, options);
