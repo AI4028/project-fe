@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,31 @@ export default function StoreDetails() {
     <Screen
       title={store?.name ?? '매장 정보'}
       subtitle="지점과 주소를 확인한 뒤 필요한 정보를 살펴보세요."
+      onTranscript={(text) => {
+        if (!id) return false;
+        if (/메뉴.*(읽|알려)/.test(text)) {
+          const preview = store?.menu;
+          if (preview?.length) {
+            app.announce(
+              preview
+                .map((item) => `${item.name} ${item.price}원${item.available ? '' : ' 품절'}`)
+                .join(', '),
+            );
+          } else {
+            router.push({ pathname: '/menu', params: { storeId: id } });
+          }
+          return true;
+        }
+        if (/메뉴/.test(text)) {
+          router.push({ pathname: '/menu', params: { storeId: id } });
+          return true;
+        }
+        if (/길|실내|어디/.test(text)) {
+          router.push({ pathname: '/guide', params: { storeId: id } });
+          return true;
+        }
+        return false;
+      }}
     >
       {loading && <Text>매장 정보를 불러오는 중입니다.</Text>}
       {!!error && (
