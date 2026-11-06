@@ -20,6 +20,8 @@
     "check:watch": "node scripts/check-watch.mjs",
     "export:web": "expo export --platform web",
     "export:all": "expo export --platform all",
+    "deps:check": "expo install --check",
+    "deps:fix": "expo install --fix",
     "format": "prettier --write src tests scripts *.js *.ts *.json",
     "format:check": "prettier --check src tests scripts *.js *.ts *.json"
   },
@@ -73,5 +75,27 @@
     "react-test-renderer": "19.3.0",
     "tailwindcss": "^3.4.17",
     "typescript": "~6.0.3"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "watchman": false,
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.[jt]s?(x)"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.ts"
+    ],
+    "collectCoverageFrom": [
+      "src/lib/**/*.{ts,tsx}",
+      "src/providers/**/*.{ts,tsx}"
+    ]
+  },
+  "prettier": {
+    "singleQuote": true,
+    "printWidth": 100,
+    "trailingComma": "all"
   }
 }

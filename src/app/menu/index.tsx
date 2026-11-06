@@ -11,9 +11,9 @@ import { useApp } from '@/providers/app-provider';
 import { money } from '@/lib/cart';
 const photos: Record<string, number> = {
   americano: require('../../../assets/menu/americano.jpg'),
-  'cafe-latte': require('../../../assets/menu/cafe_latte.jpg'),
-  'vanilla-latte': require('../../../assets/menu/vanilla_latte.jpg'),
-  'grapefruit-ade': require('../../../assets/menu/grapefruit_ade.jpg'),
+  'cafe-latte': require('../../../assets/menu/cafe-latte.jpg'),
+  'vanilla-latte': require('../../../assets/menu/vanilla-latte.jpg'),
+  'grapefruit-ade': require('../../../assets/menu/grapefruit-ade.jpg'),
 };
 export default function Menu() {
   const app = useApp();
