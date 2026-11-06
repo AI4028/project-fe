@@ -50,11 +50,17 @@ export default function OrderScreen() {
       setOrder(null);
       setCheckedAt(null);
       setError('');
-      void refresh();
-      const timer = setInterval(() => void refresh(), 10000);
+      let active = true;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const poll = async () => {
+        await refresh();
+        if (active) timer = setTimeout(() => void poll(), 10000);
+      };
+      void poll();
       return () => {
+        active = false;
         sequence.current++;
-        clearInterval(timer);
+        if (timer !== undefined) clearTimeout(timer);
       };
     }, [refresh]),
   );
