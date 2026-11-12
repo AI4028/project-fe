@@ -3,6 +3,8 @@ import { Platform, View } from 'react-native';
 import { requireOptionalNativeModule } from 'expo';
 import { router } from 'expo-router';
 import * as Speech from 'expo-speech';
+import { Mic, Volume2 } from 'lucide-react-native';
+import { Icon } from './ui/icon';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
 import { useApp } from '@/providers/app-provider';
@@ -75,7 +77,11 @@ function RecognitionVoiceControls({
     ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: false, continuous: false });
   }
   return (
-    <View className="gap-2 border-t border-border pt-4">
+    <View className="gap-4 rounded-2xl border border-border bg-card p-5">
+      <View className="flex-row items-center gap-2">
+        <Icon as={Mic} size={20} className="text-primary" accessible={false} />
+        <Text className="font-bold">말로도 선택할 수 있어요</Text>
+      </View>
       <View className="flex-row flex-wrap gap-2">
         <Button
           variant="secondary"
@@ -84,9 +90,11 @@ function RecognitionVoiceControls({
           }
           accessibilityLabel={listening ? '음성 인식 중지' : '음성으로 주문하기'}
         >
+          <Icon as={Mic} size={20} accessible={false} />
           <Text>{listening ? '듣고 있어요 · 중지' : '음성으로 주문하기'}</Text>
         </Button>
         <Button variant="outline" onPress={app.repeat}>
+          <Icon as={Volume2} size={20} accessible={false} />
           <Text>다시 듣기</Text>
         </Button>
       </View>
@@ -101,7 +109,7 @@ function RecognitionVoiceControls({
 function TouchOnlyVoiceControls() {
   const app = useApp();
   return (
-    <View className="gap-2 border-t border-border pt-4">
+    <View className="gap-4 rounded-2xl border border-border bg-card p-5">
       <View className="flex-row flex-wrap gap-2">
         <Button variant="outline" onPress={app.repeat}>
           <Text>다시 듣기</Text>

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Check, Clock3, RefreshCw } from 'lucide-react-native';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
 import { ConfirmAction, Problem } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
-import { statusLabels, type Order, type Store } from '@/lib/types';
+import { statusLabels, type Order, type OrderStatus, type Store } from '@/lib/types';
 import { money } from '@/lib/cart';
 import { errorMessage } from '@/lib/api';
 import { knownText } from '@/lib/location';
@@ -19,6 +22,8 @@ const guidance = {
   picked_up: '매장에서 수령 완료로 처리했습니다. 실제로 받지 못했다면 직원에게 문의해 주세요.',
   cancelled: '주문이 취소되었습니다. 취소 사유나 결제·환불 여부는 직원에게 확인해 주세요.',
 };
+const stages: OrderStatus[] = ['submitted', 'accepted', 'preparing', 'ready', 'picked_up'];
+
 export default function OrderScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const app = useApp();
@@ -109,7 +114,7 @@ export default function OrderScreen() {
       {!!actionError && <Problem message={actionError} />}
       {order && (
         <>
-          <Card>
+          <Card className="border-0 bg-secondary shadow-none">
             <CardContent className="gap-4 pt-6">
               {store && (
                 <>
@@ -129,6 +134,60 @@ export default function OrderScreen() {
               <Text>{order.summary}</Text>
               <Text variant="h3">{money(order.total)}</Text>
               {!!order.note && <Text>요청 사항: {order.note}</Text>}
+            </CardContent>
+          </Card>
+          <Card className="shadow-none">
+            <CardContent className="gap-4 pt-6">
+              <Text variant="h2">진행 상황</Text>
+              {order.status === 'cancelled' ? (
+                <View className="gap-2 rounded-xl bg-secondary p-4">
+                  <Text className="font-semibold">주문 취소</Text>
+                  <Text>이 주문은 더 이상 진행되지 않아요.</Text>
+                </View>
+              ) : (
+                stages.map((status, index) => {
+                  const activeIndex = stages.indexOf(order.status);
+                  const complete = index < activeIndex;
+                  const current = index === activeIndex;
+                  return (
+                    <View key={status} className="flex-row items-start gap-3">
+                      <View
+                        className={
+                          'h-10 w-10 items-center justify-center rounded-full ' +
+                          (complete || current ? 'bg-primary' : 'bg-muted')
+                        }
+                      >
+                        {complete ? (
+                          <Icon as={Check} size={19} className="text-primary-foreground" />
+                        ) : current ? (
+                          <Icon as={Clock3} size={19} className="text-primary-foreground" />
+                        ) : (
+                          <Text className="font-semibold text-muted-foreground">{index + 1}</Text>
+                        )}
+                      </View>
+                      <View
+                        className={
+                          'min-w-0 flex-1 gap-1 ' +
+                          (index < stages.length - 1 ? 'border-b border-border pb-4' : '')
+                        }
+                      >
+                        <Text
+                          className={
+                            current
+                              ? 'font-bold text-primary'
+                              : complete
+                                ? 'font-semibold'
+                                : 'text-muted-foreground'
+                          }
+                        >
+                          {statusLabels[status]}
+                        </Text>
+                        {current && <Text variant="muted">현재 단계</Text>}
+                      </View>
+                    </View>
+                  );
+                })
+              )}
             </CardContent>
           </Card>
           {order.status !== 'cancelled' && (
@@ -172,6 +231,7 @@ export default function OrderScreen() {
         </>
       )}
       <Button variant="secondary" disabled={loading} onPress={() => void refresh()}>
+        <Icon as={RefreshCw} size={18} />
         <Text>상태 새로고침</Text>
       </Button>
       <NavLink href="/">매장 찾기로</NavLink>

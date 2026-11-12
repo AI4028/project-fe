@@ -1,4 +1,8 @@
 import { useEffect, useState } from 'react';
+import { View } from 'react-native';
+import { HandHelping, MessageCircle, Clock, Check } from 'lucide-react-native';
+import { IconTile, StatusBadge } from '@/components/brand';
+import { Icon } from '@/components/ui/icon';
 import { useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
@@ -43,17 +47,31 @@ export default function Help() {
     !app.pendingSubmission &&
     (!storeId || storeId === app.connection.storeId);
   return (
-    <Screen title="도움이 필요하세요?" voice={false}>
+    <Screen
+      title="필요할 때, 도움을 요청해요."
+      subtitle="연결된 매장에 요청하거나, 직원에게 직접 문의할 수 있어요."
+      voice={false}
+    >
       {store && (
-        <>
-          <Text variant="h2">{store.name}</Text>
-          <Text>{store.address}</Text>
-        </>
+        <View className="gap-2 rounded-2xl border border-border bg-card p-5">
+          <Text className="font-bold">{store.name}</Text>
+          <Text variant="muted">{store.address}</Text>
+        </View>
       )}
       {!!error && <Problem message={error} retry={() => setRevision((value) => value + 1)} />}
       {canRequest ? (
         <Card>
-          <CardContent className="gap-3 pt-6">
+          <CardContent className="gap-5">
+            <View className="flex-row flex-wrap items-center justify-between gap-4">
+              <IconTile icon={HandHelping} />
+              <StatusBadge selected={app.helpState !== 'idle'}>
+                {app.helpState === 'idle'
+                  ? '요청 전'
+                  : app.helpState === 'sent'
+                    ? '직원 확인 대기'
+                    : '직원 확인됨'}
+              </StatusBadge>
+            </View>
             <Text variant="h2">매장에 도움 요청 보내기</Text>
             <Text accessibilityLiveRegion="polite">
               {
@@ -72,6 +90,17 @@ export default function Help() {
                 void app.help().catch((reason) => setError(errorMessage(reason)));
               }}
             >
+              <Icon
+                as={
+                  app.helpState === 'sent'
+                    ? Clock
+                    : app.helpState === 'acknowledged'
+                      ? Check
+                      : HandHelping
+                }
+                size={20}
+                accessible={false}
+              />
               <Text>{app.helpState === 'sent' ? '직원 확인 대기 중' : '도움 요청 보내기'}</Text>
             </Button>
             <Text>
@@ -81,32 +110,45 @@ export default function Help() {
           </CardContent>
         </Card>
       ) : (
-        <>
-          <Text>
-            연결 전이나 주문 제출 후에는 앱에서 도움 요청을 보낼 수 없습니다. 매장 직원에게 직접
-            문의해 주세요.
-          </Text>
-          {orderId && (
-            <NavLink href={{ pathname: '/orders/[orderId]', params: { orderId } }}>
-              주문 번호와 상태 보여 주기
-            </NavLink>
-          )}
-        </>
+        <Card>
+          <CardContent className="gap-4">
+            <IconTile icon={HandHelping} />
+            <Text variant="h2">직원에게 직접 문의해 주세요</Text>
+            <Text>
+              연결 전이나 주문 제출 후에는 앱에서 도움 요청을 보낼 수 없습니다. 매장 직원에게 직접
+              문의해 주세요.
+            </Text>
+            {orderId && (
+              <NavLink href={{ pathname: '/orders/[orderId]', params: { orderId } }}>
+                주문 번호와 상태 보여 주기
+              </NavLink>
+            )}
+          </CardContent>
+        </Card>
       )}
-      <Text variant="h2">직원에게 이렇게 요청해 보세요</Text>
-      <Text>
-        {orderId
-          ? '“휴대폰으로 주문했습니다. 주문 상태, 취소 또는 픽업 안내를 도와주세요.”'
-          : '“휴대폰 주문 연결 코드나 링크를 알려주세요. 연결이 어렵다면 직접 주문을 도와주세요.”'}
-      </Text>
-      <Text>등록된 실내 안내: {knownText(store?.indoorDirections)}</Text>
-      <Text variant="muted">
-        매장 연락처와 직원 위치는 확인이 필요합니다. 주변 직원에게 직접 도움을 요청해 주세요.
-      </Text>
-      <NavLink href="/connect">연결 코드 다시 입력</NavLink>
-      <NavLink href={store ? { pathname: '/store', params: { storeId: store.storeId } } : '/'}>
-        매장 정보로 돌아가기
-      </NavLink>
+      <Card className="bg-secondary">
+        <CardContent className="gap-4">
+          <IconTile icon={MessageCircle} />
+          <Text variant="h2">이 문장을 보여 드려도 좋아요</Text>
+          <Text variant="lead" className="leading-8 text-foreground">
+            {orderId
+              ? '“휴대폰으로 주문했습니다. 주문 상태, 취소 또는 픽업 안내를 도와주세요.”'
+              : '“휴대폰 주문 연결 코드나 링크를 알려주세요. 연결이 어렵다면 직접 주문을 도와주세요.”'}
+          </Text>
+        </CardContent>
+      </Card>
+      <View className="gap-3 rounded-2xl border border-border p-5">
+        <Text>등록된 실내 안내: {knownText(store?.indoorDirections)}</Text>
+        <Text variant="muted">
+          매장 연락처와 직원 위치는 확인이 필요합니다. 주변 직원에게 직접 도움을 요청해 주세요.
+        </Text>
+      </View>
+      <View className="flex-row flex-wrap gap-3">
+        <NavLink href="/connect">연결 코드 다시 입력</NavLink>
+        <NavLink href={store ? { pathname: '/store', params: { storeId: store.storeId } } : '/'}>
+          매장 정보로 돌아가기
+        </NavLink>
+      </View>
     </Screen>
   );
 }
