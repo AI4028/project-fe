@@ -1,15 +1,26 @@
-import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+﻿import { useEffect, useState } from 'react';
+import { Image, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { Check, Minus, Plus, RefreshCw } from 'lucide-react-native';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
 import { useApp } from '@/providers/app-provider';
 import { estimate, money, validateItem, replaceCartItem } from '@/lib/cart';
 import { voiceSelection } from '@/lib/voice';
 import { Problem } from '@/components/feedback';
 import { errorMessage } from '@/lib/api';
 import type { Options } from '@/lib/types';
+
+const photos: Record<string, number> = {
+  americano: require('../../../assets/menu/americano.jpg'),
+  'cafe-latte': require('../../../assets/menu/cafe-latte.jpg'),
+  'vanilla-latte': require('../../../assets/menu/vanilla-latte.jpg'),
+  'grapefruit-ade': require('../../../assets/menu/grapefruit-ade.jpg'),
+};
+
 export default function ItemOptions() {
   const { itemId, speech, edit } = useLocalSearchParams<{
     itemId: string;
@@ -40,11 +51,12 @@ export default function ItemOptions() {
     setQty(restored.qty);
     setOptions(restored.options);
   }, [app.items, index, original]);
+
   async function add() {
     if (!item) return;
-    const error = validateItem(item, qty, options);
-    if (error) {
-      setError(error);
+    const validationError = validateItem(item, qty, options);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setError('');
@@ -60,9 +72,11 @@ export default function ItemOptions() {
       setError(errorMessage(reason));
     }
   }
+
   return (
     <Screen
-      title={item?.name ?? '메뉴를 찾을 수 없습니다'}
+      title={item?.name ?? '메뉴를 찾을 수 없어요'}
+      subtitle={index === null ? '원하는 옵션과 수량을 골라 주세요.' : '옵션과 수량을 바꿔 주세요.'}
       onTranscript={(text) => {
         if (!item) return false;
         if (/담아|담기|넣어/.test(text)) {
@@ -85,7 +99,7 @@ export default function ItemOptions() {
         if (JSON.stringify(recognized) !== JSON.stringify(options) || /잔|개/.test(text)) {
           setOptions(recognized);
           if (/잔|개/.test(text)) setQty(selection.qty);
-          app.announce('옵션을 선택했습니다. 확인 후 담기라고 말해 주세요.');
+          app.announce('옵션을 선택했어요. 확인 후 담기라고 말해 주세요.');
           return true;
         }
         return false;
@@ -96,19 +110,39 @@ export default function ItemOptions() {
         <NavLink href="/">매장 선택으로 돌아가기</NavLink>
       ) : (
         <>
-          <Text>
-            {index === null
-              ? item.description
-              : '옵션과 수량을 바꾸면 기존 장바구니 항목이 수정됩니다.'}
-          </Text>
+          <Card className="overflow-hidden p-0">
+            {photos[item.id] && (
+              <Image
+                source={photos[item.id]}
+                style={{ width: '100%', height: 260 }}
+                accessibilityIgnoresInvertColors
+                accessible={false}
+              />
+            )}
+            <CardContent className="gap-3 py-6">
+              <Text className="text-sm font-semibold text-primary">{item.category}</Text>
+              <Text variant="h2">{item.name}</Text>
+              <Text variant="muted">
+                {index === null ? item.description : '변경하면 장바구니의 기존 항목에 적용돼요.'}
+              </Text>
+              <Text className="text-xl font-bold">{money(item.price)}부터</Text>
+            </CardContent>
+          </Card>
+
           {!item.available && (
-            <Text accessibilityRole="alert">
-              이 메뉴는 현재 품절입니다. 장바구니에서 삭제하거나 다른 메뉴를 선택해 주세요.
-            </Text>
+            <Card className="border-destructive/30 bg-card shadow-none">
+              <CardContent className="gap-2 pt-6">
+                <Text accessibilityRole="alert" variant="h3">
+                  지금은 품절이에요
+                </Text>
+                <Text>장바구니에서 삭제하거나 다른 메뉴를 골라 주세요.</Text>
+              </CardContent>
+            </Card>
           )}
           <Button
             variant="outline"
             disabled={app.busy}
+            className="self-start"
             onPress={() => {
               if (app.store)
                 void app
@@ -116,14 +150,25 @@ export default function ItemOptions() {
                   .catch((reason) => setError(errorMessage(reason)));
             }}
           >
-            <Text>가격 · 판매 상태 새로고침</Text>
+            <Icon as={RefreshCw} size={17} />
+            <Text>가격과 판매 상태 새로고침</Text>
           </Button>
+
           {item.options.map((option) => (
             <View key={option.id} className="gap-3">
-              <Text variant="h3">
-                {option.name} {option.required ? '(필수)' : '(선택)'}
-              </Text>
-              <View className="flex-row flex-wrap gap-2">
+              <View className="flex-row flex-wrap items-baseline gap-2">
+                <Text variant="h2">{option.name}</Text>
+                <Text className="text-sm font-semibold text-primary">
+                  {option.required ? '필수' : '선택'}
+                  {option.type === 'multi' && option.maxChoices
+                    ? ' · 최대 ' + option.maxChoices + '개'
+                    : ''}
+                </Text>
+              </View>
+              <View
+                className="gap-2"
+                accessibilityRole={option.type === 'single' ? 'radiogroup' : undefined}
+              >
                 {option.choices.map((choice) => {
                   const current = options[option.id];
                   const selected = Array.isArray(current)
@@ -131,18 +176,20 @@ export default function ItemOptions() {
                     : current === choice.id;
                   const canDeselectUnavailable =
                     selected && (option.type === 'multi' || !option.required);
-                  const disabled =
-                    choice.available === false && !canDeselectUnavailable;
+                  const disabled = choice.available === false && !canDeselectUnavailable;
                   return (
                     <Button
                       key={choice.id}
-                      variant={selected ? 'default' : 'outline'}
+                      variant={selected ? 'secondary' : 'outline'}
+                      className="min-h-14 w-full justify-between px-4 py-3"
                       disabled={disabled}
                       accessibilityRole={option.type === 'multi' ? 'checkbox' : 'radio'}
-                      accessibilityState={{
-                        checked: selected,
-                        disabled,
-                      }}
+                      accessibilityState={{ checked: selected, disabled }}
+                      accessibilityLabel={
+                        choice.name +
+                        (choice.priceDelta ? ', 추가 ' + money(choice.priceDelta) : '') +
+                        (disabled ? ', 품절' : '')
+                      }
                       onPress={() => {
                         const next = { ...options };
                         if (option.type === 'multi') {
@@ -151,7 +198,9 @@ export default function ItemOptions() {
                             !selected &&
                             values.length >= (option.maxChoices || option.choices.length)
                           )
-                            return app.announce(`최대 ${option.maxChoices}개까지 선택해 주세요.`);
+                            return app.announce(
+                              '최대 ' + option.maxChoices + '개까지 선택해 주세요.',
+                            );
                           next[option.id] = selected
                             ? values.filter((id) => id !== choice.id)
                             : [...values, choice.id];
@@ -160,43 +209,61 @@ export default function ItemOptions() {
                         setOptions(next);
                       }}
                     >
-                      <Text>
-                        {choice.name}
-                        {choice.priceDelta ? ` (+${money(choice.priceDelta)})` : ''}
-                        {choice.available === false ? ' · 품절' : ''}
-                      </Text>
+                      <View className="min-w-0 flex-1 flex-row flex-wrap items-center gap-2">
+                        <Text className="font-semibold">{choice.name}</Text>
+                        {choice.available === false && <Text>품절</Text>}
+                      </View>
+                      <View className="flex-row items-center gap-3">
+                        {!!choice.priceDelta && <Text>+{money(choice.priceDelta)}</Text>}
+                        {selected && <Icon as={Check} size={20} className="text-primary" />}
+                      </View>
                     </Button>
                   );
                 })}
               </View>
             </View>
           ))}
-          <View className="flex-row items-center gap-4">
-            <Button
-              variant="outline"
-              disabled={qty <= 1}
-              accessibilityLabel="수량 줄이기"
-              onPress={() => setQty(qty - 1)}
-            >
-              <Text>−</Text>
-            </Button>
-            <Text accessibilityLiveRegion="polite">{qty}개</Text>
-            <Button
-              variant="outline"
-              disabled={qty >= 10}
-              accessibilityLabel="수량 늘리기"
-              onPress={() => setQty(qty + 1)}
-            >
-              <Text>+</Text>
-            </Button>
-          </View>
-          <Text variant="h3">예상 금액 {money(estimate(item, qty, options))}</Text>
+
+          <Card className="shadow-none">
+            <CardContent className="gap-4 pt-6">
+              <Text variant="h2">수량</Text>
+              <View className="flex-row items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={qty <= 1}
+                  accessibilityLabel="수량 줄이기"
+                  onPress={() => setQty(qty - 1)}
+                >
+                  <Icon as={Minus} size={19} />
+                </Button>
+                <Text variant="h2" accessibilityLiveRegion="polite">
+                  {qty}개
+                </Text>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={qty >= 10}
+                  accessibilityLabel="수량 늘리기"
+                  onPress={() => setQty(qty + 1)}
+                >
+                  <Icon as={Plus} size={19} />
+                </Button>
+              </View>
+              <View className="border-t border-border pt-4">
+                <Text variant="muted">예상 금액 · 최종 금액은 매장 확인 후 표시돼요</Text>
+                <Text variant="h2">{money(estimate(item, qty, options))}</Text>
+              </View>
+            </CardContent>
+          </Card>
+
           {app.connection ? (
             <Button
+              size="lg"
               disabled={app.busy || !item.available || !!app.pendingSubmission}
               onPress={() => void add().catch(app.report)}
             >
-              <Text>{index === null ? '장바구니에 담기' : '수정 내용 저장'}</Text>
+              <Text>{index === null ? '장바구니에 담기' : '변경 내용 저장'}</Text>
             </Button>
           ) : (
             <NavLink href={{ pathname: '/connect', params: { storeId: app.store!.storeId } }}>

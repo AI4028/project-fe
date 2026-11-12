@@ -2,6 +2,7 @@
 import { Icon } from '@/components/ui/icon';
 import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
 import { cn } from '@/lib/utils';
+import { FontReadyContext, TextScaleContext } from './text';
 import * as DialogPrimitive from '@rn-primitives/dialog';
 import { X } from 'lucide-react-native';
 import * as React from 'react';
@@ -79,7 +80,7 @@ function DialogContent({
       <DialogOverlay>
         <DialogPrimitive.Content
           className={cn(
-            'bg-background border-border z-50 mx-auto flex w-full max-w-[calc(100%-2rem)] flex-col gap-4 rounded-lg border p-6 shadow-lg shadow-black/5 sm:max-w-lg',
+            'bg-card border-border z-50 mx-auto flex w-full max-w-[calc(100%-2rem)] flex-col gap-5 rounded-3xl border p-6 pt-16 shadow-lg shadow-black/5 sm:max-w-lg',
             Platform.select({
               web: 'animate-in fade-in-0 zoom-in-95 duration-200',
             }),
@@ -90,12 +91,12 @@ function DialogContent({
           <>{children}</>
           <DialogPrimitive.Close
             className={cn(
-              'absolute right-4 top-4 rounded opacity-70 active:opacity-100',
+              'absolute right-3 top-3 h-12 w-12 items-center justify-center rounded-xl',
               Platform.select({
                 web: 'ring-offset-background focus:ring-ring data-[state=open]:bg-accent transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2',
               }),
             )}
-            hitSlop={12}
+            accessibilityLabel="대화상자 닫기"
           >
             <Icon
               as={X}
@@ -125,10 +126,20 @@ function DialogFooter({ className, ...props }: ViewProps) {
 }
 
 function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
+  const scale = React.useContext(TextScaleContext);
+  const fontReady = React.useContext(FontReadyContext);
   return (
     <DialogPrimitive.Title
-      className={cn('text-foreground text-lg font-semibold leading-none', className)}
+      className={cn('text-foreground text-xl font-bold leading-7', className)}
       {...props}
+      style={[
+        {
+          fontSize: 20 * scale,
+          lineHeight: 28 * scale,
+          fontFamily: fontReady ? 'KoddiUDBold' : undefined,
+        },
+        props.style,
+      ]}
     />
   );
 }
@@ -137,10 +148,20 @@ function DialogDescription({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
+  const scale = React.useContext(TextScaleContext);
+  const fontReady = React.useContext(FontReadyContext);
   return (
     <DialogPrimitive.Description
       className={cn('text-muted-foreground text-sm', className)}
       {...props}
+      style={[
+        {
+          fontSize: 16 * scale,
+          lineHeight: 26 * scale,
+          fontFamily: fontReady ? 'KoddiUDRegular' : undefined,
+        },
+        props.style,
+      ]}
     />
   );
 }

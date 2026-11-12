@@ -4,13 +4,21 @@ import { cn } from '@/lib/utils';
 import type { LucideIcon, LucideProps } from 'lucide-react-native';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
+import { Platform } from 'react-native';
 
 type IconProps = LucideProps & {
   as: LucideIcon;
 } & React.RefAttributes<LucideIcon>;
 
-function IconImpl({ as: IconComponent, ...props }: IconProps) {
-  return <IconComponent {...props} />;
+function IconImpl({ as: IconComponent, accessible = false, ...props }: IconProps) {
+  return (
+    <IconComponent
+      {...props}
+      {...(Platform.OS === 'web'
+        ? { 'aria-hidden': accessible === false ? true : undefined }
+        : { accessible })}
+    />
+  );
 }
 
 cssInterop(IconImpl, {

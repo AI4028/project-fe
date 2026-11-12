@@ -1,5 +1,6 @@
 // Adapted from React Native Reusables (MIT); see THIRD_PARTY_NOTICES.md.
 import { cn } from '@/lib/utils';
+import { typography } from '@/lib/theme';
 import { Slot } from '@rn-primitives/slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
@@ -7,9 +8,9 @@ import { Platform, Text as RNText, type Role } from 'react-native';
 
 const textVariants = cva(
   cn(
-    'text-foreground text-base',
+    'text-foreground text-base leading-7',
     Platform.select({
-      web: 'select-text',
+      web: 'select-text break-keep',
     }),
   ),
   {
@@ -17,15 +18,21 @@ const textVariants = cva(
       variant: {
         default: '',
         h1: cn(
-          'text-center text-4xl font-extrabold tracking-tight',
+          'text-left text-[32px] font-bold leading-tight tracking-tight',
           Platform.select({ web: 'scroll-m-20 text-balance' }),
         ),
         h2: cn(
-          'border-border border-b pb-2 text-3xl font-semibold tracking-tight',
+          'text-2xl font-bold leading-8 tracking-tight',
           Platform.select({ web: 'scroll-m-20 first:mt-0' }),
         ),
-        h3: cn('text-2xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
-        h4: cn('text-xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
+        h3: cn(
+          'text-xl font-bold leading-7 tracking-tight',
+          Platform.select({ web: 'scroll-m-20' }),
+        ),
+        h4: cn(
+          'text-lg font-bold leading-7 tracking-tight',
+          Platform.select({ web: 'scroll-m-20' }),
+        ),
         p: 'mt-3 leading-7 sm:mt-6',
         blockquote: 'mt-4 border-l-2 pl-3 italic sm:mt-6 sm:pl-6',
         code: cn(
@@ -33,8 +40,8 @@ const textVariants = cva(
         ),
         lead: 'text-muted-foreground text-xl',
         large: 'text-lg font-semibold',
-        small: 'text-sm font-medium leading-none',
-        muted: 'text-muted-foreground text-sm',
+        small: 'text-sm font-medium leading-5',
+        muted: 'text-muted-foreground text-sm leading-6',
       },
     },
     defaultVariants: {
@@ -64,6 +71,7 @@ const ARIA_LEVEL: Partial<Record<TextVariant, string>> = {
 };
 
 export const TextScaleContext = React.createContext(1);
+export const FontReadyContext = React.createContext(false);
 
 const TextClassContext = React.createContext<string | undefined>(undefined);
 
@@ -78,30 +86,43 @@ function Text({
     asChild?: boolean;
   }) {
   const scale = React.useContext(TextScaleContext);
-  const sizes = {
-    default: 16,
-    h1: 36,
-    h2: 30,
-    h3: 24,
-    h4: 20,
-    p: 16,
-    blockquote: 16,
-    code: 14,
-    lead: 20,
-    large: 18,
-    small: 14,
-    muted: 14,
-  };
+  const fontsReady = React.useContext(FontReadyContext);
   const textClass = React.useContext(TextClassContext);
+  const resolvedClass = cn(textVariants({ variant }), textClass, className);
+  const bold = /font-(medium|semibold|bold|extrabold|black)/.test(resolvedClass);
+  const sizeClass = resolvedClass.match(
+    /(?:^| )text-(xs|sm|base|lg|xl|2xl|3xl|4xl|\[\d+px\])(?: |$)/,
+  )?.[1];
+  const classSizes: Record<string, number> = {
+    xs: 12,
+    sm: 14,
+    base: 16,
+    lg: 18,
+    xl: 20,
+    '2xl': 24,
+    '3xl': 30,
+    '4xl': 36,
+  };
+  const baseSize = sizeClass?.startsWith('[')
+    ? Number.parseInt(sizeClass.slice(1), 10)
+    : (classSizes[sizeClass ?? ''] ?? typography[variant ?? 'default']);
   const Component = asChild ? Slot : RNText;
   return (
     <Component
-      className={cn(textVariants({ variant }), textClass, className)}
+      className={resolvedClass}
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
       {...props}
       style={[
-        scale === 1 ? undefined : { fontSize: sizes[variant ?? 'default'] * scale },
+        fontsReady && !resolvedClass.includes('font-mono')
+          ? { fontFamily: bold ? 'KoddiUDBold' : 'KoddiUDRegular', fontWeight: 'normal' }
+          : undefined,
+        scale === 1
+          ? undefined
+          : {
+              fontSize: baseSize * scale,
+              lineHeight: baseSize * scale * 1.55,
+            },
         props.style,
       ]}
     />

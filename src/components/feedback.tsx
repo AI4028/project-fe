@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
+import { CircleAlert } from 'lucide-react-native';
+import { Icon } from './ui/icon';
 import { router } from 'expo-router';
 import { Text } from './ui/text';
 import { Button } from './ui/button';
@@ -17,8 +19,13 @@ export function Problem({
   busy?: boolean;
 }) {
   return (
-    <View className="gap-3 rounded-lg border border-destructive p-4">
-      <Text accessibilityRole="alert">{message}</Text>
+    <View className="gap-3 rounded-2xl border border-destructive bg-card p-5">
+      <View className="flex-row items-start gap-3">
+        <Icon as={CircleAlert} size={22} className="text-destructive" accessible={false} />
+        <Text className="flex-1" accessibilityRole="alert">
+          {message}
+        </Text>
+      </View>
       {retry && (
         <Button variant="outline" disabled={busy} onPress={retry}>
           <Text>다시 시도</Text>
