@@ -70,3 +70,26 @@ test('keeps the global receiver required by browser fetch', async () => {
     globalThis.fetch = original;
   }
 });
+
+test('sends the quote and stable retry key with checkout', async () => {
+  const transport = jest
+    .fn()
+    .mockResolvedValue({ ok: true, json: async () => ({ orderId: 'o1' }) });
+  const items = [{ itemId: 'coffee', qty: 1, options: {} }];
+  await new Api('https://example.test', transport).submit(
+    's1',
+    items,
+    'counter',
+    '',
+    'dev_test',
+    'q1',
+  );
+  const options = transport.mock.calls[0][1];
+  expect(options.headers['Idempotency-Key']).toBe('order:s1');
+  expect(JSON.parse(options.body)).toEqual({
+    items,
+    paymentMethod: 'counter',
+    note: '',
+    quoteId: 'q1',
+  });
+});

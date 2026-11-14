@@ -46,7 +46,7 @@ export type PricedLine = {
   lineTotal: number;
   options: { optionId: string; choiceId: string; choiceName: string }[];
 };
-export type Cart = { total: number; summary: string; lines: PricedLine[] };
+export type Cart = { quoteId?: string; total: number; summary: string; lines: PricedLine[] };
 export type Session = {
   sessionId: string;
   kioskId: string;

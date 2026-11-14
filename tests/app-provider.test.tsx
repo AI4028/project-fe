@@ -27,6 +27,7 @@ const menu = [
 const store = { storeId: 'cafe', name: '카페', address: '', accessibility: {}, menu };
 const connection = { sessionId: 's1', kioskId: 'GK01', storeId: 'cafe' };
 const cart = {
+  quoteId: 'quote-1',
   lines: [{ itemId: 'coffee', name: '커피', qty: 1, options: [], lineTotal: 2500 }],
   total: 2500,
   summary: '커피 1개',
@@ -215,13 +216,15 @@ test('blocks retries and cart edits after a lost submission response, then recov
   expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'))).toHaveLength(1);
 });
 
-test('restores an uncertain submission after restart and clears it only after checking the server', async () => {
+test('keeps a legacy uncertain submission blocked when a read cannot prove its outcome', async () => {
   device = 'dev_test';
   await AsyncStorage.setItem('pending-order:http://127.0.0.1:8000', 's1');
   const { result } = await mount();
   expect(result.current.pendingSubmission).toBe('s1');
-  await act(() => result.current.recoverSubmission());
-  expect(result.current.pendingSubmission).toBeNull();
+  await act(async () => {
+    await expect(result.current.recoverSubmission()).rejects.toThrow('확실하지');
+  });
+  expect(result.current.pendingSubmission).toBe('s1');
   expect(result.current.connection?.sessionId).toBe('s1');
   expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'))).toHaveLength(0);
 });
@@ -277,4 +280,29 @@ test('ignores a stale preview store response after connecting to another store',
   release();
   await preview;
   await waitFor(() => expect(result.current.store?.storeId).toBe('branch'));
+});
+
+test('replays the exact persisted request when the first submission has no known result', async () => {
+  const { result } = await mount();
+  await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+  await act(() => result.current.updateCart([{ itemId: 'coffee', qty: 1, options: {} }]));
+  const previous = route;
+  route = (path, method) => {
+    if (path.endsWith('/order')) throw new TypeError('offline');
+    return previous(path, method);
+  };
+  await act(async () => {
+    await expect(result.current.submit('counter', 'note')).rejects.toThrow('offline');
+  });
+  const saved = JSON.parse((await AsyncStorage.getItem('submission:http://127.0.0.1:8000'))!);
+  expect(saved.quoteId).toBe('quote-1');
+  route = previous;
+  await act(() => result.current.recoverSubmission());
+  const requests = fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'));
+  expect(requests).toHaveLength(2);
+  expect(requests[0][1].body).toBe(requests[1][1].body);
+  expect(requests[1][1].headers['Idempotency-Key']).toBe('order:s1');
+  expect(result.current.pendingSubmission).toBeNull();
+  expect(result.current.order?.orderId).toBe('o1');
+  expect(await AsyncStorage.getItem('submission:http://127.0.0.1:8000')).toBeNull();
 });

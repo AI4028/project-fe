@@ -38,8 +38,8 @@ scoped to the configured API URL; changing servers does not forward old tokens.
 
 The UX follows the [Service Diagram / Flowchart](https://app.notion.com/p/Service-Diagram-Flowchart-3f3e09a12c88809ebef5ccaa8a0235b5)
 reviewed on **2026-11-05**. It is a design proposal, not a claim that all optional
-services exist. The current integration targets backend `origin/develop` at
-`e2e706e`; backend files are unchanged by this branch.
+services exist. This branch targets backend `feature/backend-readiness` through migration `0002`.
+See [backend integration](docs/backend-readiness.md) before running it.
 
 1. **Discover or order directly.** The home screen starts with an accessible store
    list and name/address search. Users already at a store can enter a connection
@@ -67,7 +67,7 @@ services exist. The current integration targets backend `origin/develop` at
    pending. A lost response blocks another submission, cart changes and session
    termination until the user checks `GET /sessions/{id}` and, if present,
    `GET /orders/{orderId}`. Reload also attempts recovery. No POST is automatically
-   retried. Backend idempotency/quote guarantees are still required (see below).
+   retried. Safe recovery replays the persisted request with its original quote and idempotency key.
 7. **Track distinct outcomes.** Sending, submitted, accepted, preparing, ready,
    picked up and cancelled are different states. Order status shows the last
    successful check and retains it with an error notice when offline. Cancellation
@@ -191,12 +191,12 @@ ownership checks on every private operation. Never put a kiosk secret in a link.
 | Active-session help      | `POST /sessions/{id}/help`, `help_resolved` websocket event                                | `helpRequested=false` after reload does not establish acknowledgement; no durable acknowledged state exposed. |
 | Status/pickup            | order GET and session WebSocket; staff `POST /kiosk/orders/{id}/status`                    | `ready` and `picked_up` are separate; frontend never marks pickup automatically.                              |
 
-### Missing capabilities (proposed, not called)
+### Backend integration and remaining proposals
 
 | Priority                        | Backend change to agree                                                                              | Minimum response/behavior                                                                                                                                                                                                                                                                 | Frontend fallback today                                                                                                                                                                                |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| P0: safe order retry            | Add `Idempotency-Key` to `POST /sessions/{id}/order`; optionally `GET /order-requests/{requestId}`   | Scope key to device + session; identical retry returns the original order, conflicting payload → 409. Persist result atomically with order. Return `pending`, `succeeded` + `orderId`, or explicit `failed`.                                                                              | Persist pending session and perform GET recovery before allowing manual retry. An active-session snapshot alone cannot rule out an earlier in-flight POST; server-side idempotency is still necessary. |
-| P0: exact price confirmation    | Add a server-issued `cartVersion`/`quoteId` to cart response and require it on order POST            | Atomically reject stale quote with `409 price-changed` / `availability-changed` and a fresh cart; do not create an order. Scope quote to session, items and menu version.                                                                                                                 | Reprice before POST and ask for another review if changed. A price change between reprice and POST cannot be eliminated in the frontend.                                                               |
+| Done: safe order retry | `Idempotency-Key` on order POST | Same device/session/key and body returns the original result; changed body returns 409. | The client persists the body before POST and replays it during recovery. |
+| Done: exact price confirmation | Cart `quoteId` sent on order POST | Changed quote, items or prices return `409 price-changed`; sold-out choices retain availability errors. | New confirmation is required; checkout refuses a server without quotes. |
 | P1: help outside active session | `POST /orders/{orderId}/help`, `GET /orders/{orderId}/help`; staff acknowledgement endpoint          | Return `requestId`, `status: requested                                                                                                                                                                                                                                                    | acknowledged                                                                                                                                                                                           | resolved`, timestamps; require order ownership, prevent duplicate active requests; emit separate events. Extend session GET with the same durable state. | After submission, direct staff guidance and order number; no disabled or fake help POST. Acknowledged does not mean assistance delivered. |
 | P1: verified store/support data | Extend `GET /stores/{storeId}`                                                                       | Proposed nullable fields: `contactPhone`, `staffLocationInstructions`, `pickupInstructions`, `accessibilitySource`, `accessibilityVerifiedAt`, `phoneOrderingAvailable`, `connectionMethods`, `paymentLocations`, `operatingStatus` + `operatingStatusUpdatedAt`. Define null as unknown. | Show registered details and unknowns; current counter/kiosk choices reflect backend enum, not verified per-store availability. No fabricated phone, pickup point or opening state.                     |
 | P1: connection instructions     | Extend store response with supported entry instructions; optionally `GET /stores/{id}/ordering-info` | Public kiosk IDs, supported code/link methods, human-readable instructions and temporary-unavailability reason. Do not return secret keys or make rotating tokens public outside explicit demo mode.                                                                                      | User obtains code/link from the store, then public kiosk lookup verifies branch. No queue position or estimated wait shown.                                                                            |
@@ -204,7 +204,7 @@ ownership checks on every private operation. Never put a kiosk secret in a link.
 | Optional: online payment        | Define payment create/status/cancel/refund contracts separately before exposing a payment action     | Provider-confirmed state, payment/order correlation, webhook verification and idempotency; distinguish paid-but-order-failed and refund pending/completed.                                                                                                                                | No online payment button. Choosing counter/kiosk is not payment confirmation.                                                                                                                          |
 | Optional: background alerts     | Device push registration/revocation endpoint and delivery policy                                     | Per-device consent, current order linkage, token rotation, no claim of delivery without evidence.                                                                                                                                                                                         | Explicit order-status route and foreground refresh.                                                                                                                                                    |
 
-Suggested examples for the two P0 extensions:
+Implemented quote response example:
 
 ```json
 {
@@ -215,11 +215,8 @@ Suggested examples for the two P0 extensions:
 }
 ```
 
-Order POST would carry the existing `items`, `paymentMethod`, `note`, plus
-`quoteId`, and an `Idempotency-Key` header. Exact names are proposals. Existing
-clients must be considered during rollout; the current frontend intentionally
-sends only fields the current backend accepts. These additions need backend
-implementation, contract tests and a follow-up frontend integration.
+Order POST carries the existing `items`, `paymentMethod`, `note`, plus
+`quoteId`, and an `Idempotency-Key` header. This branch sends both fields. Deploy the matching backend and apply migration `0002` first.
 
 ### Acceptance checks for this branch
 

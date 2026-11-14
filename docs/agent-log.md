@@ -78,3 +78,10 @@ Newest first, four lines, no stories:
 - **Why:** `expo-env.d.ts` is generated and git-ignored, so a fresh clone has no Expo types.
 - **Fix:** add `"expo/types"` to `types` in `tsconfig.json`.
 - **Rule:** CI must not depend on generated or ignored files. When unsure, test from a clean clone.
+
+### 2026-11-14 - Preserve Korean text when editing through PowerShell
+
+- **Hit:** new Korean messages became question marks when a Python edit script was piped through PowerShell.
+- **Why:** the shell's pipe encoding could not represent the new text.
+- **Fix:** rewrote the affected messages with the Unicode-safe patch tool and checked for question-mark runs.
+- **Rule:** use direct patches for Korean text; UTF-8 file reads alone do not fix lossy stdin encoding.
