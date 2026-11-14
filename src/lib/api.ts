@@ -38,7 +38,13 @@ export class Api {
   ) {
     this.base = normalizeBase(base);
   }
-  async request<T>(path: string, method = 'GET', body?: unknown, token?: string): Promise<T> {
+  async request<T>(
+    path: string,
+    method = 'GET',
+    body?: unknown,
+    token?: string,
+    headers?: Record<string, string>,
+  ): Promise<T> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     try {
@@ -47,6 +53,7 @@ export class Api {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
+          ...headers,
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -89,7 +96,15 @@ export class Api {
     paymentMethod: 'counter' | 'kiosk',
     note: string,
     device: string,
-  ) => this.request<Order>(`/sessions/${id}/order`, 'POST', { items, paymentMethod, note }, device);
+    quoteId?: string,
+  ) =>
+    this.request<Order>(
+      `/sessions/${id}/order`,
+      'POST',
+      { items, paymentMethod, note, quoteId },
+      device,
+      { 'Idempotency-Key': `order:${id}` },
+    );
   cancel = (id: string, device: string) =>
     this.request<LiveEvent>(`/orders/${id}/cancel`, 'POST', undefined, device);
   help = (id: string, device: string) =>
@@ -97,6 +112,13 @@ export class Api {
   end = (id: string, device: string) =>
     this.request<LiveEvent>(`/sessions/${id}/end`, 'POST', undefined, device);
   heartbeat = (key: string) => this.request<Heartbeat>('/kiosk/heartbeat', 'POST', undefined, key);
+  kioskState = (key: string) =>
+    this.request<{ session: Session | null; orders: Order[]; store: Store }>(
+      '/kiosk/state',
+      'GET',
+      undefined,
+      key,
+    );
   kioskSession = (key: string) =>
     this.request<Session | null>('/kiosk/session', 'GET', undefined, key);
   kioskOrders = (key: string) => this.request<Order[]>('/kiosk/orders', 'GET', undefined, key);
@@ -114,6 +136,8 @@ export class Api {
     this.request(`/kiosk/menu/${encodeURIComponent(id)}/availability`, 'PUT', { available }, key);
 }
 const messages: Record<string, string> = {
+  'price-changed': '가격이 변경되었습니다. 장바구니를 새로고침하고 다시 확인해 주세요.',
+  'idempotency-conflict': '이전 주문과 내용이 다릅니다. 주문 결과를 먼저 확인해 주세요.',
   'token-invalid': '연결 코드가 만료되었습니다. 키오스크에서 새 코드를 확인해 주세요.',
   'kiosk-busy': '다른 고객이 사용 중입니다. 잠시 후 다시 연결해 주세요.',
   'session-expired': '연결이 만료되었습니다. 다시 연결해 주세요.',

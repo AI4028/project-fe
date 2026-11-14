@@ -75,6 +75,7 @@ export default function Kiosk() {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     let refreshing = false;
+    let refreshAgain = false;
     const fail = (error: unknown) => {
       if (!active) return;
       app.report(error);
@@ -82,21 +83,27 @@ export default function Kiosk() {
         void logout().catch(app.report);
     };
     async function refresh() {
-      if (refreshing || !active) return;
+      if (!active) return;
+      if (refreshing) {
+        refreshAgain = true;
+        return;
+      }
       refreshing = true;
       try {
-        const [current, list] = await Promise.all([
-          app.api.kioskSession(key!),
-          app.api.kioskOrders(key!),
-        ]);
+        const state = await app.api.kioskState(key!);
         if (active) {
-          setSession(current);
-          setOrders(list);
+          setSession(state.session);
+          setOrders(state.orders);
+          setStore(state.store);
         }
       } catch (error) {
         fail(error);
       } finally {
         refreshing = false;
+        if (refreshAgain) {
+          refreshAgain = false;
+          void refresh();
+        }
       }
     }
     async function beat() {

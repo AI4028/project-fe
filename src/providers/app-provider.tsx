@@ -60,7 +60,10 @@ function useAppState() {
   async function markPending(id: string | null) {
     // Persist before POST so a closed tab can recover an uncertain submission.
     if (id) await AsyncStorage.setItem(`pending-order:${api.base}`, id);
-    else await AsyncStorage.removeItem(`pending-order:${api.base}`);
+    else {
+      await AsyncStorage.removeItem(`pending-order:${api.base}`);
+      await AsyncStorage.removeItem(`submission:${api.base}`);
+    }
     pendingRef.current = id;
     setPendingSubmission(id);
   }
@@ -149,20 +152,40 @@ function useAppState() {
       if (!id) return null;
       const session = await api.session(id, await token());
       if (session.orderId) return rememberOrder(await api.order(session.orderId, await token()));
-      if (session.status === 'active') {
-        const selected = await api.store(session.storeId);
-        setStore(selected);
-        setConnection(session);
-        setCart(session.cart);
-        setItems(restoreCart(session.cart.lines, selected.menu ?? []));
-      } else await clearSession();
-      await markPending(null);
-      announce(
-        session.status === 'active'
-          ? '현재 확인된 주문이 없습니다. 장바구니를 검토한 뒤 다시 제출할 수 있습니다.'
-          : '연결이 종료되었습니다. 주문이 확인되지 않아 직원 확인이 필요합니다.',
-      );
-      return null;
+      const raw = await AsyncStorage.getItem(`submission:${api.base}`);
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          sessionId: string;
+          items: CartItem[];
+          payment: 'counter' | 'kiosk';
+          note: string;
+          quoteId: string;
+        };
+        if (saved.sessionId !== id)
+          throw new Error('저장된 주문 정보가 일치하지 않습니다. 직원에게 확인해 주세요.');
+        try {
+          const placed = await api.submit(
+            id,
+            saved.items,
+            saved.payment,
+            saved.note,
+            await token(),
+            saved.quoteId,
+          );
+          return rememberOrder(placed);
+        } catch (error) {
+          if (
+            error instanceof ApiError &&
+            ['price-changed', 'item-unavailable', 'choice-unavailable', 'session-expired'].includes(
+              error.code,
+            )
+          )
+            await markPending(null);
+          throw error;
+        }
+      }
+      // Legacy pending orders have no replay key/body. A read cannot rule out an in-flight POST.
+      throw new Error('이전 주문의 전송 결과가 확실하지 않습니다. 매장 직원에게 확인해 주세요.');
     });
   }
   const refresh = useCallback(async () => {
@@ -181,6 +204,9 @@ function useAppState() {
         return;
       }
       if (session.helpRequested) setHelpState('sent');
+      const latestStore = await api.store(session.storeId);
+      if (currentApi.current === api && currentConnection.current?.sessionId === session.sessionId)
+        setStore(latestStore);
     }
     if (order) {
       const latest = await api.order(order.orderId, device);
@@ -379,10 +405,28 @@ function useAppState() {
         throw new Error(
           '가격 또는 주문 정보가 변경되었습니다. 새 합계를 확인하고 다시 제출해 주세요.',
         );
+      if (!latest.quoteId) throw new Error('서버 업데이트가 필요합니다. 직원에게 주문해 주세요.');
+      await AsyncStorage.setItem(
+        `submission:${api.base}`,
+        JSON.stringify({
+          sessionId: connection.sessionId,
+          items,
+          payment,
+          note,
+          quoteId: latest.quoteId,
+        }),
+      );
       await markPending(connection.sessionId);
       let placed: Order;
       try {
-        placed = await api.submit(connection.sessionId, items, payment, note, device);
+        placed = await api.submit(
+          connection.sessionId,
+          items,
+          payment,
+          note,
+          device,
+          latest.quoteId,
+        );
       } catch (error) {
         // A timeout/5xx or already-closed session can hide a committed order.
         if (
