@@ -1,5 +1,5 @@
 import { Linking, View } from 'react-native';
-import { Navigation, X, ShoppingBag } from 'lucide-react-native';
+import { Navigation, X, ShoppingBag, Bookmark } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Text } from './ui/text';
 import { Button } from './ui/button';
@@ -12,6 +12,7 @@ import { useTranslation } from '@/lib/i18n';
 export function PlacePreview({ store, onClose }: { store: Store; onClose: () => void }) {
   const app = useApp();
   const { t } = useTranslation();
+  const saved = app.savedPlaces?.some((item) => item.storeId === store.storeId) ?? false;
   return (
     <View className="gap-3 rounded-t-3xl border-t border-border bg-card px-5 py-4">
       <View className="flex-row items-start gap-3">
@@ -26,6 +27,22 @@ export function PlacePreview({ store, onClose }: { store: Store; onClose: () => 
             {store.address}
           </Text>
         </View>
+        <Button
+          variant="ghost"
+          size="icon"
+          accessibilityRole="switch"
+          accessibilityState={{ checked: saved }}
+          accessibilityLabel={saved ? '저장한 장소에서 삭제' : '장소 저장'}
+          onPress={() => void app.toggleSaved(store).catch(app.report)}
+        >
+          <Icon
+            as={Bookmark}
+            size={20}
+            className="text-primary"
+            fill={saved ? 'currentColor' : 'none'}
+            accessible={false}
+          />
+        </Button>
         <Button variant="ghost" size="icon" accessibilityLabel="닫기" onPress={onClose}>
           <Icon as={X} size={20} />
         </Button>

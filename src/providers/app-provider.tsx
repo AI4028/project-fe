@@ -83,6 +83,57 @@ function useAppState() {
     '갈지도에 오신 것을 환영합니다. 매장을 선택하고 키오스크에 연결해 주세요.',
   );
   const api = useMemo(() => new Api(settings.apiBase), [settings.apiBase]);
+  const [saved, setSaved] = useState<{ base: string; places: Store[] }>({
+    base: api.base,
+    places: [],
+  });
+  const savedRef = useRef<Store[]>([]);
+  const savedQueue = useRef<Promise<void>>(Promise.resolve());
+  useEffect(() => {
+    let active = true;
+    savedRef.current = [];
+    void AsyncStorage.getItem(`saved-places:${api.base}`)
+      .then((raw) => {
+        if (!active) return;
+        const value: unknown = raw ? JSON.parse(raw) : [];
+        const places = Array.isArray(value)
+          ? value.filter(
+              (item): item is Store =>
+                !!item &&
+                typeof item.storeId === 'string' &&
+                typeof item.name === 'string' &&
+                typeof item.address === 'string' &&
+                !!item.accessibility,
+            )
+          : [];
+        savedRef.current = places;
+        setSaved({ base: api.base, places });
+      })
+      .catch(() => {
+        if (active) setSaved({ base: api.base, places: [] });
+      });
+    return () => {
+      active = false;
+    };
+  }, [api.base]);
+  function toggleSaved(store: Store) {
+    const base = api.base;
+    const task = savedQueue.current
+      .catch(() => {})
+      .then(async () => {
+        if (currentApi.current.base !== base) return;
+        const next = savedRef.current.some((item) => item.storeId === store.storeId)
+          ? savedRef.current.filter((item) => item.storeId !== store.storeId)
+          : [...savedRef.current, { ...store, menu: undefined }];
+        await AsyncStorage.setItem(`saved-places:${base}`, JSON.stringify(next));
+        if (currentApi.current.base === base) {
+          savedRef.current = next;
+          setSaved({ base, places: next });
+        }
+      });
+    savedQueue.current = task;
+    return task;
+  }
   const currentApi = useRef(api);
   currentApi.current = api;
   const currentConnection = useRef(connection);
@@ -490,6 +541,8 @@ function useAppState() {
   }
   return {
     api,
+    savedPlaces: saved.base === api.base ? saved.places : [],
+    toggleSaved,
     pendingSubmission,
     recoverSubmission,
     helpState,

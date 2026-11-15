@@ -33,10 +33,19 @@ guidance are in settings.
 
 ## Screens
 
+The four primary destinations are Explore, Saved, Orders and Settings. On the
+map, the search button expands into a focused field; map/list controls stay
+compact. Place previews offer Directions, Save and store-specific menu access.
+Saved places persist per API origin. Orders shows the current cart and latest
+known order, not a complete server order history. Ordering-service errors appear
+as dismissible notices with a separate retry action, without a bottom error bar.
+
 | Route                  | Screen                               |
 | ---------------------- | ------------------------------------ |
 | `_layout.tsx`          | providers, theme, stack, portal host |
 | `index.tsx`            | nearby-store map and accessible list |
+| `saved.tsx`            | saved places and place actions       |
+| `orders/index.tsx`     | current cart and latest order        |
 | `onboarding.tsx`       | accessibility profile                |
 | `store.tsx`            | store details                        |
 | `connect.tsx`          | pairing code, QR, demo proximity     |

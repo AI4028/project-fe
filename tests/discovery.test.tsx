@@ -28,7 +28,11 @@ const mockApi = { stores: jest.fn(), nearby: jest.fn() };
 jest.mock('@/providers/app-provider', () => ({
   useApp: () => ({ api: mockApi, connection: null, settings: {}, report: jest.fn() }),
 }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: jest.fn() }));
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn(), navigate: jest.fn() },
+  usePathname: () => '/',
+  useFocusEffect: jest.fn(),
+}));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View }));
 jest.mock('@/components/language-switch', () => ({ LanguageSwitch: () => null }));
 jest.mock('@/components/screen', () => ({
@@ -71,6 +75,21 @@ beforeEach(() => {
   mockApi.stores.mockResolvedValue(stores);
 });
 
+test('home keeps four labelled destinations and search expands only when requested', async () => {
+  await render(<Discovery />);
+  expect(screen.getAllByRole('tab')).toHaveLength(4);
+  expect(screen.getByRole('tab', { name: '둘러보기' }).props.accessibilityState.selected).toBe(
+    true,
+  );
+  expect(screen.queryByLabelText('매장 이름 또는 주소 검색')).toBeNull();
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  expect(screen.getByLabelText('매장 이름 또는 주소 검색')).toBeTruthy();
+  await fireEvent.press(screen.getByLabelText('검색 닫기'));
+  expect(screen.queryByLabelText('매장 이름 또는 주소 검색')).toBeNull();
+  await fireEvent.press(screen.getByRole('tab', { name: '주문' }));
+  expect(router.navigate).toHaveBeenCalledWith('/orders');
+});
+
 test('a listed restroom never hides a known entrance barrier', async () => {
   await render(
     <StoreCard
@@ -98,13 +117,16 @@ test('search and access conditions persist when switching from list to map and b
   await render(<Discovery />);
   await fireEvent.press(screen.getByRole('radio', { name: '목록' }));
   await screen.findByLabelText('첫 번째 카페 매장 정보 보기');
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
   await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '서울');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
   await fireEvent.press(screen.getByRole('radio', { name: '턱 없는 입구' }));
   expect(screen.queryByLabelText('두 번째 카페 매장 정보 보기')).toBeNull();
   await fireEvent.press(screen.getByRole('radio', { name: '지도' }));
   expect(screen.getByTestId('store-map')).toBeTruthy();
   expect(screen.queryByLabelText('두 번째 카페 지도 핀')).toBeNull();
   await fireEvent.press(screen.getByRole('radio', { name: '목록' }));
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
   expect(screen.getByDisplayValue('서울')).toBeTruthy();
   expect(screen.getByLabelText('첫 번째 카페 매장 정보 보기')).toBeTruthy();
   expect(screen.queryByLabelText('두 번째 카페 매장 정보 보기')).toBeNull();
@@ -122,11 +144,20 @@ test('map selection previews a store and only the explicit detail action navigat
 test('failed requests show recovery rather than claiming there are no stores', async () => {
   mockApi.stores.mockRejectedValueOnce(new Error('매장 연결 실패'));
   await render(<Discovery />);
-  await screen.findByText('주문 매장 연결 불가 · 지도는 계속 이용할 수 있어요 · 다시 시도');
+  await screen.findByText('주문 연결 불가');
   expect(screen.queryByText('아직 맞는 매장이 없어요')).toBeNull();
   expect(screen.getByTestId('store-map')).toBeTruthy();
-  await fireEvent.press(
-    screen.getByText('주문 매장 연결 불가 · 지도는 계속 이용할 수 있어요 · 다시 시도'),
-  );
+  await fireEvent.press(screen.getByLabelText('주문 연결 다시 시도'));
   await waitFor(() => expect(screen.getByLabelText('첫 번째 카페 지도 핀')).toBeTruthy());
+  expect(screen.queryByText('주문 연결 불가')).toBeNull();
+});
+
+test('ordering notice can be dismissed without hiding the map or location control', async () => {
+  mockApi.stores.mockRejectedValueOnce(new Error('offline'));
+  await render(<Discovery />);
+  await screen.findByText('주문 연결 불가');
+  await fireEvent.press(screen.getByLabelText('알림 닫기'));
+  expect(screen.queryByText('주문 연결 불가')).toBeNull();
+  expect(screen.getByTestId('store-map')).toBeTruthy();
+  expect(screen.getByLabelText('내 주변에서 찾기')).toBeTruthy();
 });
