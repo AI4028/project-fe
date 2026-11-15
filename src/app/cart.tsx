@@ -12,6 +12,7 @@ import { ConfirmAction, Problem, SubmissionRecovery } from '@/components/feedbac
 import { useApp } from '@/providers/app-provider';
 import { errorMessage } from '@/lib/api';
 import { money } from '@/lib/cart';
+import { objectParticle } from '@/lib/i18n';
 
 const photos: Record<string, number> = {
   americano: require('../../assets/menu/americano.jpg'),
@@ -160,10 +161,10 @@ export default function CartScreen() {
           if (!open) setRemove(null);
         }}
         title="메뉴를 삭제할까요?"
-        description={
-          (remove !== null ? (app.cart.lines[remove]?.name ?? '선택한 메뉴') : '') +
-          '를 장바구니에서 삭제합니다.'
-        }
+        description={(() => {
+          const name = remove !== null ? (app.cart.lines[remove]?.name ?? '선택한 메뉴') : '';
+          return `${name}${objectParticle(name)} 장바구니에서 삭제합니다.`;
+        })()}
         label="삭제하기"
         busy={app.busy}
         onConfirm={() => {

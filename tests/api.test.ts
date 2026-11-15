@@ -24,6 +24,9 @@ test('surfaces server failures rather than creating a fake offline order', async
     new Api('http://localhost:8000', transport).connect('GK01', 'ABCDEFGH', 'dev_test'),
   ).rejects.toMatchObject({ code: 'kiosk-busy', status: 409 });
   expect(errorMessage(new ApiError('kiosk-busy', 409, 'Busy'))).toContain('다른 고객');
+  expect(errorMessage(new ApiError('order-not-found', 404, 'Order not found.'))).toContain(
+    '주문을 찾을 수 없습니다',
+  );
   expect(transport).toHaveBeenCalledTimes(1);
 });
 test('rejects credentials and non-HTTP server URLs', () => {
