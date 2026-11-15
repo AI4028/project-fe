@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-15 · A stale saved order wiped the cart on web reload
+
+- **Hit:** on dev.galjido.shop, refreshing mid-order showed an empty cart and `Order not found.` while the kiosk still held the cart and stayed busy.
+- **Why:** `order:` lives in localStorage (survives tabs) but the web device token lives in sessionStorage (ends with the tab). The old order 404'd for the new device, and the restore `catch` cleared the session it had just restored.
+- **Fix:** look up the remembered order in its own `try`; on 403/404 forget only that order (`src/providers/app-provider.tsx`). Test in `tests/app-provider.test.tsx`.
+- **Rule:** a failing optional lookup during restore must not clear state restored before it. Test web reloads with leftovers from an earlier tab.
+
 ### 2026-11-15 · Verify the frontend address as well as backend readiness
 
 - **Hit:** the Explore screen reported connection failures although backend readiness and direct place searches passed.

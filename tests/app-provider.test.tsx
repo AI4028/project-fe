@@ -190,6 +190,28 @@ test('recovers an already-submitted order from the persisted session after a rel
   expect(result.current.connection).toBeNull();
 });
 
+test('keeps the restored cart when a remembered order from an earlier visit is gone', async () => {
+  // Found on dev.galjido.shop: the saved order belonged to an earlier connection,
+  // the server answered 404, and that wiped the cart restored a moment before.
+  device = 'dev_test';
+  await AsyncStorage.setItem('session:http://127.0.0.1:8000', 's1');
+  await AsyncStorage.setItem('order:http://127.0.0.1:8000', 'old-order');
+  const previous = route;
+  route = (path, method) => {
+    if (path === '/sessions/s1') return { data: { ...connection, status: 'active', cart } };
+    if (path === '/orders/old-order')
+      return { data: { error: 'order-not-found', message: 'Order not found.' }, status: 404 };
+    return previous(path, method);
+  };
+  const { result } = await mount();
+  expect(result.current.connection?.sessionId).toBe('s1');
+  expect(result.current.cart.total).toBe(2500);
+  expect(result.current.items).toHaveLength(1);
+  expect(await AsyncStorage.getItem('session:http://127.0.0.1:8000')).toBe('s1');
+  expect(await AsyncStorage.getItem('order:http://127.0.0.1:8000')).toBeNull();
+  expect(result.current.order).toBeNull();
+});
+
 test('clears an expired session so the customer can reconnect', async () => {
   const { result } = await mount();
   await act(() => result.current.connect('GK01', 'ABCDEFGH'));

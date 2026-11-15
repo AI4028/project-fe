@@ -342,8 +342,17 @@ function useAppState() {
       }
       const lastOrder = await AsyncStorage.getItem(`order:${api.base}`);
       if (lastOrder) {
-        const latest = await api.order(lastOrder, device);
-        if (active) setOrder(latest);
+        try {
+          const latest = await api.order(lastOrder, device);
+          if (active) setOrder(latest);
+        } catch (error) {
+          // The saved order can belong to an earlier connection (web device
+          // credentials end with the tab). Forget only that order; failing here
+          // must not clear the cart session restored above.
+          if (error instanceof ApiError && [403, 404].includes(error.status))
+            await AsyncStorage.removeItem(`order:${api.base}`);
+          else throw error;
+        }
       }
     })()
       .catch((error) => {
