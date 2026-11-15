@@ -23,6 +23,27 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-15 · Duplicate check watchers share a result file
+
+- **Hit:** concurrent watchers failed with `ENOENT` or `EPERM` replacing `.checks/latest.tmp`, leaving a stale running result.
+- **Why:** more than one watcher writes the same temporary and result filenames across continued sessions.
+- **Fix:** stopped the duplicate processes, kept the passing standalone verification, and restarted one watcher for a fresh final pass.
+- **Rule:** check for an existing `scripts/check-watch.mjs` process before starting another; keep only one per checkout.
+
+### 2026-11-15 · Source ZIP inventory on Windows
+
+- **Hit:** printing archive filenames raised `UnicodeEncodeError` after source extraction completed.
+- **Why:** Python's Windows stdout used cp1252 for Korean filenames; generated `.next` files also overwhelmed the first inventory.
+- **Fix:** excluded caches, dependencies and env files; extracted source into `.checks` with validated paths and inspected it with UTF-8 file tools.
+- **Rule:** inventory source only and use UTF-8 stdout or ASCII-safe output for ZIP paths.
+
+### 2026-11-15 · Preserve local edits across integration branches
+
+- **Hit:** applying local disability-first edits onto current develop conflicted in settings imports and store-card state.
+- **Why:** English support changed the same sections after the local branch diverged.
+- **Fix:** retained the named stash and combined language and assistance controls explicitly, then ran typecheck and behavior tests.
+- **Rule:** retain a recoverable snapshot before adapting local changes onto a newer base; resolve shared UI edits together.
+
 ### 2026-11-15 · Inline Node scripts and PowerShell quoting
 
 - **Hit:** a `node -e` replacement script failed with `SyntaxError: Invalid or unexpected token` after PowerShell interpreted nested quote boundaries.

@@ -20,6 +20,7 @@ import { Icon } from '@/components/ui/icon';
 import { Card, CardContent } from '@/components/ui/card';
 import { useApp } from '@/providers/app-provider';
 import { LanguageSwitch } from '@/components/language-switch';
+import { AssistancePicker } from '@/components/assistance-picker';
 
 const preferences = [
   {
@@ -59,6 +60,14 @@ export default function Settings() {
       voice={false}
     >
       <LanguageSwitch />
+      <Text variant="h2">장애 유형</Text>
+      <AssistancePicker
+        value={app.settings.assistance}
+        disabled={app.busy}
+        onSelect={(assistance) =>
+          void app.saveSettings({ ...app.settings, assistance }).catch(app.report)
+        }
+      />
       <View className="flex-row flex-wrap gap-6">
         <View className="min-w-0 flex-1 gap-4" style={{ flexBasis: 500 }}>
           <SectionHeading title="화면과 음성" detail="설정은 이 기기에 저장돼요." />

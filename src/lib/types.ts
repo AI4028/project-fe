@@ -19,6 +19,7 @@ export type MenuItem = {
   options: MenuOption[];
 };
 export type Store = {
+  directoryOnly?: boolean;
   storeId: string;
   name: string;
   address: string;

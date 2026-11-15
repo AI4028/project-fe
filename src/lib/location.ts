@@ -2,6 +2,19 @@ import type { Store } from './types';
 export type Position = { lat: number; lng: number };
 export const assistanceLabels = { visual: '시각', physical: '지체', wheelchair: '휠체어' } as const;
 export type Assistance = keyof typeof assistanceLabels;
+export function isAssistance(value: unknown): value is Assistance {
+  return typeof value === 'string' && Object.hasOwn(assistanceLabels, value);
+}
+export function discoveryView(value?: Assistance): 'list' | 'map' {
+  return value === 'visual' ? 'list' : 'map';
+}
+export function assistanceSummary(store: Store, mode?: Assistance) {
+  const a = store.accessibility;
+  if (mode === 'visual') return knownText(store.indoorDirections);
+  if (mode === 'wheelchair')
+    return `${a.stepFreeEntrance === true ? '턱 없는 입구' : a.stepFreeEntrance === false ? '입구에 턱 있음' : '입구 정보 확인 필요'} · 경사로와 출입문 너비 확인 필요`;
+  return `${a.floor != null ? `${a.floor}층` : '층 정보 확인 필요'} · ${a.elevator === true ? '엘리베이터 있음' : a.elevator === false ? '엘리베이터 없음' : '엘리베이터 확인 필요'}`;
+}
 export function assistanceFromSpeech(text: string): Assistance | null {
   const value = text.replace(/\s/g, '');
   if (/휠체어|휠/.test(value)) return 'wheelchair';

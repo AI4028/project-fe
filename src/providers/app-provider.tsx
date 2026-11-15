@@ -16,6 +16,8 @@ import { restoreCart, validateItem } from '@/lib/cart';
 import { subscribe } from '@/lib/live';
 import { secrets } from '@/lib/storage';
 import { translate, type Language } from '@/lib/i18n';
+import Constants from 'expo-constants';
+import { developmentApiBase } from '@/lib/development-api';
 import {
   statusLabels,
   type Cart,
@@ -36,7 +38,11 @@ type Settings = {
 };
 const initialSettings: Settings = {
   language: 'ko',
-  apiBase: process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8000',
+  apiBase: developmentApiBase(
+    process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8000',
+    __DEV__ ? Constants.expoConfig?.hostUri : undefined,
+    Platform.OS !== 'web',
+  ),
   contrast: false,
   largeText: false,
   speech: false,
@@ -232,6 +238,11 @@ function useAppState() {
           setSettings({
             ...initialSettings,
             ...saved,
+            apiBase: developmentApiBase(
+              saved.apiBase,
+              __DEV__ ? Constants.expoConfig?.hostUri : undefined,
+              Platform.OS !== 'web',
+            ),
             language: saved.language === 'en' ? 'en' : 'ko',
           });
         }
