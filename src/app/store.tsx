@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { Linking, View, useWindowDimensions } from 'react-native';
+import { directionsUrl } from '@/lib/navigation';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
@@ -97,6 +98,12 @@ export default function StoreDetails() {
       )}
       {store && (
         <>
+          <Button
+            variant="secondary"
+            onPress={() => void Linking.openURL(directionsUrl(store)).catch(app.report)}
+          >
+            <Text>길찾기</Text>
+          </Button>
           {!different && (
             <View className="flex-row flex-wrap items-center justify-between gap-3 rounded-2xl bg-secondary p-4">
               <View className="min-w-0 flex-1 gap-1">

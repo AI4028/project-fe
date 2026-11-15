@@ -4,8 +4,9 @@ import { Button } from './ui/button';
 import { Text } from './ui/text';
 import { Icon } from './ui/icon';
 import type { Store } from '@/lib/types';
-import { accessibilitySummary } from '@/lib/location';
 import { useTranslation } from '@/lib/i18n';
+import { accessibilitySummary, assistanceSummary } from '@/lib/location';
+import { useApp } from '@/providers/app-provider';
 
 export function StoreCard({
   store,
@@ -18,6 +19,7 @@ export function StoreCard({
 }) {
   const access = store.accessibility;
   const { t } = useTranslation();
+  const { settings } = useApp();
   return (
     <Button
       variant="outline"
@@ -65,6 +67,9 @@ export function StoreCard({
           </Text>
         )}
       </View>
+      <Text className="text-left font-normal" translate={false}>
+        {assistanceSummary(store, settings.assistance).split(' · ').map(t).join(' · ')}
+      </Text>
       {showDistance && store.distanceM != null && (
         <Text variant="small" className="text-left font-medium text-primary">
           {store.distanceM >= 1000

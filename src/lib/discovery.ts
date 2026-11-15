@@ -6,7 +6,9 @@ export function filterStores(stores: Store[], query: string, access: AccessFilte
   const normalized = query.trim().toLocaleLowerCase();
   return stores.filter(
     (store) =>
-      `${store.name} ${store.address}`.toLocaleLowerCase().includes(normalized) &&
+      `${store.name} ${store.address} ${(store.menu ?? []).map((item) => `${item.name} ${item.nameEn ?? ''}`).join(' ')}`
+        .toLocaleLowerCase()
+        .includes(normalized) &&
       (access !== 'step-free' || store.accessibility.stepFreeEntrance === true) &&
       (access !== 'restroom' || store.accessibility.accessibleRestroom === true),
   );

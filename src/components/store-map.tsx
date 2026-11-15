@@ -7,11 +7,15 @@ import MapView, { Circle, Marker } from 'react-native-maps';
 import type { Store } from '@/lib/types';
 import type { Position } from '@/lib/location';
 export type StoreMapProps = {
+  showDirectory?: boolean;
+  fill?: boolean;
+  query?: string;
+  onPlaces?: (stores: Store[]) => void;
   stores: Store[];
   position: Position | null;
   onSelect: (store: Store) => void;
 };
-export default function StoreMap({ stores, position, onSelect }: StoreMapProps) {
+export default function StoreMap({ stores, position, onSelect, fill }: StoreMapProps) {
   const { t } = useTranslation();
   const ref = useRef<MapView>(null);
   const center = position ??
@@ -27,13 +31,27 @@ export default function StoreMap({ stores, position, onSelect }: StoreMapProps) 
         },
         300,
       );
-  }, [position?.lat, position?.lng]);
+    else if (stores[0]?.location)
+      ref.current?.animateToRegion(
+        {
+          latitude: stores[0].location.lat,
+          longitude: stores[0].location.lng,
+          latitudeDelta: 0.025,
+          longitudeDelta: 0.025,
+        },
+        300,
+      );
+  }, [position?.lat, position?.lng, stores]);
   if (Platform.OS === 'android' && !process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY)
     return <MapUnavailable />;
   return (
     <MapView
       ref={ref}
-      style={{ height: layout.mapHeight, width: '100%', borderRadius: layout.radius }}
+      style={{
+        height: fill ? '100%' : layout.mapHeight,
+        width: '100%',
+        borderRadius: fill ? 0 : layout.radius,
+      }}
       initialRegion={{
         latitude: center.lat,
         longitude: center.lng,
