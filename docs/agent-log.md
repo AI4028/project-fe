@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-15 · Restart the complete backend worker tree after changing credentials
+
+- **Hit:** place search still returned `generalSearch: not-configured` after restarting Uvicorn with `--env-file .env`.
+- **Why:** an orphaned Windows `multiprocessing.spawn` worker from the previous reloader still served requests without the updated environment.
+- **Fix:** stopped the observed old worker, restarted with the env file, then verified real venue results; backed up the local SQLite database and applied the existing migration for its missing `sessions.submission` column.
+- **Rule:** inspect the port owner and reloader workers when configuration appears stale; verify schema readiness before restarting against an older local database.
+
 ### 2026-11-15 · Confirm dialogs blank the web app
 
 - **Hit:** tapping 주문 취소 요청 on dev.galjido.shop turned the page white: `TypeError: Failed to set an indexed property [0] on 'CSSStyleDeclaration'`. Typecheck and Jest were green.
