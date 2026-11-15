@@ -54,8 +54,12 @@ export default function Help() {
     >
       {store && (
         <View className="gap-2 rounded-2xl border border-border bg-card p-5">
-          <Text className="font-bold">{store.name}</Text>
-          <Text variant="muted">{store.address}</Text>
+          <Text translate={false} className="font-bold">
+            {store.name}
+          </Text>
+          <Text translate={false} variant="muted">
+            {store.address}
+          </Text>
         </View>
       )}
       {!!error && <Problem message={error} retry={() => setRevision((value) => value + 1)} />}

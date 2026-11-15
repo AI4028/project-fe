@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Icon } from '@/components/ui/icon';
 import { Card, CardContent } from '@/components/ui/card';
 import { useApp } from '@/providers/app-provider';
+import { LanguageSwitch } from '@/components/language-switch';
 
 const preferences = [
   {
@@ -57,6 +58,7 @@ export default function Settings() {
       subtitle="필요한 기능만 골라 켜 주세요. 언제든 다시 바꿀 수 있어요."
       voice={false}
     >
+      <LanguageSwitch />
       <View className="flex-row flex-wrap gap-6">
         <View className="min-w-0 flex-1 gap-4" style={{ flexBasis: 500 }}>
           <SectionHeading title="화면과 음성" detail="설정은 이 기기에 저장돼요." />

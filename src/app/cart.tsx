@@ -93,7 +93,9 @@ export default function CartScreen() {
                       />
                     )}
                     <View className="min-w-0 flex-1 gap-1">
-                      <Text variant="h3">{line.name}</Text>
+                      <Text translate={false} variant="h3">
+                        {line.name}
+                      </Text>
                       <Text variant="muted">
                         {line.options.map((option) => option.choiceName).join(' · ') ||
                           '추가 옵션 없음'}

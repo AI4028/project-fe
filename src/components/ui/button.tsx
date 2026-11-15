@@ -3,6 +3,7 @@ import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Platform, Pressable } from 'react-native';
+import { useTranslation } from '@/lib/i18n';
 
 const buttonVariants = cva(
   cn(
@@ -97,6 +98,7 @@ type ButtonProps = React.ComponentProps<typeof Pressable> &
   VariantProps<typeof buttonVariants>;
 
 function Button({ className, variant, size, ...props }: ButtonProps) {
+  const { t } = useTranslation();
   return (
     <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
       <Pressable
@@ -111,6 +113,8 @@ function Button({ className, variant, size, ...props }: ButtonProps) {
             }
           : {})}
         {...props}
+        accessibilityLabel={props.accessibilityLabel ? t(props.accessibilityLabel) : undefined}
+        accessibilityHint={props.accessibilityHint ? t(props.accessibilityHint) : undefined}
       />
     </TextClassContext.Provider>
   );

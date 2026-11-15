@@ -13,6 +13,7 @@ import { voiceSelection } from '@/lib/voice';
 import { Problem } from '@/components/feedback';
 import { errorMessage } from '@/lib/api';
 import type { Options } from '@/lib/types';
+import { useTranslation } from '@/lib/i18n';
 
 const photos: Record<string, number> = {
   americano: require('../../../assets/menu/americano.jpg'),
@@ -22,6 +23,7 @@ const photos: Record<string, number> = {
 };
 
 export default function ItemOptions() {
+  const { language } = useTranslation();
   const { itemId, speech, edit } = useLocalSearchParams<{
     itemId: string;
     speech?: string;
@@ -75,7 +77,9 @@ export default function ItemOptions() {
 
   return (
     <Screen
-      title={item?.name ?? '메뉴를 찾을 수 없어요'}
+      title={
+        (language === 'en' ? item?.nameEn || item?.name : item?.name) ?? '메뉴를 찾을 수 없어요'
+      }
       subtitle={index === null ? '원하는 옵션과 수량을 골라 주세요.' : '옵션과 수량을 바꿔 주세요.'}
       reading
       footer={
@@ -146,8 +150,12 @@ export default function ItemOptions() {
               />
             )}
             <CardContent className="gap-3 py-6">
-              <Text className="text-sm font-semibold text-primary">{item.category}</Text>
-              <Text variant="h2">{item.name}</Text>
+              <Text translate={false} className="text-sm font-semibold text-primary">
+                {item.category}
+              </Text>
+              <Text translate={false} variant="h2">
+                {language === 'en' ? item.nameEn || item.name : item.name}
+              </Text>
               <Text variant="muted">
                 {index === null ? item.description : '변경하면 장바구니의 기존 항목에 적용돼요.'}
               </Text>
@@ -183,7 +191,9 @@ export default function ItemOptions() {
           {item.options.map((option) => (
             <View key={option.id} className="gap-3">
               <View className="flex-row flex-wrap items-baseline gap-2">
-                <Text variant="h2">{option.name}</Text>
+                <Text translate={false} variant="h2">
+                  {option.name}
+                </Text>
                 <Text className="text-sm font-semibold text-primary">
                   {option.required ? '필수' : '선택'}
                   {option.type === 'multi' && option.maxChoices
@@ -236,7 +246,9 @@ export default function ItemOptions() {
                       }}
                     >
                       <View className="min-w-0 flex-1 flex-row flex-wrap items-center gap-2">
-                        <Text className="font-semibold">{choice.name}</Text>
+                        <Text translate={false} className="font-semibold">
+                          {choice.name}
+                        </Text>
                         {choice.available === false && <Text>품절</Text>}
                       </View>
                       <View className="flex-row items-center gap-3">

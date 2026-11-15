@@ -6,6 +6,7 @@ import { Icon } from './ui/icon';
 import { cn } from '@/lib/utils';
 import { brandColors } from '@/lib/theme';
 import { useApp } from '@/providers/app-provider';
+import { useTranslation } from '@/lib/i18n';
 
 export function BrandLockup() {
   const { settings } = useApp();
@@ -114,8 +115,12 @@ export function EmptyState({
 }
 
 export function OrderSteps({ current }: { current: 1 | 2 | 3 }) {
+  const { t } = useTranslation();
   return (
-    <View className="flex-row flex-wrap gap-3" accessibilityLabel={`주문 3단계 중 ${current}단계`}>
+    <View
+      className="flex-row flex-wrap gap-3"
+      accessibilityLabel={t(`주문 3단계 중 ${current}단계`)}
+    >
       {['메뉴 선택', '장바구니', '최종 확인'].map((label, index) => (
         <View
           key={label}

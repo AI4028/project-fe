@@ -164,7 +164,9 @@ export default function Connect() {
                 <CardContent className="gap-3 pt-6">
                   <Text className="text-sm font-semibold text-primary">2단계 · 매장 확인</Text>
                   <View className="gap-2 rounded-2xl bg-secondary p-4">
-                    <Text variant="h4">{candidate.store.name}</Text>
+                    <Text translate={false} variant="h4">
+                      {candidate.store.name}
+                    </Text>
                     <Text>{candidate.store.address || '주소 확인 필요'}</Text>
                     <Text variant="muted">매장 기기: {candidate.name}</Text>
                   </View>

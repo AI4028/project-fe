@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { MapUnavailable } from './map-unavailable';
 import { brandColors, layout } from '@/lib/theme';
+import { useTranslation } from '@/lib/i18n';
 import MapView, { Circle, Marker } from 'react-native-maps';
 import type { Store } from '@/lib/types';
 import type { Position } from '@/lib/location';
@@ -11,6 +12,7 @@ export type StoreMapProps = {
   onSelect: (store: Store) => void;
 };
 export default function StoreMap({ stores, position, onSelect }: StoreMapProps) {
+  const { t } = useTranslation();
   const ref = useRef<MapView>(null);
   const center = position ??
     stores.find((store) => store.location)?.location ?? { lat: 35.2286, lng: 126.8436 };
@@ -44,7 +46,7 @@ export default function StoreMap({ stores, position, onSelect }: StoreMapProps) 
       {position && (
         <Marker
           coordinate={{ latitude: position.lat, longitude: position.lng }}
-          title="내 위치"
+          title={t('내 위치')}
           pinColor="blue"
         />
       )}

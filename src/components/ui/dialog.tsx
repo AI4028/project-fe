@@ -3,6 +3,7 @@ import { Icon } from '@/components/ui/icon';
 import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
 import { cn } from '@/lib/utils';
 import { fontFamily } from '@/lib/theme';
+import { useTranslation } from '@/lib/i18n';
 import { FontReadyContext, TextScaleContext } from './text';
 import * as DialogPrimitive from '@rn-primitives/dialog';
 import { X } from 'lucide-react-native';
@@ -76,6 +77,7 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   portalHost?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <DialogPortal hostName={portalHost}>
       <DialogOverlay>
@@ -97,13 +99,13 @@ function DialogContent({
                 web: 'ring-offset-background focus:ring-ring data-[state=open]:bg-accent transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2',
               }),
             )}
-            accessibilityLabel="대화상자 닫기"
+            accessibilityLabel={t('대화상자 닫기')}
           >
             <Icon
               as={X}
               className={cn('text-accent-foreground web:pointer-events-none size-4 shrink-0')}
             />
-            <Text className="sr-only">닫기</Text>
+            <Text className="sr-only">{t('닫기')}</Text>
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>
       </DialogOverlay>
@@ -127,12 +129,14 @@ function DialogFooter({ className, ...props }: ViewProps) {
 }
 
 function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
+  const { t } = useTranslation();
   const scale = React.useContext(TextScaleContext);
   const fontReady = React.useContext(FontReadyContext);
   return (
     <DialogPrimitive.Title
       className={cn('text-foreground text-xl font-bold leading-7', className)}
       {...props}
+      children={typeof props.children === 'string' ? t(props.children) : props.children}
       style={[
         {
           fontSize: 20 * scale,
@@ -150,12 +154,14 @@ function DialogDescription({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
+  const { t } = useTranslation();
   const scale = React.useContext(TextScaleContext);
   const fontReady = React.useContext(FontReadyContext);
   return (
     <DialogPrimitive.Description
       className={cn('text-muted-foreground text-sm', className)}
       {...props}
+      children={typeof props.children === 'string' ? t(props.children) : props.children}
       style={[
         {
           fontSize: 16 * scale,

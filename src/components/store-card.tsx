@@ -5,6 +5,7 @@ import { Text } from './ui/text';
 import { Icon } from './ui/icon';
 import type { Store } from '@/lib/types';
 import { accessibilitySummary } from '@/lib/location';
+import { useTranslation } from '@/lib/i18n';
 
 export function StoreCard({
   store,
@@ -16,12 +17,13 @@ export function StoreCard({
   showDistance: boolean;
 }) {
   const access = store.accessibility;
+  const { t } = useTranslation();
   return (
     <Button
       variant="outline"
       onPress={onPress}
       accessibilityLabel={`${store.name} 매장 정보 보기`}
-      accessibilityHint={`${store.address || '주소 확인 필요'}. ${accessibilitySummary(store)}`}
+      accessibilityHint={`${store.address || t('주소 확인 필요')}. ${accessibilitySummary(store).split(' · ').map(t).join(' · ')}`}
       className="w-full flex-col items-stretch gap-5 rounded-3xl p-5"
     >
       <View className="flex-row items-start gap-3">
@@ -29,7 +31,9 @@ export function StoreCard({
           <Icon as={StoreIcon} size={23} className="text-primary" accessible={false} />
         </View>
         <View className="min-w-0 flex-1 gap-1">
-          <Text className="text-left text-lg font-semibold text-foreground">{store.name}</Text>
+          <Text translate={false} className="text-left text-lg font-semibold text-foreground">
+            {store.name}
+          </Text>
           <Text variant="muted" className="text-left font-normal text-muted-foreground">
             {store.address || '주소 확인 필요'}
           </Text>

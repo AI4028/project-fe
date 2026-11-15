@@ -339,7 +339,9 @@ export default function Kiosk() {
                   className="flex-row flex-wrap items-center justify-between gap-3 border-b border-border pb-4"
                 >
                   <View className="gap-1">
-                    <Text className="font-bold">{item.name}</Text>
+                    <Text translate={false} className="font-bold">
+                      {item.name}
+                    </Text>
                     <Text variant="muted">{item.available ? '판매 중' : '품절'}</Text>
                   </View>
                   <Button

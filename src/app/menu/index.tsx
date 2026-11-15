@@ -3,6 +3,7 @@ import { Image, View, ScrollView, useWindowDimensions } from 'react-native';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { ArrowRight, Check, Coffee, RefreshCw, ShoppingBag } from 'lucide-react-native';
 import { OrderSteps } from '@/components/brand';
+import { useTranslation } from '@/lib/i18n';
 import { Problem } from '@/components/feedback';
 import { errorMessage } from '@/lib/api';
 import { Screen, NavLink } from '@/components/screen';
@@ -21,6 +22,7 @@ const photos: Record<string, number> = {
 };
 
 export default function Menu() {
+  const { language } = useTranslation();
   const app = useApp();
   const { width } = useWindowDimensions();
   const { storeId } = useLocalSearchParams<{ storeId?: string }>();
@@ -158,11 +160,13 @@ export default function Menu() {
                     </View>
                   )}
                   <View className="min-w-0 flex-1 gap-2">
-                    <Text variant="small" className="text-muted-foreground">
+                    <Text translate={false} variant="small" className="text-muted-foreground">
                       {item.category}
                     </Text>
                     <View className="gap-1">
-                      <Text variant="h3">{item.name}</Text>
+                      <Text translate={false} variant="h3">
+                        {language === 'en' ? item.nameEn || item.name : item.name}
+                      </Text>
                     </View>
                     <Text className="text-lg font-semibold text-foreground">
                       {money(item.price)}
@@ -170,7 +174,11 @@ export default function Menu() {
                   </View>
                 </View>
                 <CardContent className="gap-3 px-4 pb-4">
-                  {!!item.description && <Text variant="muted">{item.description}</Text>}
+                  {!!item.description && (
+                    <Text translate={false} variant="muted">
+                      {item.description}
+                    </Text>
+                  )}
                   {item.available ? (
                     <Link
                       href={{ pathname: '/menu/[itemId]', params: { itemId: item.id } }}

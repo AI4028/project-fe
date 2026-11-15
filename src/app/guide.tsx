@@ -68,7 +68,9 @@ export default function Guide() {
               <Icon as={MapPin} size={24} className="text-primary" />
             </View>
             <Text className="mt-4 text-sm font-semibold text-primary-foreground">방문할 매장</Text>
-            <Text className="mt-2 text-2xl font-bold text-primary-foreground">{store.name}</Text>
+            <Text translate={false} className="mt-2 text-2xl font-bold text-primary-foreground">
+              {store.name}
+            </Text>
             <Text className="mt-2 text-primary-foreground">
               {store.address || '주소 확인 필요'}
             </Text>
