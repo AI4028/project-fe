@@ -8,7 +8,14 @@ import { FontReadyContext, TextScaleContext } from './text';
 import * as DialogPrimitive from '@rn-primitives/dialog';
 import { X } from 'lucide-react-native';
 import * as React from 'react';
-import { Platform, Text, View, type GestureResponderEvent, type ViewProps } from 'react-native';
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  type GestureResponderEvent,
+  type ViewProps,
+} from 'react-native';
 import { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
 
@@ -137,7 +144,10 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
       className={cn('text-foreground text-xl font-bold leading-7', className)}
       {...props}
       children={typeof props.children === 'string' ? t(props.children) : props.children}
-      style={[
+      // On web the primitive renders a plain DOM element, which accepts only a
+      // single style object: a style array crashes React ("Failed to set an
+      // indexed property on CSSStyleDeclaration"). Flatten on every platform.
+      style={StyleSheet.flatten([
         {
           fontSize: 20 * scale,
           lineHeight: 28 * scale,
@@ -145,7 +155,7 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
           fontWeight: fontReady ? 'normal' : 'bold',
         },
         props.style,
-      ]}
+      ])}
     />
   );
 }
@@ -162,14 +172,15 @@ function DialogDescription({
       className={cn('text-muted-foreground text-sm', className)}
       {...props}
       children={typeof props.children === 'string' ? t(props.children) : props.children}
-      style={[
+      // Flattened for the same reason as DialogTitle: web renders a DOM element.
+      style={StyleSheet.flatten([
         {
           fontSize: 16 * scale,
           lineHeight: 26 * scale,
           fontFamily: fontReady ? fontFamily.regular : undefined,
         },
         props.style,
-      ]}
+      ])}
     />
   );
 }

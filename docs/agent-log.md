@@ -30,6 +30,13 @@ Newest first, four lines, no stories:
 - **Fix:** stopped the observed old worker, restarted with the env file, then verified real venue results; backed up the local SQLite database and applied the existing migration for its missing `sessions.submission` column.
 - **Rule:** inspect the port owner and reloader workers when configuration appears stale; verify schema readiness before restarting against an older local database.
 
+### 2026-11-15 · Confirm dialogs blank the web app
+
+- **Hit:** tapping 주문 취소 요청 on dev.galjido.shop turned the page white: `TypeError: Failed to set an indexed property [0] on 'CSSStyleDeclaration'`. Typecheck and Jest were green.
+- **Why:** on web, `@rn-primitives/dialog` renders `Title`/`Description` as plain DOM elements; `DialogTitle`/`DialogDescription` passed them a style array, which React DOM can't apply. Jest runs the native renderer, so it never saw it.
+- **Fix:** pass `StyleSheet.flatten([...])` instead of an array (`src/components/ui/dialog.tsx`); `tests/dialog.test.tsx` guards it.
+- **Rule:** never pass a style array to an `@rn-primitives` element that renders DOM on web; flatten it. Click through a dialog on the web export before merging UI-primitive changes.
+
 ### 2026-11-15 · Station identifiers repeat across railway lines
 
 - **Hit:** the imported station table produced three duplicate voice-guide result identifiers when keyed only by station ID.
