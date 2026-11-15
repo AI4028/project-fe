@@ -21,6 +21,7 @@ import { VoiceControls } from './voice-controls';
 import { BrandLockup } from './brand';
 import { useApp } from '@/providers/app-provider';
 import { cn } from '@/lib/utils';
+import { layout } from '@/lib/theme';
 
 export function NavLink({
   href,
@@ -37,8 +38,21 @@ export function NavLink({
   return (
     <Link href={href} asChild>
       <Button variant={variant} className={cn('gap-2', className)} {...props}>
-        {icon && <Icon as={icon} size={20} accessible={false} />}
-        <Text className="shrink text-center font-bold">{children}</Text>
+        {icon && (
+          <Icon
+            as={icon}
+            size={20}
+            accessible={false}
+            className={
+              variant === 'default'
+                ? 'text-primary-foreground'
+                : variant === 'destructive'
+                  ? 'text-destructive-foreground'
+                  : 'text-primary'
+            }
+          />
+        )}
+        <Text className="shrink text-center font-semibold">{children}</Text>
       </Button>
     </Link>
   );
@@ -57,12 +71,16 @@ export function Screen({
   children,
   voice = true,
   onTranscript,
+  footer,
+  reading = false,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   voice?: boolean;
   onTranscript?: (text: string) => boolean;
+  footer?: ReactNode;
+  reading?: boolean;
 }) {
   const app = useApp();
   const path = usePathname();
@@ -91,10 +109,8 @@ export function Screen({
           accessibilityState={{ selected: isActive(href) }}
           accessibilityLabel={`${label}${href === '/cart' && count ? ` ${count}개` : ''}`}
           className={cn(
-            'border',
-            isActive(href) ? 'border-primary' : 'border-transparent',
             compact
-              ? 'min-w-[70px] flex-1 flex-col gap-1 rounded-xl px-1 py-2'
+              ? 'min-w-0 flex-1 flex-col gap-1 rounded-2xl px-1 py-2'
               : 'justify-start gap-3 px-4 py-4',
           )}
         >
@@ -107,7 +123,7 @@ export function Screen({
           <Text
             variant={compact ? 'small' : 'default'}
             className={cn(
-              'shrink font-bold',
+              'shrink font-semibold',
               isActive(href) ? 'text-primary' : 'text-muted-foreground',
             )}
           >
@@ -122,7 +138,7 @@ export function Screen({
       <View className="flex-1 flex-row">
         {desktop && (
           <ScrollView
-            className="w-64 shrink-0 border-r border-border bg-card"
+            className="w-56 shrink-0 border-r border-border bg-background"
             style={{ flexGrow: 0 }}
             contentContainerClassName="grow px-5 py-8"
           >
@@ -144,11 +160,8 @@ export function Screen({
                 매장 직원 화면
               </NavLink>
             </View>
-            <View className="mt-auto gap-3 rounded-2xl border border-border bg-background p-4">
-              <Text className="font-bold">내 방식대로, 차근차근.</Text>
-              <Text variant="muted" className="leading-6">
-                필요한 정보를 살펴보고 직접 선택해 주세요.
-              </Text>
+            <View className="mt-auto gap-3 pt-10">
+              <Text variant="muted">어디든, 내 방식대로.</Text>
               <NavLink
                 href="/onboarding"
                 variant="ghost"
@@ -161,11 +174,11 @@ export function Screen({
           </ScrollView>
         )}
         <View className="min-w-0 flex-1">
-          <View className="border-b border-border bg-card px-5 py-3 sm:px-8">
+          <View className="border-b border-border bg-background px-5 py-2 sm:px-8">
             <View className="mx-auto w-full max-w-6xl flex-row flex-wrap items-center justify-between gap-3">
               {desktop ? (
                 <Text variant="small" className="font-bold text-muted-foreground">
-                  {staff ? '매장 관리' : '매장 정보부터 스마트폰 주문까지'}
+                  {staff ? '매장 관리' : (app.store?.name ?? '어디든, 내 방식대로')}
                 </Text>
               ) : (
                 <Link href="/" asChild>
@@ -185,36 +198,38 @@ export function Screen({
           </View>
           <ScrollView
             keyboardShouldPersistTaps="handled"
-            contentContainerClassName="grow px-5 py-6 sm:px-8 sm:py-8"
+            automaticallyAdjustKeyboardInsets
+            contentContainerClassName="grow px-5 py-5 sm:px-8 sm:py-8"
             contentContainerStyle={{ paddingBottom: 32 }}
           >
-            <View className="mx-auto w-full max-w-6xl gap-6">
-              <View className="flex-row flex-wrap items-center justify-between gap-3">
-                {path !== '/' && router.canGoBack() ? (
-                  <Button
-                    variant="ghost"
-                    onPress={() => router.back()}
-                    className="self-start px-0"
-                    accessibilityLabel="이전 화면으로"
-                  >
-                    <Icon as={ArrowLeft} size={20} accessible={false} />
-                    <Text>뒤로</Text>
-                  </Button>
-                ) : (
-                  <Text variant="small" className="font-bold text-primary">
-                    {staff ? '직원 전용' : '나에게 맞는 선택'}
-                  </Text>
-                )}
-                {app.connection && (
-                  <View className="flex-row items-center gap-2 rounded-full border border-primary bg-secondary px-3 py-2">
-                    <Icon as={Check} className="text-primary" size={16} accessible={false} />
-                    <Text variant="small" className="shrink text-primary">
-                      {app.store?.name ?? '매장'} 연결됨
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <View className="max-w-3xl gap-3">
+            <View
+              className="mx-auto w-full gap-6"
+              style={{ maxWidth: reading ? layout.readingWidth : layout.contentWidth }}
+            >
+              {(path !== '/' || app.connection) && (
+                <View className="flex-row flex-wrap items-center justify-between gap-3">
+                  {path !== '/' && router.canGoBack() ? (
+                    <Button
+                      variant="ghost"
+                      onPress={() => router.back()}
+                      className="self-start px-0"
+                      accessibilityLabel="이전 화면으로"
+                    >
+                      <Icon as={ArrowLeft} size={20} accessible={false} />
+                      <Text>뒤로</Text>
+                    </Button>
+                  ) : null}
+                  {app.connection && (
+                    <View className="flex-row items-center gap-2 rounded-full bg-secondary px-3 py-2">
+                      <Icon as={Check} className="text-primary" size={16} accessible={false} />
+                      <Text variant="small" className="shrink text-primary">
+                        {app.store?.name ?? '매장'} 연결됨
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+              <View className="max-w-3xl gap-2">
                 <Text variant="h1" className="text-left">
                   {title}
                 </Text>
@@ -246,14 +261,18 @@ export function Screen({
                   진행 중인 주문 확인
                 </NavLink>
               )}
-              <View className="mt-2 flex-row flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
-                <Text variant="muted">갈지도 · 필요한 정보를 연결해요</Text>
-                <NavLink href="/onboarding" variant="ghost">
-                  이용 안내
-                </NavLink>
-              </View>
             </View>
           </ScrollView>
+          {footer && (
+            <View className="border-t border-border bg-card px-5 py-3 sm:px-8">
+              <View
+                className="mx-auto w-full gap-2"
+                style={{ maxWidth: reading ? layout.readingWidth : layout.contentWidth }}
+              >
+                {footer}
+              </View>
+            </View>
+          )}
           {!desktop && (
             <View className="flex-row border-t border-border bg-card px-2 py-2">{nav(true)}</View>
           )}

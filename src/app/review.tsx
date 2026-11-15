@@ -37,6 +37,23 @@ export default function Review() {
       title="주문 최종 확인"
       subtitle="메뉴와 금액을 확인한 뒤 주문을 보내 주세요."
       voice={false}
+      reading
+      footer={
+        app.items.length > 0 && app.connection ? (
+          <>
+            <Text variant="muted">{money(app.cart.total)} · 결제는 매장에서 진행해요</Text>
+            <Button
+              size="lg"
+              className="w-full justify-between"
+              disabled={app.busy || sending || !!app.pendingSubmission}
+              onPress={() => void submit()}
+            >
+              <Text>{sending ? '전송 중' : '이 내용으로 주문 제출'}</Text>
+              <Icon as={ArrowRight} size={19} className="text-primary-foreground" />
+            </Button>
+          </>
+        ) : undefined
+      }
     >
       <OrderSteps current={3} />
       {sending ? (
@@ -134,15 +151,6 @@ export default function Review() {
             </CardContent>
           </Card>
 
-          <Button
-            size="lg"
-            className="w-full justify-between"
-            disabled={app.busy || sending || !!app.pendingSubmission}
-            onPress={() => void submit()}
-          >
-            <Text>{sending ? '전송 중' : '이 내용으로 주문 제출'}</Text>
-            <Icon as={ArrowRight} size={19} className="text-primary-foreground" />
-          </Button>
           <NavLink href="/cart">장바구니로 돌아가 수정</NavLink>
         </>
       ) : (

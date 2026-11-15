@@ -1,6 +1,6 @@
 // Adapted from React Native Reusables (MIT); see THIRD_PARTY_NOTICES.md.
 import { cn } from '@/lib/utils';
-import { typography } from '@/lib/theme';
+import { fontFamily, typography } from '@/lib/theme';
 import { Slot } from '@rn-primitives/slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
@@ -89,7 +89,11 @@ function Text({
   const fontsReady = React.useContext(FontReadyContext);
   const textClass = React.useContext(TextClassContext);
   const resolvedClass = cn(textVariants({ variant }), textClass, className);
-  const bold = /font-(medium|semibold|bold|extrabold|black)/.test(resolvedClass);
+  const weight = /font-(bold|extrabold|black)/.test(resolvedClass)
+    ? 'bold'
+    : /font-(medium|semibold)/.test(resolvedClass)
+      ? 'medium'
+      : 'regular';
   const sizeClass = resolvedClass.match(
     /(?:^| )text-(xs|sm|base|lg|xl|2xl|3xl|4xl|\[\d+px\])(?: |$)/,
   )?.[1];
@@ -115,7 +119,7 @@ function Text({
       {...props}
       style={[
         fontsReady && !resolvedClass.includes('font-mono')
-          ? { fontFamily: bold ? 'KoddiUDBold' : 'KoddiUDRegular', fontWeight: 'normal' }
+          ? { fontFamily: fontFamily[weight], fontWeight: 'normal' }
           : undefined,
         scale === 1
           ? undefined

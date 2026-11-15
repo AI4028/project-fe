@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { useContext } from 'react';
 import { TextScaleContext, FontReadyContext } from './text';
 import { Platform, TextInput } from 'react-native';
+import { fontFamily } from '@/lib/theme';
 
 function Input({
   className,
@@ -34,7 +35,7 @@ function Input({
         {
           fontSize: 16 * scale,
           lineHeight: 24 * scale,
-          fontFamily: fontsReady ? 'KoddiUDRegular' : undefined,
+          fontFamily: fontsReady ? fontFamily.regular : undefined,
         },
         props.style,
       ]}

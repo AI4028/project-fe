@@ -2,6 +2,7 @@
 import { Icon } from '@/components/ui/icon';
 import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
 import { cn } from '@/lib/utils';
+import { fontFamily } from '@/lib/theme';
 import { FontReadyContext, TextScaleContext } from './text';
 import * as DialogPrimitive from '@rn-primitives/dialog';
 import { X } from 'lucide-react-native';
@@ -136,7 +137,8 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
         {
           fontSize: 20 * scale,
           lineHeight: 28 * scale,
-          fontFamily: fontReady ? 'KoddiUDBold' : undefined,
+          fontFamily: fontReady ? fontFamily.bold : undefined,
+          fontWeight: fontReady ? 'normal' : 'bold',
         },
         props.style,
       ]}
@@ -158,7 +160,7 @@ function DialogDescription({
         {
           fontSize: 16 * scale,
           lineHeight: 26 * scale,
-          fontFamily: fontReady ? 'KoddiUDRegular' : undefined,
+          fontFamily: fontReady ? fontFamily.regular : undefined,
         },
         props.style,
       ]}

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Platform, View } from 'react-native';
-import { Text } from './ui/text';
+import { Platform } from 'react-native';
+import { MapUnavailable } from './map-unavailable';
+import { brandColors, layout } from '@/lib/theme';
 import MapView, { Circle, Marker } from 'react-native-maps';
 import type { Store } from '@/lib/types';
 import type { Position } from '@/lib/location';
@@ -26,15 +27,11 @@ export default function StoreMap({ stores, position, onSelect }: StoreMapProps) 
       );
   }, [position?.lat, position?.lng]);
   if (Platform.OS === 'android' && !process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY)
-    return (
-      <View className="rounded-lg bg-secondary p-6">
-        <Text>지도 연결 전에는 아래 매장 목록을 이용해 주세요.</Text>
-      </View>
-    );
+    return <MapUnavailable />;
   return (
     <MapView
       ref={ref}
-      style={{ height: 300, width: '100%', borderRadius: 16 }}
+      style={{ height: layout.mapHeight, width: '100%', borderRadius: layout.radius }}
       initialRegion={{
         latitude: center.lat,
         longitude: center.lng,
@@ -58,6 +55,7 @@ export default function StoreMap({ stores, position, onSelect }: StoreMapProps) 
               key={store.storeId}
               coordinate={{ latitude: store.location.lat, longitude: store.location.lng }}
               title={store.name}
+              pinColor={brandColors.walnut}
               onPress={() => onSelect(store)}
             />
           ),
@@ -70,8 +68,8 @@ export default function StoreMap({ stores, position, onSelect }: StoreMapProps) 
               key={store.storeId}
               center={{ latitude: store.location.lat, longitude: store.location.lng }}
               radius={store.geofenceRadiusM}
-              fillColor="rgba(0,110,80,0.12)"
-              strokeColor="#14634f"
+              fillColor={`${brandColors.walnut}1F`}
+              strokeColor={brandColors.walnut}
             />
           ),
       )}

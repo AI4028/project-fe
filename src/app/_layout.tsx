@@ -13,8 +13,9 @@ import { TextScaleContext, FontReadyContext } from '@/components/ui/text';
 function Layout() {
   const { ready, settings } = useApp();
   const [fontsLoaded, fontError] = useFonts({
-    KoddiUDRegular: require('../../assets/fonts/KoddiUDOnGothic-Regular.ttf'),
-    KoddiUDBold: require('../../assets/fonts/KoddiUDOnGothic-Bold.ttf'),
+    PretendardRegular: require('../../assets/fonts/pretendard-regular.otf'),
+    PretendardSemiBold: require('../../assets/fonts/pretendard-semibold.otf'),
+    PretendardBold: require('../../assets/fonts/pretendard-bold.otf'),
   });
   useEffect(() => {
     // Web dialogs portal to document.body; share the same token source there.

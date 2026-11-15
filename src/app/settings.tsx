@@ -170,6 +170,14 @@ export default function Settings() {
           주문 중단 · 매장 연결 종료
         </NavLink>
       )}
+      <View className="flex-row flex-wrap gap-3 border-t border-border pt-4">
+        <NavLink href="/onboarding" variant="ghost">
+          처음 이용하시나요?
+        </NavLink>
+        <NavLink href="/kiosk" variant="ghost">
+          매장 직원 화면
+        </NavLink>
+      </View>
     </Screen>
   );
 }

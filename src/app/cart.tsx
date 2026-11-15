@@ -43,6 +43,26 @@ export default function CartScreen() {
     <Screen
       title="장바구니"
       subtitle={app.store?.name ? app.store.name + '에서 고른 메뉴예요.' : undefined}
+      reading
+      footer={
+        app.items.length > 0 ? (
+          <>
+            <View className="flex-row flex-wrap items-baseline justify-between gap-2">
+              <Text variant="muted">매장 확인 금액</Text>
+              <Text className="text-xl font-bold">{money(app.cart.total)}</Text>
+            </View>
+            <Button
+              size="lg"
+              className="w-full justify-between"
+              disabled={app.busy || checking || !!app.pendingSubmission}
+              onPress={() => void review()}
+            >
+              <Text>{checking ? '가격과 재고 확인 중' : '주문 확인하기'}</Text>
+              <Icon as={ArrowRight} size={19} className="text-primary-foreground" />
+            </Button>
+          </>
+        ) : undefined
+      }
     >
       <OrderSteps current={2} />
       <SubmissionRecovery />
@@ -126,15 +146,6 @@ export default function CartScreen() {
             </CardContent>
           </Card>
 
-          <Button
-            size="lg"
-            className="w-full justify-between"
-            disabled={app.busy || checking || !!app.pendingSubmission}
-            onPress={() => void review()}
-          >
-            <Text>{checking ? '가격과 재고 확인 중' : '주문 최종 확인'}</Text>
-            <Icon as={ArrowRight} size={19} className="text-primary-foreground" />
-          </Button>
           <View className="flex-row flex-wrap gap-2">
             <NavLink href="/menu">다른 메뉴 추가</NavLink>
             <NavLink href="/leave">주문 중단 · 장바구니 관리</NavLink>

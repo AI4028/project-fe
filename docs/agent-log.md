@@ -23,6 +23,34 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-15 · Primitive slot package ships JSX to Jest
+
+- **Hit:** discovery component tests failed with `SyntaxError: Unexpected token '<'` in `@rn-primitives/slot/dist/index.js`.
+- **Why:** rendering the real Text primitive imports the slot package, whose JSX is excluded by Jest's dependency transform rules.
+- **Fix:** mocked only the unused slot export in the discovery suite; the real Text and Button primitives still render.
+- **Rule:** screen tests that never use Text's `asChild` can mock the slot boundary without changing production transforms.
+
+### 2026-11-15 · Jest mock factories reject imported UI components
+
+- **Hit:** discovery tests failed with `The module factory of jest.mock() is not allowed to reference any out-of-scope variables. Invalid variable access: View`.
+- **Why:** Jest hoists mock factories before ordinary imports, so the transform guards imported component references.
+- **Fix:** aliased the imported components with a `Mock` prefix and referenced them only inside lazily rendered mock components.
+- **Rule:** require dependencies inside a mock factory, or use mock-prefixed bindings only when their access is safely deferred until rendering.
+
+### 2026-11-15 · PowerShell pipelines can corrupt Korean source
+
+- **Hit:** Korean JSX labels became literal `??` after piping a Python script through Windows PowerShell.
+- **Why:** the shell's native-process pipeline encoding replaced non-ASCII characters before Python read them; CRLF also broke a later exact newline match.
+- **Fix:** wrote Unicode content with `apply_patch`, then used an ASCII-only Python script with explicit UTF-8 reads and normalized newlines.
+- **Rule:** use `apply_patch` for Korean source; avoid passing Unicode source through a PowerShell native-process pipeline.
+
+### 2026-11-15 · Browser preview requires an available UI connection
+
+- **Hit:** browser access returned `The browser access host is unavailable`; the Windows fallback ended because it could not determine the browser URL.
+- **Why:** neither browser automation nor the fallback URL policy check could establish a usable target.
+- **Fix:** stopped UI automation and used typecheck, behavior tests and exports; marked visual/device review as outstanding.
+- **Rule:** do not report screenshot or device validation when browser access cannot establish a target.
+
 ### 2026-11-12 · Lucide's native export is ESM in Jest
 
 - **Hit:** voice control tests failed with `Must use import to load ES Module` after adding Lucide icons.

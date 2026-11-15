@@ -2,7 +2,10 @@
 
 ## Customer
 
-1. **Profile.** Pick 시각 / 지체 / 휠체어 by voice or touch. It is remembered; 유형 변경 changes it.
+1. **Discover first.** Search by name/address or optionally use location. Filter
+   for confirmed access features and switch between list and map without losing
+   the search. A map pin previews the store before opening its details.
+   Accessibility preferences are available through settings and onboarding.
 2. **Find a store.** With location allowed, the map shows nearby stores and arrival
    announcements. Without it, the full accessible list still works. Unknown access info reads 확인 필요.
 3. **Connect.** Enter the kiosk ID and the rotating 8-character code, or scan its QR link.
@@ -10,6 +13,9 @@
 4. **Order.** Pick options and quantity, edit the cart, call staff if needed.
    Totals come from the server; payment happens at the counter or kiosk.
 5. **Track.** Follow the live status and cancel before staff accepts.
+
+See [design direction](design-direction.md) for references, visual decisions,
+the revised discovery/connection flow, and the remaining device review.
 
 ## Kiosk
 
