@@ -5,6 +5,13 @@ import { filterStores } from '@/lib/discovery';
 import type { Store } from '@/lib/types';
 import { router } from 'expo-router';
 import { StoreCard } from '@/components/store-card';
+import * as Location from 'expo-location';
+
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn(),
+  getCurrentPositionAsync: jest.fn(),
+  Accuracy: { Balanced: 3 },
+}));
 
 // These screens render Text directly, never its optional asChild slot.
 jest.mock('@rn-primitives/slot', () => ({ Slot: jest.fn() }));
@@ -72,12 +79,101 @@ jest.mock('@/components/store-map', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest
+    .mocked(Location.requestForegroundPermissionsAsync)
+    .mockResolvedValue({ granted: true } as Location.LocationPermissionResponse);
+  jest.mocked(Location.getCurrentPositionAsync).mockResolvedValue({
+    coords: { latitude: 37.5445, longitude: 127.056 },
+  } as Location.LocationObject);
   mockApi.stores.mockResolvedValue(stores);
   mockApi.searchPlaces.mockResolvedValue({
     places: [],
     status: 'empty',
     generalSearch: 'available',
   });
+});
+
+test('find nearby clears the old query and exposes nearby results in the list', async () => {
+  mockApi.stores.mockResolvedValue([{ ...stores[0], location: { lat: 35.1, lng: 129.1 } }]);
+  await render(<Discovery />);
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'old destination');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
+  await fireEvent.press(screen.getByRole('radio', { name: '지도' }));
+  mockApi.searchPlaces.mockResolvedValue({
+    places: [
+      {
+        ...stores[1],
+        name: 'Nearby cafe',
+        directoryOnly: true,
+        placeKind: 'venue',
+        location: { lat: 37.5446, lng: 127.056 },
+      },
+    ],
+    status: 'results',
+    generalSearch: 'available',
+  });
+  await fireEvent.press(screen.getByLabelText('내 주변에서 찾기'));
+  await screen.findByLabelText('Nearby cafe 매장 정보 보기');
+  expect(mockApi.searchPlaces).toHaveBeenLastCalledWith('', 'all', { lat: 37.5445, lng: 127.056 });
+  expect(screen.queryByLabelText('첫 번째 카페 매장 정보 보기')).toBeNull();
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  expect(screen.getByLabelText('매장 이름 또는 주소 검색').props.value).toBe('');
+});
+
+test('location denial stays visible even when ordering is offline', async () => {
+  mockApi.stores.mockRejectedValueOnce(new TypeError('offline'));
+  jest
+    .mocked(Location.requestForegroundPermissionsAsync)
+    .mockResolvedValueOnce({ granted: false } as Location.LocationPermissionResponse);
+  await render(<Discovery />);
+  await screen.findByText('주문 연결 불가');
+  await fireEvent.press(screen.getByLabelText('내 주변에서 찾기'));
+  await screen.findByText(
+    '위치 권한이 꺼져 있어요. 기기 설정에서 허용하거나 장소 이름을 검색해 주세요.',
+  );
+  expect(screen.queryByText('주문 연결 불가')).toBeNull();
+  expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
+});
+
+test('a stalled location request times out and ignores a late position', async () => {
+  let settle!: (value: Location.LocationObject) => void;
+  jest.mocked(Location.getCurrentPositionAsync).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        settle = resolve;
+      }),
+  );
+  await render(<Discovery />);
+  jest.useFakeTimers();
+  try {
+    await fireEvent.press(screen.getByLabelText('내 주변에서 찾기'));
+    await act(async () => {
+      jest.advanceTimersByTime(12000);
+    });
+    expect(screen.getByText('위치를 확인하지 못했어요. 검색으로 장소를 찾아주세요.')).toBeTruthy();
+    expect(screen.queryByText('위치 확인 중…')).toBeNull();
+    await act(async () => {
+      settle({ coords: { latitude: 37.5445, longitude: 127.056 } } as Location.LocationObject);
+    });
+    expect(mockApi.searchPlaces).not.toHaveBeenCalled();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('failed search shows one recovery state without a misleading zero count', async () => {
+  mockApi.stores.mockRejectedValueOnce(new TypeError('offline'));
+  mockApi.searchPlaces.mockRejectedValueOnce(new TypeError('offline'));
+  await render(<Discovery />);
+  await fireEvent.press(screen.getByRole('radio', { name: '목록' }));
+  await fireEvent.press(screen.getByRole('radio', { name: '지하철역' }));
+  await screen.findByText('장소를 불러오지 못했어요');
+  expect(screen.queryByText('주문 연결 불가')).toBeNull();
+  expect(screen.queryByText('0 개의 장소')).toBeNull();
+  expect(screen.getByText('서버 연결 설정')).toBeTruthy();
+  await fireEvent.press(screen.getByText('장소 검색 다시 시도'));
+  await waitFor(() => expect(screen.queryByText('장소를 불러오지 못했어요')).toBeNull());
 });
 
 test('home keeps four labelled destinations and search expands only when requested', async () => {
