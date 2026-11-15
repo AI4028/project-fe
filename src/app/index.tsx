@@ -26,7 +26,9 @@ import { useApp } from '@/providers/app-provider';
 import { ApiError, errorMessage } from '@/lib/api';
 import { nearbyStores, distanceM, type Position } from '@/lib/location';
 import type { Store } from '@/lib/types';
+import { useTranslation } from '@/lib/i18n';
 export default function Discovery() {
+  const { t } = useTranslation();
   const app = useApp();
   const { width } = useWindowDimensions();
   const wide = width >= 760;
@@ -240,7 +242,7 @@ export default function Discovery() {
         </View>
         {!!error && (
           <Problem
-            message={`${error}${fetched.length ? ' 이전 목록을 표시합니다.' : ''}`}
+            message={`${t(error)}${fetched.length ? ` ${t('이전 목록을 표시합니다.')}` : ''}`}
             busy={loading}
             retry={() => setRevision((value) => value + 1)}
           />

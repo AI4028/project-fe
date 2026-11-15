@@ -1,6 +1,7 @@
 // Adapted from React Native Reusables (MIT); see THIRD_PARTY_NOTICES.md.
 import { cn } from '@/lib/utils';
 import { fontFamily, typography } from '@/lib/theme';
+import { useTranslation } from '@/lib/i18n';
 import { Slot } from '@rn-primitives/slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
@@ -79,13 +80,18 @@ function Text({
   className,
   asChild = false,
   variant = 'default',
+  translate = true,
   ...props
 }: React.ComponentProps<typeof RNText> &
   React.RefAttributes<typeof RNText> &
   TextVariantProps & {
     asChild?: boolean;
+    translate?: boolean;
   }) {
   const scale = React.useContext(TextScaleContext);
+  const { t } = useTranslation();
+  const localize = (child: React.ReactNode): React.ReactNode =>
+    typeof child === 'string' ? t(child) : Array.isArray(child) ? child.map(localize) : child;
   const fontsReady = React.useContext(FontReadyContext);
   const textClass = React.useContext(TextClassContext);
   const resolvedClass = cn(textVariants({ variant }), textClass, className);
@@ -117,6 +123,8 @@ function Text({
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
       {...props}
+      children={translate ? localize(props.children) : props.children}
+      accessibilityLabel={props.accessibilityLabel ? t(props.accessibilityLabel) : undefined}
       style={[
         fontsReady && !resolvedClass.includes('font-mono')
           ? { fontFamily: fontFamily[weight], fontWeight: 'normal' }

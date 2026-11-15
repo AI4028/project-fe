@@ -84,6 +84,32 @@ async function mount() {
   });
   return hook;
 }
+
+test('persists language and restores it without resetting other preferences', async () => {
+  const first = await mount();
+  await act(() =>
+    first.result.current.saveSettings({
+      ...first.result.current.settings,
+      language: 'en',
+      contrast: true,
+    }),
+  );
+  expect(JSON.parse((await AsyncStorage.getItem('galjido.settings'))!).language).toBe('en');
+  await first.unmount();
+  const second = await mount();
+  expect(second.result.current.settings.language).toBe('en');
+  expect(second.result.current.settings.contrast).toBe(true);
+});
+
+test('existing preferences without a language retain Korean', async () => {
+  await AsyncStorage.setItem(
+    'galjido.settings',
+    JSON.stringify({ apiBase: 'http://127.0.0.1:8000', contrast: true }),
+  );
+  const hook = await mount();
+  expect(hook.result.current.settings.language).toBe('ko');
+  expect(hook.result.current.settings.contrast).toBe(true);
+});
 test('connects, uses authoritative cart totals, submits once, and clears the session', async () => {
   const { result } = await mount();
   await act(() => result.current.connect('GK01', 'ABCDEFGH'));

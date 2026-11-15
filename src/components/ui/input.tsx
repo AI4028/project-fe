@@ -4,12 +4,14 @@ import { useContext } from 'react';
 import { TextScaleContext, FontReadyContext } from './text';
 import { Platform, TextInput } from 'react-native';
 import { fontFamily } from '@/lib/theme';
+import { useTranslation } from '@/lib/i18n';
 
 function Input({
   className,
   ...props
 }: React.ComponentProps<typeof TextInput> & React.RefAttributes<TextInput>) {
   const scale = useContext(TextScaleContext);
+  const { t } = useTranslation();
   const fontsReady = useContext(FontReadyContext);
   return (
     <TextInput
@@ -31,6 +33,8 @@ function Input({
         className,
       )}
       {...props}
+      placeholder={props.placeholder ? t(props.placeholder) : undefined}
+      accessibilityLabel={props.accessibilityLabel ? t(props.accessibilityLabel) : undefined}
       style={[
         {
           fontSize: 16 * scale,

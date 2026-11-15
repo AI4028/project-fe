@@ -22,6 +22,7 @@ import { BrandLockup } from './brand';
 import { useApp } from '@/providers/app-provider';
 import { cn } from '@/lib/utils';
 import { layout } from '@/lib/theme';
+import { LanguageSwitch } from './language-switch';
 
 export function NavLink({
   href,
@@ -191,9 +192,12 @@ export function Screen({
                   </Button>
                 </Link>
               )}
-              <NavLink href="/settings" variant="ghost" icon={Settings2}>
-                이용 설정
-              </NavLink>
+              <View className="flex-row flex-wrap items-center gap-1">
+                <LanguageSwitch compact />
+                <NavLink href="/settings" variant="ghost" icon={Settings2}>
+                  이용 설정
+                </NavLink>
+              </View>
             </View>
           </View>
           <ScrollView

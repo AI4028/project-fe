@@ -72,8 +72,14 @@ export default function Review() {
                 </View>
                 <View className="min-w-0 flex-1 gap-1">
                   <Text className="text-sm font-semibold text-primary">주문 매장</Text>
-                  <Text variant="h3">{app.store?.name}</Text>
-                  {!!app.store?.address && <Text variant="muted">{app.store.address}</Text>}
+                  <Text translate={false} variant="h3">
+                    {app.store?.name}
+                  </Text>
+                  {!!app.store?.address && (
+                    <Text translate={false} variant="muted">
+                      {app.store.address}
+                    </Text>
+                  )}
                 </View>
               </View>
             </CardContent>

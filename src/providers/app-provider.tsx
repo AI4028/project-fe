@@ -15,6 +15,7 @@ import { Api, ApiError, errorMessage, normalizeBase } from '@/lib/api';
 import { restoreCart, validateItem } from '@/lib/cart';
 import { subscribe } from '@/lib/live';
 import { secrets } from '@/lib/storage';
+import { translate, type Language } from '@/lib/i18n';
 import {
   statusLabels,
   type Cart,
@@ -25,6 +26,7 @@ import {
 } from '@/lib/types';
 
 type Settings = {
+  language?: Language;
   assistance?: import('@/lib/location').Assistance;
   apiBase: string;
   contrast: boolean;
@@ -33,6 +35,7 @@ type Settings = {
   voiceInput?: boolean;
 };
 const initialSettings: Settings = {
+  language: 'ko',
   apiBase: process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8000',
   contrast: false,
   largeText: false,
@@ -83,6 +86,7 @@ function useAppState() {
   const demo = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
   const announce = useCallback(
     (message: string) => {
+      message = translate(message, settings.language ?? 'ko');
       lastSpoken.current = message;
       setNotice(message);
       if (Platform.OS !== 'web') AccessibilityInfo.announceForAccessibility(message);
@@ -90,11 +94,14 @@ function useAppState() {
         void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
           if (!enabled) {
             void Speech.stop();
-            Speech.speak(message, { language: 'ko-KR', rate: 0.95 });
+            Speech.speak(message, {
+              language: settings.language === 'en' ? 'en-US' : 'ko-KR',
+              rate: 0.95,
+            });
           }
         });
     },
-    [settings.speech],
+    [settings.speech, settings.language],
   );
   const report = useCallback((error: unknown) => announce(errorMessage(error)), [announce]);
   async function exclusive<T>(action: () => Promise<T>): Promise<T> {
@@ -222,7 +229,11 @@ function useAppState() {
         if (raw) {
           const saved = JSON.parse(raw) as Settings;
           normalizeBase(saved.apiBase);
-          setSettings({ ...initialSettings, ...saved });
+          setSettings({
+            ...initialSettings,
+            ...saved,
+            language: saved.language === 'en' ? 'en' : 'ko',
+          });
         }
       })
       .catch(report)

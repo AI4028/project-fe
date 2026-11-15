@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-15 · Inline Node scripts and PowerShell quoting
+
+- **Hit:** a `node -e` replacement script failed with `SyntaxError: Invalid or unexpected token` after PowerShell interpreted nested quote boundaries.
+- **Why:** JavaScript containing import strings and escaped double quotes was passed through PowerShell's argument parser.
+- **Fix:** wrote the script as a UTF-8 `.cjs` file using `apply_patch` and invoked Node with the file path.
+- **Rule:** use a script file for multiline JavaScript or quote-heavy replacements on Windows.
+
 ### 2026-11-15 · Primitive slot package ships JSX to Jest
 
 - **Hit:** discovery component tests failed with `SyntaxError: Unexpected token '<'` in `@rn-primitives/slot/dist/index.js`.

@@ -13,6 +13,7 @@ import { statusLabels, type Order, type OrderStatus, type Store } from '@/lib/ty
 import { money } from '@/lib/cart';
 import { errorMessage } from '@/lib/api';
 import { knownText } from '@/lib/location';
+import { useTranslation } from '@/lib/i18n';
 const guidance = {
   submitted:
     '주문을 전송했습니다. 매장에서 아직 접수하지 않았습니다. 기다리거나 직원에게 주문 번호를 보여 주세요.',
@@ -25,6 +26,7 @@ const guidance = {
 const stages: OrderStatus[] = ['submitted', 'accepted', 'preparing', 'ready', 'picked_up'];
 
 export default function OrderScreen() {
+  const { t, language } = useTranslation();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const app = useApp();
   const [order, setOrder] = useState<Order | null>(null);
@@ -106,7 +108,7 @@ export default function OrderScreen() {
       {loading && !order && <Text>주문 상태를 확인하고 있습니다.</Text>}
       {!!error && (
         <Problem
-          message={`${error} ${order ? '마지막으로 확인한 상태를 표시합니다.' : '확인 전에는 새 주문을 다시 제출하지 마세요.'}`}
+          message={`${t(error)} ${t(order ? '마지막으로 확인한 상태를 표시합니다.' : '확인 전에는 새 주문을 다시 제출하지 마세요.')}`}
           retry={() => void refresh()}
           busy={loading}
         />
@@ -118,8 +120,8 @@ export default function OrderScreen() {
             <CardContent className="gap-4 pt-6">
               {store && (
                 <>
-                  <Text>{store.name}</Text>
-                  <Text>{store.address}</Text>
+                  <Text translate={false}>{store.name}</Text>
+                  <Text translate={false}>{store.address}</Text>
                 </>
               )}
               <Text variant="h2" accessibilityLiveRegion="polite">
@@ -128,7 +130,8 @@ export default function OrderScreen() {
               <Text>{guidance[order.status]}</Text>
               {checkedAt && (
                 <Text variant="muted">
-                  마지막 상태 확인: {new Date(checkedAt).toLocaleTimeString('ko-KR')}
+                  마지막 상태 확인:{' '}
+                  {new Date(checkedAt).toLocaleTimeString(language === 'en' ? 'en-US' : 'ko-KR')}
                 </Text>
               )}
               <Text>{order.summary}</Text>
