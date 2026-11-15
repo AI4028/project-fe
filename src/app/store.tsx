@@ -6,7 +6,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { Accessibility, MapPin, Navigation, ShoppingBag } from 'lucide-react-native';
+import { Accessibility, Navigation, ShoppingBag } from 'lucide-react-native';
 import { Problem } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { knownText } from '@/lib/location';
@@ -53,7 +53,18 @@ export default function StoreDetails() {
   return (
     <Screen
       title={store?.name ?? '매장 정보'}
-      subtitle="방문하기 전에 접근성과 주문 방법을 확인하세요."
+      subtitle={store?.address || '방문에 필요한 정보를 한눈에 확인하세요.'}
+      footer={
+        store && !different ? (
+          <NavLink
+            href={{ pathname: '/menu', params: { storeId: store.storeId } }}
+            variant="default"
+            icon={ShoppingBag}
+          >
+            메뉴 둘러보기
+          </NavLink>
+        ) : undefined
+      }
       onTranscript={(text) => {
         if (!id) return false;
         if (/메뉴.*(읽|알려)/.test(text)) {
@@ -86,18 +97,20 @@ export default function StoreDetails() {
       )}
       {store && (
         <>
-          <View className="rounded-3xl bg-primary p-6 sm:p-8">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-background">
-              <Icon as={MapPin} size={24} className="text-primary" />
+          {!different && (
+            <View className="flex-row flex-wrap items-center justify-between gap-3 rounded-2xl bg-secondary p-4">
+              <View className="min-w-0 flex-1 gap-1">
+                <Text className="font-semibold">지금 매장에 계신가요?</Text>
+                <Text variant="muted">매장 코드로 내 휴대폰에서 주문하세요.</Text>
+              </View>
+              <NavLink
+                href={{ pathname: '/connect', params: { storeId: store.storeId } }}
+                variant="outline"
+              >
+                주문 연결
+              </NavLink>
             </View>
-            <Text className="mt-4 text-sm font-semibold text-primary-foreground">매장 위치</Text>
-            <Text className="mt-2 text-xl font-bold text-primary-foreground">
-              {store.address || '주소 확인 필요'}
-            </Text>
-            <Text className="mt-3 text-primary-foreground">
-              이 매장의 방문 정보와 주문 방법을 아래에서 확인하세요.
-            </Text>
-          </View>
+          )}
           <View className="flex-row flex-wrap gap-4">
             <Card
               className="min-w-0 rounded-3xl"
@@ -196,16 +209,7 @@ export default function StoreDetails() {
                   </Text>
                   <NavLink href="/leave">현재 주문 정리하기</NavLink>
                 </View>
-              ) : (
-                <View className="flex-row flex-wrap gap-2">
-                  <NavLink href={{ pathname: '/menu', params: { storeId: store.storeId } }}>
-                    메뉴와 가격 먼저 보기
-                  </NavLink>
-                  <NavLink href={{ pathname: '/connect', params: { storeId: store.storeId } }}>
-                    지금 이 매장에서 주문하기
-                  </NavLink>
-                </View>
-              )}
+              ) : null}
             </CardContent>
           </Card>
           <NavLink href={{ pathname: '/help', params: { storeId: store.storeId } }}>

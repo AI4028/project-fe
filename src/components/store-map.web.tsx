@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { View } from 'react-native';
-import { Text } from './ui/text';
+import { MapUnavailable } from './map-unavailable';
+import { brandColors, layout } from '@/lib/theme';
 import type { StoreMapProps } from './store-map';
 export default function StoreMap({ stores, position, onSelect }: StoreMapProps) {
   const key = process.env.EXPO_PUBLIC_KAKAO_MAP_KEY;
@@ -12,7 +12,7 @@ export default function StoreMap({ stores, position, onSelect }: StoreMapProps) 
 const data=${data};
 const script=document.createElement('script');
 script.src='https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey='+encodeURIComponent(data.key);
-script.onerror=()=>document.getElementById('map').textContent='지도를 불러오지 못했습니다. 아래 매장 목록을 이용해 주세요.';
+script.onerror=()=>document.getElementById('map').textContent='지도를 불러오지 못했습니다. 목록 보기를 선택해 주세요.';
 script.onload=()=>kakao.maps.load(()=>{
  const center=data.position||data.stores.find(s=>s.location)?.location||{lat:35.2286,lng:126.8436};
  const map=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(center.lat,center.lng),level:5});
@@ -30,19 +30,20 @@ script.onload=()=>kakao.maps.load(()=>{
     window.addEventListener('message', message);
     return () => window.removeEventListener('message', message);
   }, [stores, onSelect]);
-  if (!key)
-    return (
-      <View className="h-40 justify-center rounded-lg bg-secondary p-6">
-        <Text>지도 연결 전에는 아래 매장 목록으로 위치와 접근성 정보를 확인할 수 있습니다.</Text>
-      </View>
-    );
+  if (!key) return <MapUnavailable />;
   return (
     <iframe
       ref={frame}
-      title="주변 매장 지도. 같은 정보는 아래 목록에서 확인할 수 있습니다."
+      title="주변 매장 지도. 목록 보기에서도 매장을 선택할 수 있습니다."
       srcDoc={html}
       sandbox="allow-scripts allow-same-origin"
-      style={{ border: 0, width: '100%', height: 300, borderRadius: 16 }}
+      style={{
+        border: 0,
+        width: '100%',
+        height: layout.mapHeight,
+        borderRadius: layout.radius,
+        background: brandColors.beige,
+      }}
     />
   );
 }

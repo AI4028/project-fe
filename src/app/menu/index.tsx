@@ -1,7 +1,8 @@
 ﻿import { useEffect, useState } from 'react';
-import { Image, View } from 'react-native';
+import { Image, View, ScrollView, useWindowDimensions } from 'react-native';
 import { Link, useLocalSearchParams } from 'expo-router';
-import { ArrowRight, Check, MapPin, RefreshCw, ShoppingBag } from 'lucide-react-native';
+import { ArrowRight, Check, Coffee, RefreshCw, ShoppingBag } from 'lucide-react-native';
+import { OrderSteps } from '@/components/brand';
 import { Problem } from '@/components/feedback';
 import { errorMessage } from '@/lib/api';
 import { Screen, NavLink } from '@/components/screen';
@@ -21,6 +22,7 @@ const photos: Record<string, number> = {
 
 export default function Menu() {
   const app = useApp();
+  const { width } = useWindowDimensions();
   const { storeId } = useLocalSearchParams<{ storeId?: string }>();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -54,7 +56,24 @@ export default function Menu() {
   const shown = menu.filter((item) => category === '전체' || item.category === category);
 
   return (
-    <Screen title="메뉴 고르기" subtitle="마음에 드는 메뉴를 고르고, 옵션을 선택해 주세요.">
+    <Screen
+      title={store?.name ?? '메뉴 고르기'}
+      subtitle="오늘은 무엇을 드실까요?"
+      footer={
+        app.items.length > 0 ? (
+          <NavLink href="/cart" variant="default" icon={ShoppingBag}>
+            {`장바구니 ${app.items.reduce((sum, item) => sum + item.qty, 0)}개 · ${money(app.cart.total)}`}
+          </NavLink>
+        ) : store && !app.connection ? (
+          <NavLink
+            href={{ pathname: '/connect', params: { storeId: store.storeId } }}
+            variant="default"
+          >
+            매장에서 주문 시작하기
+          </NavLink>
+        ) : undefined
+      }
+    >
       {loading && <Text accessibilityLiveRegion="polite">메뉴를 불러오는 중입니다.</Text>}
       {!!error && (
         <Problem message={error} busy={loading} retry={() => setRevision((value) => value + 1)} />
@@ -63,31 +82,12 @@ export default function Menu() {
         <NavLink href="/">먼저 매장을 선택해 주세요</NavLink>
       ) : (
         <>
-          <Card className="overflow-hidden border-0 bg-secondary shadow-none">
-            <CardContent className="gap-4 py-6">
-              <View className="flex-row items-start gap-3">
-                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-card">
-                  <Icon as={MapPin} size={22} className="text-primary" />
-                </View>
-                <View className="min-w-0 flex-1 gap-1">
-                  <Text className="text-sm font-semibold text-primary">지금 보고 있는 매장</Text>
-                  <Text variant="h2">{store.name}</Text>
-                  <Text variant="muted">{store.address}</Text>
-                </View>
-              </View>
-              <NavLink href="/guide">매장 정보와 실내 안내</NavLink>
-            </CardContent>
-          </Card>
+          {app.connection && <OrderSteps current={1} />}
           {!app.connection && (
-            <Card className="border-primary/20 bg-card shadow-none">
-              <CardContent className="gap-3 pt-6">
-                <Text className="text-sm font-semibold text-primary">메뉴 미리보기</Text>
-                <Text>주문하려면 매장 키오스크에 먼저 연결해 주세요.</Text>
-                <NavLink href={{ pathname: '/connect', params: { storeId: store.storeId } }}>
-                  이 매장에서 주문 시작
-                </NavLink>
-              </CardContent>
-            </Card>
+            <View className="gap-1 rounded-2xl bg-secondary p-4">
+              <Text className="font-semibold text-primary">메뉴를 미리 살펴보세요</Text>
+              <Text variant="muted">주문은 매장에 도착한 뒤 코드로 연결하면 돼요.</Text>
+            </View>
           )}
           <View className="flex-row flex-wrap items-end justify-between gap-3">
             <View className="gap-1">
@@ -106,21 +106,29 @@ export default function Menu() {
               <Text>새로고침</Text>
             </Button>
           </View>
-          <View className="flex-row flex-wrap gap-2" accessibilityRole="radiogroup">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerClassName="gap-2 pb-1"
+            accessibilityRole="radiogroup"
+            accessibilityLabel="메뉴 분류"
+          >
             {['전체', ...categories].map((value) => (
               <Button
                 key={value}
-                variant={category === value ? 'secondary' : 'outline'}
+                variant={category === value ? 'default' : 'outline'}
                 className="rounded-full px-5"
                 accessibilityRole="radio"
                 accessibilityState={{ checked: category === value }}
                 onPress={() => setCategory(value)}
               >
-                {category === value && <Icon as={Check} size={16} className="text-primary" />}
+                {category === value && (
+                  <Icon as={Check} size={16} className="text-primary-foreground" />
+                )}
                 <Text>{value}</Text>
               </Button>
             ))}
-          </View>
+          </ScrollView>
           {!loading && !menu.length && (
             <Card className="shadow-none">
               <CardContent className="gap-2 pt-6">
@@ -131,26 +139,38 @@ export default function Menu() {
           )}
           <View className="flex-row flex-wrap gap-4">
             {shown.map((item) => (
-              <Card key={item.id} className="w-full overflow-hidden p-0 sm:w-[48%]">
-                {photos[item.id] ? (
-                  <Image
-                    source={photos[item.id]}
-                    style={{ width: '100%', height: 190 }}
-                    accessibilityIgnoresInvertColors
-                    accessible={false}
-                  />
-                ) : (
-                  <View className="h-28 bg-secondary" />
-                )}
-                <CardContent className="flex-1 gap-3 py-5">
-                  <Text className="text-xs font-semibold text-primary">{item.category}</Text>
-                  <View className="gap-1">
-                    <Text variant="h3">{item.name}</Text>
-                    {!!item.description && <Text variant="muted">{item.description}</Text>}
+              <Card
+                key={item.id}
+                className="overflow-hidden p-0"
+                style={{ width: width >= 760 ? '48%' : '100%' }}
+              >
+                <View className="flex-row items-center gap-4 p-4">
+                  {photos[item.id] ? (
+                    <Image
+                      source={photos[item.id]}
+                      style={{ width: 96, height: 112, borderRadius: 16 }}
+                      accessibilityIgnoresInvertColors
+                      accessible={false}
+                    />
+                  ) : (
+                    <View className="h-28 w-24 items-center justify-center rounded-2xl bg-secondary">
+                      <Icon as={Coffee} size={28} className="text-primary" />
+                    </View>
+                  )}
+                  <View className="min-w-0 flex-1 gap-2">
+                    <Text variant="small" className="text-muted-foreground">
+                      {item.category}
+                    </Text>
+                    <View className="gap-1">
+                      <Text variant="h3">{item.name}</Text>
+                    </View>
+                    <Text className="text-lg font-semibold text-foreground">
+                      {money(item.price)}
+                    </Text>
                   </View>
-                  <Text className="mt-auto text-xl font-bold text-foreground">
-                    {money(item.price)}
-                  </Text>
+                </View>
+                <CardContent className="gap-3 px-4 pb-4">
+                  {!!item.description && <Text variant="muted">{item.description}</Text>}
                   {item.available ? (
                     <Link
                       href={{ pathname: '/menu/[itemId]', params: { itemId: item.id } }}
@@ -158,10 +178,11 @@ export default function Menu() {
                     >
                       <Button
                         accessibilityLabel={item.name + ' 옵션 선택'}
+                        variant="secondary"
                         className="w-full justify-between"
                       >
-                        <Text>옵션 선택하기</Text>
-                        <Icon as={ArrowRight} size={18} className="text-primary-foreground" />
+                        <Text>담으러 가기</Text>
+                        <Icon as={ArrowRight} size={18} className="text-primary" />
                       </Button>
                     </Link>
                   ) : (
@@ -178,15 +199,13 @@ export default function Menu() {
               </Card>
             ))}
           </View>
-          <View className="gap-3 border-t border-border pt-6">
-            <Link href="/cart" asChild>
-              <Button variant="secondary" className="w-full justify-between">
-                <Icon as={ShoppingBag} size={19} className="text-secondary-foreground" />
-                <Text>장바구니 확인</Text>
-                <Icon as={ArrowRight} size={18} className="text-secondary-foreground" />
-              </Button>
-            </Link>
-            <NavLink href="/help">메뉴 이용이 어려워요</NavLink>
+          <View className="flex-row flex-wrap gap-3 border-t border-border pt-4">
+            <NavLink href="/guide" variant="ghost">
+              매장 이용 안내
+            </NavLink>
+            <NavLink href="/help" variant="ghost">
+              주문 도움받기
+            </NavLink>
           </View>
         </>
       )}

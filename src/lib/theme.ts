@@ -45,6 +45,19 @@ export const typography = {
   muted: 14,
 } as const;
 
+export const fontFamily = {
+  regular: 'PretendardRegular',
+  medium: 'PretendardSemiBold',
+  bold: 'PretendardBold',
+} as const;
+
+export const layout = {
+  contentWidth: 1040,
+  readingWidth: 720,
+  mapHeight: 380,
+  radius: 24,
+} as const;
+
 export const palettes = {
   light: {
     background: hsl(brandColors.offWhite),
@@ -63,7 +76,7 @@ export const palettes = {
     'accent-foreground': hsl(brandColors.walnut),
     destructive: hsl('#A32D24'),
     'destructive-foreground': '0 0% 100%',
-    border: hsl('#D8CEC5'),
+    border: hsl('#E5DED7'),
     input: hsl('#88786C'),
     ring: hsl(brandColors.walnut),
   },

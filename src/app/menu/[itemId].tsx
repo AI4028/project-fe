@@ -77,6 +77,32 @@ export default function ItemOptions() {
     <Screen
       title={item?.name ?? '메뉴를 찾을 수 없어요'}
       subtitle={index === null ? '원하는 옵션과 수량을 골라 주세요.' : '옵션과 수량을 바꿔 주세요.'}
+      reading
+      footer={
+        item ? (
+          app.connection ? (
+            <>
+              <Text variant="muted">
+                예상 {money(estimate(item, qty, options))} · 담은 뒤 매장 금액 확인
+              </Text>
+              <Button
+                size="lg"
+                disabled={app.busy || !item.available || !!app.pendingSubmission}
+                onPress={() => void add().catch(app.report)}
+              >
+                <Text>{index === null ? '장바구니에 담기' : '변경 내용 저장'}</Text>
+              </Button>
+            </>
+          ) : (
+            <NavLink
+              href={{ pathname: '/connect', params: { storeId: app.store!.storeId } }}
+              variant="default"
+            >
+              매장에 연결하고 주문하기
+            </NavLink>
+          )
+        ) : undefined
+      }
       onTranscript={(text) => {
         if (!item) return false;
         if (/담아|담기|넣어/.test(text)) {
@@ -257,19 +283,6 @@ export default function ItemOptions() {
             </CardContent>
           </Card>
 
-          {app.connection ? (
-            <Button
-              size="lg"
-              disabled={app.busy || !item.available || !!app.pendingSubmission}
-              onPress={() => void add().catch(app.report)}
-            >
-              <Text>{index === null ? '장바구니에 담기' : '변경 내용 저장'}</Text>
-            </Button>
-          ) : (
-            <NavLink href={{ pathname: '/connect', params: { storeId: app.store!.storeId } }}>
-              먼저 매장에 연결하기
-            </NavLink>
-          )}
           <NavLink href={index === null ? '/menu' : '/cart'}>변경하지 않고 돌아가기</NavLink>
         </>
       )}

@@ -6,7 +6,7 @@ import { Platform, Pressable } from 'react-native';
 
 const buttonVariants = cva(
   cn(
-    'group shrink-0 flex-row items-center justify-center gap-2 rounded-lg shadow-none',
+    'group shrink-0 flex-row items-center justify-center gap-2 rounded-2xl shadow-none',
     Platform.select({
       web: 'focus-visible:border-ring focus-visible:ring-ring aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive outline-none transition-all focus-visible:ring-[3px] focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0',
     }),
@@ -25,13 +25,13 @@ const buttonVariants = cva(
           }),
         ),
         outline: cn(
-          'border-primary bg-card active:bg-accent border',
+          'border-border bg-card active:bg-accent border',
           Platform.select({
             web: 'hover:bg-accent dark:hover:bg-input/50',
           }),
         ),
         secondary: cn(
-          'border border-primary bg-secondary active:bg-accent',
+          'border border-transparent bg-secondary active:bg-accent',
           Platform.select({ web: 'hover:shadow-sm' }),
         ),
         ghost: cn(
@@ -43,10 +43,10 @@ const buttonVariants = cva(
       size: {
         default: cn('min-h-12 px-4 py-3', Platform.select({ web: 'has-[>svg]:px-3' })),
         sm: cn(
-          'min-h-12 gap-1.5 rounded-md px-3 py-2',
+          'min-h-12 gap-1.5 rounded-xl px-3 py-2',
           Platform.select({ web: 'has-[>svg]:px-2.5' }),
         ),
-        lg: cn('min-h-14 rounded-md px-6 py-3', Platform.select({ web: 'has-[>svg]:px-4' })),
+        lg: cn('min-h-14 rounded-2xl px-6 py-3', Platform.select({ web: 'has-[>svg]:px-4' })),
         icon: 'h-12 w-12',
       },
     },
@@ -59,7 +59,7 @@ const buttonVariants = cva(
 
 const buttonTextVariants = cva(
   cn(
-    'text-foreground shrink text-base text-center font-bold',
+    'text-foreground shrink text-base text-center font-semibold',
     Platform.select({ web: 'pointer-events-none transition-colors' }),
   ),
   {

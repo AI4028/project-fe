@@ -15,18 +15,13 @@ export function BrandLockup() {
         source={require('../../assets/brand/galjido-logo-654B3C.png')}
         resizeMode="contain"
         style={{
-          width: 34,
-          height: 44,
+          width: 28,
+          height: 34,
           tintColor: settings.contrast ? brandColors.beige : brandColors.walnut,
         }}
         accessible={false}
       />
-      <View className="gap-0.5">
-        <Text className="text-2xl font-bold tracking-tight text-primary">갈지도</Text>
-        <Text variant="small" style={{ color: brandColors.logoEnglish }}>
-          Galjido Service
-        </Text>
-      </View>
+      <Text className="text-2xl font-bold tracking-tight text-primary">갈지도</Text>
     </View>
   );
 }
