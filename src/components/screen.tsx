@@ -1,3 +1,4 @@
+import { AppNavigation } from './app-navigation';
 import { useState, useCallback, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Link, router, useFocusEffect, usePathname, type Href } from 'expo-router';
@@ -5,10 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   ArrowUpRight,
-  MapPin,
   ShoppingBag,
-  Utensils,
-  HandHelping,
   Settings2,
   Store,
   Check,
@@ -59,13 +57,6 @@ export function NavLink({
   );
 }
 
-const navigation = [
-  { href: '/', label: '매장 찾기', icon: MapPin },
-  { href: '/menu', label: '메뉴', icon: Utensils },
-  { href: '/cart', label: '장바구니', icon: ShoppingBag },
-  { href: '/help', label: '도움 요청', icon: HandHelping },
-] as const;
-
 export function Screen({
   title,
   subtitle,
@@ -95,45 +86,6 @@ export function Screen({
       return () => setFocused(false);
     }, []),
   );
-  const count = app.items.reduce((sum, item) => sum + item.qty, 0);
-  const isActive = (href: string) =>
-    href === '/'
-      ? path === '/' || path === '/store'
-      : href === '/cart'
-        ? path === '/cart' || path === '/review'
-        : path.startsWith(href);
-  const nav = (compact = false) =>
-    navigation.map(({ href, label, icon }) => (
-      <Link key={href} href={href} asChild>
-        <Button
-          variant={isActive(href) ? 'secondary' : 'ghost'}
-          accessibilityState={{ selected: isActive(href) }}
-          accessibilityLabel={`${label}${href === '/cart' && count ? ` ${count}개` : ''}`}
-          className={cn(
-            compact
-              ? 'min-w-0 flex-1 flex-col gap-1 rounded-2xl px-1 py-2'
-              : 'justify-start gap-3 px-4 py-4',
-          )}
-        >
-          <Icon
-            as={icon}
-            size={22}
-            className={isActive(href) ? 'text-primary' : 'text-muted-foreground'}
-            accessible={false}
-          />
-          <Text
-            variant={compact ? 'small' : 'default'}
-            className={cn(
-              'shrink font-semibold',
-              isActive(href) ? 'text-primary' : 'text-muted-foreground',
-            )}
-          >
-            {label}
-            {href === '/cart' && count > 0 ? ` ${count}` : ''}
-          </Text>
-        </Button>
-      </Link>
-    ));
   return (
     <SafeAreaView className="flex-1 bg-background">
       <View className="flex-1 flex-row">
@@ -152,7 +104,7 @@ export function Screen({
                 <BrandLockup />
               </Button>
             </Link>
-            <View className="gap-2">{nav()}</View>
+            <AppNavigation vertical />
             <View className="mt-8 gap-2 border-t border-border pt-5">
               <NavLink href="/settings" variant="ghost" icon={Settings2} className="justify-start">
                 이용 설정
@@ -277,9 +229,7 @@ export function Screen({
               </View>
             </View>
           )}
-          {!desktop && (
-            <View className="flex-row border-t border-border bg-card px-2 py-2">{nav(true)}</View>
-          )}
+          {!desktop && <AppNavigation />}
         </View>
       </View>
     </SafeAreaView>

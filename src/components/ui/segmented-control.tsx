@@ -9,11 +9,13 @@ export function SegmentedControl<T extends string>({
   onChange,
   options,
   label,
+  iconsOnly = false,
 }: {
   value: T;
   onChange: (value: T) => void;
   options: readonly { value: T; label: string; icon?: LucideIcon }[];
   label: string;
+  iconsOnly?: boolean;
 }) {
   return (
     <View
@@ -25,7 +27,9 @@ export function SegmentedControl<T extends string>({
         <Button
           key={option.value}
           variant={value === option.value ? 'outline' : 'ghost'}
-          className="min-w-0 flex-1 rounded-xl px-3"
+          className={
+            iconsOnly ? 'min-h-12 min-w-12 rounded-xl px-3' : 'min-w-0 flex-1 rounded-xl px-3'
+          }
           accessibilityRole="radio"
           accessibilityLabel={option.label}
           accessibilityState={{ checked: value === option.value }}
@@ -39,9 +43,11 @@ export function SegmentedControl<T extends string>({
               accessible={false}
             />
           )}
-          <Text className={value === option.value ? 'text-primary' : 'text-muted-foreground'}>
-            {option.label}
-          </Text>
+          {!iconsOnly && (
+            <Text className={value === option.value ? 'text-primary' : 'text-muted-foreground'}>
+              {option.label}
+            </Text>
+          )}
         </Button>
       ))}
     </View>

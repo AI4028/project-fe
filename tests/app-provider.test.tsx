@@ -85,6 +85,30 @@ async function mount() {
   return hook;
 }
 
+test('saved places persist across mounts without storing menu snapshots', async () => {
+  const first = await mount();
+  await act(() => first.result.current.toggleSaved(store));
+  expect(first.result.current.savedPlaces[0]?.storeId).toBe('cafe');
+  expect(first.result.current.savedPlaces[0]?.menu).toBeUndefined();
+  await first.unmount();
+  const second = await mount();
+  await waitFor(() => expect(second.result.current.savedPlaces[0]?.storeId).toBe('cafe'));
+  await act(() => second.result.current.toggleSaved(store));
+  expect(second.result.current.savedPlaces).toEqual([]);
+});
+
+test('saved places are isolated by API origin', async () => {
+  const hook = await mount();
+  await act(() => hook.result.current.toggleSaved(store));
+  await act(() =>
+    hook.result.current.saveSettings({
+      ...hook.result.current.settings,
+      apiBase: 'http://other.example:8000',
+    }),
+  );
+  await waitFor(() => expect(hook.result.current.savedPlaces).toEqual([]));
+});
+
 test('persists language and restores it without resetting other preferences', async () => {
   const first = await mount();
   await act(() =>

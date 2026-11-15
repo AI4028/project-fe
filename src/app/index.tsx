@@ -1,8 +1,9 @@
+import { AppNavigation } from '@/components/app-navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, ScrollView, View } from 'react-native';
+import { Keyboard, Linking, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { List, Map, LocateFixed, Search, Settings2, X } from 'lucide-react-native';
+import { List, Map, LocateFixed, Search, X } from 'lucide-react-native';
 import { router } from 'expo-router';
 import StoreMap from '@/components/store-map';
 import { BrandLockup } from '@/components/brand';
@@ -29,6 +30,7 @@ export default function Discovery() {
     app.settings?.assistance === 'visual' ? 'list' : 'map',
   );
   const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [submitted, setSubmitted] = useState('');
   const [registered, setRegistered] = useState<Store[]>([]);
   const [places, setPlaces] = useState<Store[]>([]);
@@ -36,6 +38,7 @@ export default function Discovery() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState('');
   const [revision, setRevision] = useState(0);
@@ -56,7 +59,10 @@ export default function Discovery() {
         }
       })
       .catch(() => {
-        if (active) setFailed(true);
+        if (active) {
+          setFailed(true);
+          setNoticeDismissed(false);
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -88,6 +94,7 @@ export default function Discovery() {
     [registered, query, access],
   );
   async function locate() {
+    setNoticeDismissed(false);
     const id = ++request.current;
     setLocating(true);
     try {
@@ -113,59 +120,110 @@ export default function Discovery() {
   const search = () => {
     setSubmitted(query.trim());
     setSelectedId(null);
+    setSearchOpen(false);
+    Keyboard.dismiss();
   };
+  const notice =
+    !noticeDismissed && (failed || !!locationMessage) ? (
+      <View className="flex-row flex-wrap items-center gap-1 rounded-2xl border border-border bg-card p-2">
+        <Text
+          variant="small"
+          className="min-w-0 flex-1 px-2 font-normal"
+          accessibilityLiveRegion="polite"
+        >
+          {failed ? '주문 연결 불가' : locationMessage}
+        </Text>
+        {failed && (
+          <Button
+            variant="ghost"
+            disabled={loading}
+            accessibilityLabel="주문 연결 다시 시도"
+            onPress={() => setRevision((value) => value + 1)}
+          >
+            <Text>{loading ? '확인 중' : '다시 시도'}</Text>
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          accessibilityLabel="알림 닫기"
+          onPress={() => {
+            setNoticeDismissed(true);
+            setLocationMessage('');
+          }}
+        >
+          <Icon as={X} size={18} className="text-muted-foreground" accessible={false} />
+        </Button>
+      </View>
+    ) : null;
   return (
     <SafeAreaView className="flex-1 bg-background">
       <View className="gap-2 px-3 pb-2 pt-1">
-        <View className="flex-row flex-wrap items-center justify-between gap-1">
-          <BrandLockup />
-          <View className="flex-row items-center">
+        {searchOpen ? (
+          <View className="flex-row items-center gap-1">
+            <View className="min-w-0 flex-1 flex-row items-center rounded-2xl border border-input bg-card">
+              <Input
+                autoFocus
+                className="min-w-0 flex-1 border-0 bg-transparent"
+                accessibilityLabel="매장 이름 또는 주소 검색"
+                placeholder="매장 또는 메뉴를 검색해보세요"
+                value={query}
+                onChangeText={setQuery}
+                returnKeyType="search"
+                onSubmitEditing={search}
+              />
+              {!!query && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  accessibilityLabel="검색어 지우기"
+                  onPress={() => {
+                    setQuery('');
+                    setSubmitted('');
+                  }}
+                >
+                  <Icon as={X} size={18} accessible={false} />
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" accessibilityLabel="검색 실행" onPress={search}>
+                <Icon as={Search} size={21} className="text-primary" accessible={false} />
+              </Button>
+            </View>
             <Button
               variant="ghost"
               size="icon"
-              accessibilityLabel="이용 설정"
-              onPress={() => router.push('/settings')}
+              accessibilityLabel="검색 닫기"
+              onPress={() => setSearchOpen(false)}
             >
-              <Icon as={Settings2} size={21} className="text-primary" />
+              <Icon as={X} size={21} accessible={false} />
             </Button>
           </View>
-        </View>
-        <View className="flex-row items-center rounded-2xl border border-input bg-card pl-3">
-          <Input
-            className="min-w-0 flex-1 border-0 bg-transparent"
-            accessibilityLabel="매장 이름 또는 주소 검색"
-            placeholder="매장 또는 메뉴를 검색해보세요"
-            value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={search}
-            returnKeyType="search"
-          />
-          {!!query && (
-            <Button
-              variant="ghost"
-              size="icon"
-              accessibilityLabel="검색어 지우기"
-              onPress={() => {
-                setQuery('');
-                setSubmitted('');
-              }}
-            >
-              <Icon as={X} size={18} />
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" accessibilityLabel="검색 실행" onPress={search}>
-            <Icon as={Search} size={21} className="text-primary" />
-          </Button>
-        </View>
-        <SegmentedControl
-          value={view}
-          onChange={setView}
-          label="매장 보기 방식"
-          options={[
-            { value: 'list', label: '목록', icon: List },
-            { value: 'map', label: '지도', icon: Map },
-          ]}
-        />
+        ) : (
+          <View className="flex-row flex-wrap items-center justify-between gap-2">
+            <BrandLockup />
+            <View className="flex-row items-center gap-1">
+              <Button
+                variant={query ? 'secondary' : 'ghost'}
+                size="icon"
+                accessibilityLabel="검색 열기"
+                accessibilityState={{ expanded: false }}
+                onPress={() => setSearchOpen(true)}
+              >
+                <Icon as={Search} size={22} className="text-primary" accessible={false} />
+              </Button>
+              <SegmentedControl
+                iconsOnly
+                value={view}
+                onChange={setView}
+                label="매장 보기 방식"
+                options={[
+                  { value: 'list', label: '목록', icon: List },
+                  { value: 'map', label: '지도', icon: Map },
+                ]}
+              />
+            </View>
+          </View>
+        )}
         {(app.connection || app.order) && (
           <NavLink
             variant="secondary"
@@ -209,6 +267,7 @@ export default function Discovery() {
             contentContainerClassName="gap-3 px-4 py-3"
             keyboardShouldPersistTaps="handled"
           >
+            {notice}
             <View className="flex-row flex-wrap items-center justify-between gap-2">
               <Text variant="h2">가까운 장소</Text>
               <Button variant="ghost" disabled={locating} onPress={() => void locate()}>
@@ -262,6 +321,9 @@ export default function Discovery() {
             <SubmissionRecovery />
           </ScrollView>
         )}
+        {view === 'map' && notice && (
+          <View className="absolute left-3 right-3 top-3">{notice}</View>
+        )}
         {view === 'map' && (
           <View className="absolute bottom-4 right-4">
             <Button
@@ -277,23 +339,8 @@ export default function Discovery() {
           </View>
         )}
       </View>
-      {(!!locationMessage || failed) && (
-        <View className="gap-1 border-t border-border bg-card px-4 py-2">
-          {!!locationMessage && (
-            <Text variant="muted" accessibilityLiveRegion="polite">
-              {locationMessage}
-            </Text>
-          )}
-          {failed && (
-            <Button variant="ghost" onPress={() => setRevision((value) => value + 1)}>
-              <Text className="text-left text-sm">
-                주문 매장 연결 불가 · 지도는 계속 이용할 수 있어요 · 다시 시도
-              </Text>
-            </Button>
-          )}
-        </View>
-      )}
       {selected && <PlacePreview store={selected} onClose={() => setSelectedId(null)} />}
+      <AppNavigation />
     </SafeAreaView>
   );
 }
