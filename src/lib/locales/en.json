@@ -1,4 +1,10 @@
 {
+  "장소를 불러오지 못했어요": "Places couldn’t load",
+  "위치 권한이 꺼져 있어요. 기기 설정에서 허용하거나 장소 이름을 검색해 주세요.": "Location access is off. Enable it in your device settings, or search for a place by name.",
+  "일반 장소 검색에 연결하지 못했어요. 지하철역 검색 결과만 표시합니다.": "Venue search is unavailable. Showing station results only.",
+  "내 주변에서 찾기를 누르거나 검색 버튼으로 장소 이름을 입력해 주세요.": "Tap Find nearby, or use search to find a place by name.",
+  "주변 카페와 지하철역을 표시해요. 거리순으로 정렬합니다.": "Nearby cafés and stations, sorted by distance.",
+  "검색 결과": "Search results",
   "모든 장소": "All places",
   "지하철역": "Stations",
   "음향신호기": "Audible signals",

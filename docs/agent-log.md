@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-15 · Verify the frontend address as well as backend readiness
+
+- **Hit:** the Explore screen reported connection failures although backend readiness and direct place searches passed.
+- **Why:** the local frontend environment targeted port 8001 while the backend listened on 8000; saved app settings can override that environment too.
+- **Fix:** corrected the local API URL, restarted Metro, verified the LAN readiness endpoint and real nearby venue results, and exposed connection settings in search recovery.
+- **Rule:** compare the frontend environment and saved server address with the listening backend port before treating a successful readiness check as an app connection check.
+
 ### 2026-11-15 · Restart the complete backend worker tree after changing credentials
 
 - **Hit:** place search still returned `generalSearch: not-configured` after restarting Uvicorn with `--env-file .env`.

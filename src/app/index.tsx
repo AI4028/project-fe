@@ -118,8 +118,14 @@ export default function Discovery() {
     [],
   );
   const stores = useMemo(() => {
+    const nearbyRegistered =
+      position && !submitted
+        ? registered.filter(
+            (store) => store.location && distanceM(position, store.location) <= 5000,
+          )
+        : registered;
     const filtered = [
-      ...(searchKind === 'all' ? filterStores(registered, query, access) : []),
+      ...(searchKind === 'all' ? filterStores(nearbyRegistered, query, access) : []),
       ...filterStores(places, '', access),
     ];
     return position
@@ -130,23 +136,37 @@ export default function Discovery() {
           }))
           .sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity))
       : filtered;
-  }, [registered, places, query, access, position, searchKind]);
+  }, [registered, places, query, access, position, searchKind, submitted]);
   const selected = stores.find((store) => store.storeId === selectedId);
   const mapStores = stores;
   async function locate() {
+    setView('list');
+    setSearchOpen(false);
+    Keyboard.dismiss();
+    setSelectedId(null);
+    setQuery('');
+    setSubmitted('');
+    setAccess('all');
+    setLocationMessage('');
     setNoticeDismissed(false);
     const id = ++request.current;
     setLocating(true);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (id !== request.current) return;
       if (!permission.granted) {
-        setLocationMessage('위치 없이 검색할 수 있어요.');
+        setLocationMessage(
+          '위치 권한이 꺼져 있어요. 기기 설정에서 허용하거나 장소 이름을 검색해 주세요.',
+        );
         return;
       }
-      const result = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
+      const result = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('location-timeout')), 12000);
+        }),
+      ]);
       if (id !== request.current) return;
       setPosition({ lat: result.coords.latitude, lng: result.coords.longitude });
       setLocationMessage('현재 위치를 표시합니다. 거리는 직선거리예요.');
@@ -154,6 +174,7 @@ export default function Discovery() {
       if (id === request.current)
         setLocationMessage('위치를 확인하지 못했어요. 검색으로 장소를 찾아주세요.');
     } finally {
+      clearTimeout(timeout);
       if (id === request.current) setLocating(false);
     }
   }
@@ -165,16 +186,16 @@ export default function Discovery() {
     setView('list');
   };
   const notice =
-    !noticeDismissed && (failed || !!locationMessage) ? (
+    !noticeDismissed && (!!locationMessage || (failed && !placeError)) ? (
       <View className="flex-row flex-wrap items-center gap-1 rounded-2xl border border-border bg-card p-2">
         <Text
           variant="small"
           className="min-w-0 flex-1 px-2 font-normal"
           accessibilityLiveRegion="polite"
         >
-          {failed ? '주문 연결 불가' : locationMessage}
+          {locationMessage || '주문 연결 불가'}
         </Text>
-        {failed && (
+        {failed && !locationMessage && (
           <Button
             variant="ghost"
             disabled={loading}
@@ -339,16 +360,31 @@ export default function Discovery() {
               ))}
             </ScrollView>
             {!!placeError && (
-              <View className="gap-2">
+              <View className="gap-3 rounded-2xl border border-border bg-card p-4">
+                <Text variant="h3">장소를 불러오지 못했어요</Text>
                 <Text accessibilityRole="alert">{placeError}</Text>
-                <Button variant="outline" onPress={() => setPlaceRevision((value) => value + 1)}>
+                <Button
+                  variant="outline"
+                  onPress={() => {
+                    setPlaceRevision((value) => value + 1);
+                    if (failed) setRevision((value) => value + 1);
+                  }}
+                >
                   <Text>장소 검색 다시 시도</Text>
                 </Button>
+                <NavLink href="/settings" variant="ghost">
+                  서버 연결 설정
+                </NavLink>
               </View>
             )}
             {placeStatus?.generalSearch === 'not-configured' && (
               <Text variant="muted">
                 일반 장소 검색은 준비 중이에요. 지하철역과 공공 접근성 자료는 검색할 수 있어요.
+              </Text>
+            )}
+            {placeStatus?.generalSearch === 'unavailable' && placeStatus.status === 'results' && (
+              <Text variant="muted">
+                일반 장소 검색에 연결하지 못했어요. 지하철역 검색 결과만 표시합니다.
               </Text>
             )}
             {placeStatus?.status === 'needs-location' && (
@@ -359,12 +395,20 @@ export default function Discovery() {
               <Text>주변에 등록된 자료가 없어요. 시설이 없다는 뜻은 아니에요.</Text>
             )}
             <View className="flex-row flex-wrap items-center justify-between gap-2">
-              <Text variant="h2">가까운 장소</Text>
+              <Text variant="h2">{submitted ? '검색 결과' : '가까운 장소'}</Text>
               <Button variant="ghost" disabled={locating} onPress={() => void locate()}>
                 <Icon as={LocateFixed} size={18} className="text-primary" accessible={false} />
                 <Text>{locating ? '위치 확인 중…' : '내 주변에서 찾기'}</Text>
               </Button>
             </View>
+            {!position && !submitted && !placeError && (
+              <Text variant="muted">
+                내 주변에서 찾기를 누르거나 검색 버튼으로 장소 이름을 입력해 주세요.
+              </Text>
+            )}
+            {!!position && !submitted && searchKind === 'all' && (
+              <Text variant="muted">주변 카페와 지하철역을 표시해요. 거리순으로 정렬합니다.</Text>
+            )}
             {searchKind === 'all' && (
               <View
                 className="flex-row flex-wrap gap-2"
@@ -390,13 +434,15 @@ export default function Discovery() {
                 ))}
               </View>
             )}
-            <Text variant="muted" accessibilityLiveRegion="polite">
-              {placeLoading
-                ? '장소를 검색하고 있어요.'
-                : loading
-                  ? '매장을 찾고 있어요…'
-                  : `${stores.length} ${t('개의 장소')}`}
-            </Text>
+            {!placeError && (
+              <Text variant="muted" accessibilityLiveRegion="polite">
+                {placeLoading
+                  ? '장소를 검색하고 있어요.'
+                  : loading
+                    ? '매장을 찾고 있어요…'
+                    : `${stores.length} ${t('개의 장소')}`}
+              </Text>
+            )}
             {stores.map((store) => (
               <StoreCard
                 key={store.storeId}
