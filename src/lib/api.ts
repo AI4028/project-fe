@@ -8,6 +8,9 @@ import type {
   OrderStatus,
   Session,
   Store,
+  PlaceSearchKind,
+  PlaceSearchResult,
+  AccessibilityRecords,
 } from './types';
 export class ApiError extends Error {
   constructor(
@@ -77,6 +80,20 @@ export class Api {
     return url.toString();
   }
   stores = () => this.request<Store[]>('/stores');
+  searchPlaces = (
+    query: string,
+    kind: PlaceSearchKind,
+    position?: { lat: number; lng: number } | null,
+  ) => {
+    const params = new URLSearchParams({ q: query, kind });
+    if (position) {
+      params.set('lat', String(position.lat));
+      params.set('lng', String(position.lng));
+    }
+    return this.request<PlaceSearchResult>(`/places/search?${params}`);
+  };
+  accessibilityNearby = (lat: number, lng: number) =>
+    this.request<AccessibilityRecords>(`/accessibility/nearby?lat=${lat}&lng=${lng}&radiusM=300`);
   nearby = (lat: number, lng: number) =>
     this.request<Store[]>(`/stores/nearby?lat=${lat}&lng=${lng}&radiusM=3000`);
   store = (id: string) => this.request<Store>(`/stores/${encodeURIComponent(id)}`);
@@ -136,6 +153,7 @@ export class Api {
     this.request(`/kiosk/menu/${encodeURIComponent(id)}/availability`, 'PUT', { available }, key);
 }
 const messages: Record<string, string> = {
+  'places-unavailable': '장소 검색에 연결하지 못했어요. 잠시 후 다시 시도하세요.',
   'price-changed': '가격이 변경되었습니다. 장바구니를 새로고침하고 다시 확인해 주세요.',
   'idempotency-conflict': '이전 주문과 내용이 다릅니다. 주문 결과를 먼저 확인해 주세요.',
   'token-invalid': '연결 코드가 만료되었습니다. 키오스크에서 새 코드를 확인해 주세요.',

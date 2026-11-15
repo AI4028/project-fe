@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Text as MockText, View as MockView, Pressable as MockPressable } from 'react-native';
 import Discovery from '@/app/index';
 import { filterStores } from '@/lib/discovery';
@@ -24,7 +24,7 @@ const stores: Store[] = [
   },
   { storeId: 'unknown', name: '정보 없는 카페', address: '광주', accessibility: {} },
 ];
-const mockApi = { stores: jest.fn(), nearby: jest.fn() };
+const mockApi = { stores: jest.fn(), nearby: jest.fn(), searchPlaces: jest.fn() };
 jest.mock('@/providers/app-provider', () => ({
   useApp: () => ({ api: mockApi, connection: null, settings: {}, report: jest.fn() }),
 }));
@@ -73,6 +73,11 @@ jest.mock('@/components/store-map', () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockApi.stores.mockResolvedValue(stores);
+  mockApi.searchPlaces.mockResolvedValue({
+    places: [],
+    status: 'empty',
+    generalSearch: 'available',
+  });
 });
 
 test('home keeps four labelled destinations and search expands only when requested', async () => {
@@ -160,4 +165,80 @@ test('ordering notice can be dismissed without hiding the map or location contro
   expect(screen.queryByText('주문 연결 불가')).toBeNull();
   expect(screen.getByTestId('store-map')).toBeTruthy();
   expect(screen.getByLabelText('내 주변에서 찾기')).toBeTruthy();
+});
+
+test('station search is available in the text list without relying on map SDK results', async () => {
+  mockApi.searchPlaces.mockResolvedValueOnce({
+    places: [
+      {
+        ...stores[0],
+        storeId: 'station:seongsu',
+        name: '성수역',
+        directoryOnly: true,
+        placeKind: 'station',
+        location: { lat: 37.544, lng: 127.056 },
+      },
+    ],
+    status: 'results',
+    generalSearch: 'not-configured',
+  });
+  await render(<Discovery />);
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '성수역');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
+  await screen.findByLabelText('성수역 매장 정보 보기');
+  expect(mockApi.searchPlaces).toHaveBeenCalledWith('성수역', 'all', null);
+  await fireEvent.press(screen.getByLabelText('성수역 매장 정보 보기'));
+  expect(screen.getByText('주변 접근성 정보')).toBeTruthy();
+  expect(screen.queryByText('매장 정보 · 메뉴')).toBeNull();
+});
+
+test('unconfigured general search is not presented as an empty successful search', async () => {
+  mockApi.searchPlaces.mockResolvedValueOnce({
+    places: [],
+    status: 'unavailable',
+    generalSearch: 'not-configured',
+  });
+  await render(<Discovery />);
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'Unknown venue');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
+  await screen.findByText(
+    '일반 장소 검색은 준비 중이에요. 지하철역과 공공 접근성 자료는 검색할 수 있어요.',
+  );
+  expect(
+    screen.queryByText('검색 결과가 없어요. 검색어를 바꾸거나 지도 앱에서 찾아보세요.'),
+  ).toBeNull();
+});
+
+test('late search responses cannot replace a newer destination', async () => {
+  let settle!: (value: unknown) => void;
+  mockApi.searchPlaces.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        settle = resolve;
+      }),
+  );
+  mockApi.searchPlaces.mockResolvedValueOnce({
+    places: [{ ...stores[0], name: 'New destination' }],
+    status: 'results',
+    generalSearch: 'available',
+  });
+  await render(<Discovery />);
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'old');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'new');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
+  await screen.findByLabelText('New destination 매장 정보 보기');
+  await act(async () => {
+    settle({
+      places: [{ ...stores[1], name: 'Old destination' }],
+      status: 'results',
+      generalSearch: 'available',
+    });
+  });
+  expect(screen.queryByLabelText('Old destination 매장 정보 보기')).toBeNull();
+  expect(screen.getByLabelText('New destination 매장 정보 보기')).toBeTruthy();
 });

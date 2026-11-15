@@ -23,6 +23,27 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-15 · Station identifiers repeat across railway lines
+
+- **Hit:** the imported station table produced three duplicate voice-guide result identifiers when keyed only by station ID.
+- **Why:** station identifiers are not globally unique across railway lines.
+- **Fix:** scoped result identifiers by station ID and line, and added a uniqueness assertion to the backend tests.
+- **Rule:** use source-specific composite keys for public station records rather than assuming global ID uniqueness.
+
+### 2026-11-15 · Dataset checksums require byte-preserving Git attributes
+
+- **Hit:** Git warned that a pinned upstream JSON dataset would be converted from LF to CRLF on Windows checkout.
+- **Why:** backend `core.autocrlf` can change imported data bytes and invalidate the snapshot manifest checksums.
+- **Fix:** marked backend accessibility JSON datasets `-text` in `.gitattributes` before finalizing the feature commit.
+- **Rule:** preserve original bytes for datasets whose integrity is tracked by SHA-256 manifests.
+
+### 2026-11-15 · Feedback imports native dialog animation in screen tests
+
+- **Hit:** accessibility screen tests failed on `loadUnpackersWithCode` while importing `react-native-worklets` through the shared feedback module.
+- **Why:** the feedback module also exports animated dialogs, even when the screen only needs its plain error view.
+- **Fix:** mocked the feedback error boundary for the record-rendering test, keeping the real text, cards and buttons under test.
+- **Rule:** isolate unrelated native dialog/animation exports in focused screen tests rather than simulating native worklets.
+
 ### 2026-11-15 · Duplicate check watchers share a result file
 
 - **Hit:** concurrent watchers failed with `ENOENT` or `EPERM` replacing `.checks/latest.tmp`, leaving a stale running result.

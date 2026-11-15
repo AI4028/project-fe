@@ -7,41 +7,24 @@ import MapView, { Circle, Marker } from 'react-native-maps';
 import type { Store } from '@/lib/types';
 import type { Position } from '@/lib/location';
 export type StoreMapProps = {
-  showDirectory?: boolean;
   fill?: boolean;
   query?: string;
-  onPlaces?: (stores: Store[]) => void;
   stores: Store[];
   position: Position | null;
   onSelect: (store: Store) => void;
 };
-export default function StoreMap({ stores, position, onSelect, fill }: StoreMapProps) {
+export default function StoreMap({ stores, position, onSelect, fill, query }: StoreMapProps) {
   const { t } = useTranslation();
   const ref = useRef<MapView>(null);
-  const center = position ??
-    stores.find((store) => store.location)?.location ?? { lat: 35.2286, lng: 126.8436 };
+  const center = (query ? stores.find((store) => store.location)?.location : null) ??
+    position ??
+    stores.find((store) => store.location)?.location ?? { lat: 37.5445, lng: 127.056 };
   useEffect(() => {
-    if (position)
-      ref.current?.animateToRegion(
-        {
-          latitude: position.lat,
-          longitude: position.lng,
-          latitudeDelta: 0.025,
-          longitudeDelta: 0.025,
-        },
-        300,
-      );
-    else if (stores[0]?.location)
-      ref.current?.animateToRegion(
-        {
-          latitude: stores[0].location.lat,
-          longitude: stores[0].location.lng,
-          latitudeDelta: 0.025,
-          longitudeDelta: 0.025,
-        },
-        300,
-      );
-  }, [position?.lat, position?.lng, stores]);
+    ref.current?.animateToRegion(
+      { latitude: center.lat, longitude: center.lng, latitudeDelta: 0.025, longitudeDelta: 0.025 },
+      300,
+    );
+  }, [center.lat, center.lng]);
   if (Platform.OS === 'android' && !process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY)
     return <MapUnavailable />;
   return (
