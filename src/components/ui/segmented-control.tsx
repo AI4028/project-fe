@@ -10,12 +10,14 @@ export function SegmentedControl<T extends string>({
   options,
   label,
   iconsOnly = false,
+  disabled = false,
 }: {
   value: T;
   onChange: (value: T) => void;
   options: readonly { value: T; label: string; icon?: LucideIcon }[];
   label: string;
   iconsOnly?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <View
@@ -26,6 +28,7 @@ export function SegmentedControl<T extends string>({
       {options.map((option) => (
         <Button
           key={option.value}
+          disabled={disabled}
           variant={value === option.value ? 'outline' : 'ghost'}
           className={
             iconsOnly ? 'min-h-12 min-w-12 rounded-xl px-3' : 'min-w-0 flex-1 rounded-xl px-3'

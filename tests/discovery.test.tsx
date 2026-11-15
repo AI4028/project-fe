@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Text as MockText, View as MockView, Pressable as MockPressable } from 'react-native';
-import Discovery from '@/app/index';
+import Discovery from '@/app/explore/list';
+import MapExplore from '@/app/explore/map';
 import { filterStores } from '@/lib/discovery';
 import type { Store } from '@/lib/types';
 import { router } from 'expo-router';
@@ -79,6 +80,10 @@ jest.mock('@/components/store-map', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockApi.stores.mockReset();
+  mockApi.searchPlaces.mockReset();
+  jest.mocked(Location.requestForegroundPermissionsAsync).mockReset();
+  jest.mocked(Location.getCurrentPositionAsync).mockReset();
   jest
     .mocked(Location.requestForegroundPermissionsAsync)
     .mockResolvedValue({ granted: true } as Location.LocationPermissionResponse);
@@ -99,7 +104,6 @@ test('find nearby clears the old query and exposes nearby results in the list', 
   await fireEvent.press(screen.getByLabelText('검색 열기'));
   await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'old destination');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
-  await fireEvent.press(screen.getByRole('radio', { name: '지도' }));
   mockApi.searchPlaces.mockResolvedValue({
     places: [
       {
@@ -166,7 +170,6 @@ test('failed search shows one recovery state without a misleading zero count', a
   mockApi.stores.mockRejectedValueOnce(new TypeError('offline'));
   mockApi.searchPlaces.mockRejectedValueOnce(new TypeError('offline'));
   await render(<Discovery />);
-  await fireEvent.press(screen.getByRole('radio', { name: '목록' }));
   await fireEvent.press(screen.getByRole('radio', { name: '지하철역' }));
   await screen.findByText('장소를 불러오지 못했어요');
   expect(screen.queryByText('주문 연결 불가')).toBeNull();
@@ -179,6 +182,8 @@ test('failed search shows one recovery state without a misleading zero count', a
 test('home keeps four labelled destinations and search expands only when requested', async () => {
   await render(<Discovery />);
   expect(screen.getAllByRole('tab')).toHaveLength(4);
+  expect(screen.queryByTestId('store-map')).toBeNull();
+  expect(screen.queryByLabelText('매장 보기 방식')).toBeNull();
   expect(screen.getByRole('tab', { name: '둘러보기' }).props.accessibilityState.selected).toBe(
     true,
   );
@@ -214,27 +219,75 @@ test('accessibility filters exclude false, null and unknown facts without changi
   expect(stores).toHaveLength(3);
 });
 
-test('search and access conditions persist when switching from list to map and back', async () => {
+test('list search keeps its accessibility conditions without offering a map alternative', async () => {
   await render(<Discovery />);
-  await fireEvent.press(screen.getByRole('radio', { name: '목록' }));
   await screen.findByLabelText('첫 번째 카페 매장 정보 보기');
   await fireEvent.press(screen.getByLabelText('검색 열기'));
   await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '서울');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
   await fireEvent.press(screen.getByRole('radio', { name: '턱 없는 입구' }));
   expect(screen.queryByLabelText('두 번째 카페 매장 정보 보기')).toBeNull();
-  await fireEvent.press(screen.getByRole('radio', { name: '지도' }));
-  expect(screen.getByTestId('store-map')).toBeTruthy();
-  expect(screen.queryByLabelText('두 번째 카페 지도 핀')).toBeNull();
-  await fireEvent.press(screen.getByRole('radio', { name: '목록' }));
   await fireEvent.press(screen.getByLabelText('검색 열기'));
   expect(screen.getByDisplayValue('서울')).toBeTruthy();
   expect(screen.getByLabelText('첫 번째 카페 매장 정보 보기')).toBeTruthy();
   expect(screen.queryByLabelText('두 번째 카페 매장 정보 보기')).toBeNull();
+  expect(screen.queryByTestId('store-map')).toBeNull();
+});
+
+test('map search and nearby stay on the visual map with working filters and no view toggle', async () => {
+  mockApi.searchPlaces.mockResolvedValue({
+    places: [
+      {
+        ...stores[0],
+        storeId: 'place:nearby',
+        name: 'Nearby cafe',
+        directoryOnly: true,
+        placeKind: 'venue',
+        location: { lat: 37.5445, lng: 127.056 },
+      },
+    ],
+    status: 'results',
+    generalSearch: 'available',
+  });
+  await render(<MapExplore />);
+  expect(screen.queryByLabelText('매장 보기 방식')).toBeNull();
+  expect(screen.queryByLabelText('접근성 조건')).toBeNull();
+  await fireEvent.press(screen.getByLabelText('장소 필터'));
+  await fireEvent.press(screen.getByRole('radio', { name: '턱 없는 입구' }));
+  expect(screen.queryByLabelText('두 번째 카페 지도 핀')).toBeNull();
+  await fireEvent.press(screen.getByLabelText('장소 필터'));
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'Nearby');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
+  await screen.findByLabelText('Nearby cafe 지도 핀');
+  expect(screen.getByTestId('store-map')).toBeTruthy();
+  await fireEvent.press(screen.getByLabelText('내 주변에서 찾기'));
+  await waitFor(() =>
+    expect(mockApi.searchPlaces).toHaveBeenLastCalledWith('', 'all', {
+      lat: 37.5445,
+      lng: 127.056,
+    }),
+  );
+  expect(screen.getByTestId('store-map')).toBeTruthy();
+  expect(screen.queryByText('가까운 장소')).toBeNull();
+});
+
+test('map search failures stay visible and recover without switching to a list', async () => {
+  mockApi.searchPlaces.mockRejectedValueOnce(new TypeError('offline'));
+  await render(<MapExplore />);
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'Seoul');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
+  await screen.findByText('장소를 불러오지 못했어요');
+  expect(screen.getByTestId('store-map')).toBeTruthy();
+  expect(screen.queryByText('0 개의 장소')).toBeNull();
+  await fireEvent.press(screen.getByText('장소 검색 다시 시도'));
+  await waitFor(() => expect(screen.queryByText('장소를 불러오지 못했어요')).toBeNull());
+  expect(screen.getByTestId('store-map')).toBeTruthy();
 });
 
 test('map selection previews a store and only the explicit detail action navigates', async () => {
-  await render(<Discovery />);
+  await render(<MapExplore />);
   await screen.findByLabelText('첫 번째 카페 지도 핀');
   await fireEvent.press(screen.getByLabelText('두 번째 카페 지도 핀'));
   expect(router.push).not.toHaveBeenCalled();
@@ -244,7 +297,7 @@ test('map selection previews a store and only the explicit detail action navigat
 
 test('failed requests show recovery rather than claiming there are no stores', async () => {
   mockApi.stores.mockRejectedValueOnce(new Error('매장 연결 실패'));
-  await render(<Discovery />);
+  await render(<MapExplore />);
   await screen.findByText('주문 연결 불가');
   expect(screen.queryByText('아직 맞는 매장이 없어요')).toBeNull();
   expect(screen.getByTestId('store-map')).toBeTruthy();
@@ -255,7 +308,7 @@ test('failed requests show recovery rather than claiming there are no stores', a
 
 test('ordering notice can be dismissed without hiding the map or location control', async () => {
   mockApi.stores.mockRejectedValueOnce(new Error('offline'));
-  await render(<Discovery />);
+  await render(<MapExplore />);
   await screen.findByText('주문 연결 불가');
   await fireEvent.press(screen.getByLabelText('알림 닫기'));
   expect(screen.queryByText('주문 연결 불가')).toBeNull();

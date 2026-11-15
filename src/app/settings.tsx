@@ -61,6 +61,7 @@ export default function Settings() {
     >
       <LanguageSwitch />
       <Text variant="h2">장애 유형</Text>
+      <Text variant="muted">시각장애는 장소 목록, 지체장애와 휠체어 사용자는 지도를 이용해요.</Text>
       <AssistancePicker
         value={app.settings.assistance}
         disabled={app.busy}
@@ -183,7 +184,7 @@ export default function Settings() {
       )}
       <View className="flex-row flex-wrap gap-3 border-t border-border pt-4">
         <NavLink href="/onboarding" variant="ghost">
-          처음 이용하시나요?
+          장애 유형 선택
         </NavLink>
         <NavLink href="/kiosk" variant="ghost">
           매장 직원 화면

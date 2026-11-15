@@ -7,7 +7,13 @@ import { Text } from './ui/text';
 import { Icon } from './ui/icon';
 import { SegmentedControl } from './ui/segmented-control';
 
-export function LanguageSwitch({ compact = false }: { compact?: boolean }) {
+export function LanguageSwitch({
+  compact = false,
+  disabled = false,
+}: {
+  compact?: boolean;
+  disabled?: boolean;
+}) {
   const app = useApp();
   const { language } = useTranslation();
   const change = (next: 'ko' | 'en') => {
@@ -19,7 +25,7 @@ export function LanguageSwitch({ compact = false }: { compact?: boolean }) {
         variant="ghost"
         accessibilityLabel={language === 'ko' ? 'Switch to English' : '한국어로 전환'}
         onPress={() => change(language === 'ko' ? 'en' : 'ko')}
-        disabled={app.busy}
+        disabled={disabled || app.busy}
       >
         <Icon as={Languages} size={19} className="text-primary" accessible={false} />
         <Text translate={false}>{language === 'ko' ? 'English' : '한국어'}</Text>
@@ -30,6 +36,7 @@ export function LanguageSwitch({ compact = false }: { compact?: boolean }) {
       <Text variant="h2">Language / 언어</Text>
       <SegmentedControl
         value={language}
+        disabled={disabled || app.busy}
         onChange={change}
         label="Language / 언어"
         options={[

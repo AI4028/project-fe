@@ -41,11 +41,13 @@ reviewed on **2026-11-05**. It is a design proposal, not a claim that all option
 services exist. This branch targets backend `feature/backend-readiness` through migration `0002`.
 See [backend integration](docs/backend-readiness.md) before running it.
 
-1. **Discover or order directly.** The home screen starts with an accessible store
-   list and name/address search. Users already at a store can enter a connection
-   code immediately. No disability category, location permission, or map gesture
-   is required. Map and foreground location are optional; denial/failure leaves
-   the list usable. Distances are approximate straight-line distances, not routes.
+1. **Choose a profile, then explore.** First launch asks for visual impairment,
+   physical disability or wheelchair use. Visual impairment opens `/explore/list`;
+   the other profiles open `/explore/map`. There is no list/map toggle. The choice
+   persists on the device and can be changed in Settings. Search and location stay
+   in the chosen experience; denied location leaves name/address search available.
+   Orders has its own navigation destination and connection-code entry.
+   Distances are approximate straight-line distances, not routes.
 2. **Review the store.** Details show branch/address, registered access information,
    ordering methods, and indoor descriptions. Missing facts, provenance, contact,
    and availability remain unknown. Store details can be opened with
@@ -108,8 +110,11 @@ real-device testing; automated tests are not an accessibility certification.
 ```text
 src/app/
   _layout.tsx             # providers, theme, Stack and PortalHost
-  index.tsx               # list/search, direct order entry, optional map
-  onboarding.tsx          # optional preference introduction
+  index.tsx               # profile-based entry redirect
+  onboarding.tsx          # first-launch disability profile selection
+  explore/_layout.tsx     # enforce the selected profile's Explore route
+  explore/list.tsx        # visual impairment: accessible place list
+  explore/map.tsx         # physical disability / wheelchair: visual map
   store.tsx               # store details
   connect.tsx             # code/link, branch confirmation, retry/alternatives
   guide.tsx               # indoor/accessibility guidance
@@ -220,7 +225,9 @@ Order POST carries the existing `items`, `paymentMethod`, `note`, plus
 
 ### Acceptance checks for this branch
 
-- No onboarding or map gate; direct code entry and searchable list work without permissions.
+- First launch requires a profile; returning users open their selected Explore route.
+- Visual impairment mounts only the list; physical disability / wheelchair profiles stay on the map.
+- Name/address search and direct code entry work without location permission.
 - Wrong branch is caught before session POST; busy/expired codes have a way out.
 - Editing options replaces one line; a failed edit retains the confirmed cart.
 - Changed totals stop submission; unknown POST results block another POST until recovery.

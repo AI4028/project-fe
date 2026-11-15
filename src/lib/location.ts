@@ -1,12 +1,17 @@
 import type { Store } from './types';
 export type Position = { lat: number; lng: number };
-export const assistanceLabels = { visual: '시각', physical: '지체', wheelchair: '휠체어' } as const;
+export const assistanceLabels = {
+  visual: '시각장애',
+  physical: '지체장애',
+  wheelchair: '휠체어 사용자',
+} as const;
 export type Assistance = keyof typeof assistanceLabels;
 export function isAssistance(value: unknown): value is Assistance {
   return typeof value === 'string' && Object.hasOwn(assistanceLabels, value);
 }
-export function discoveryView(value?: Assistance): 'list' | 'map' {
-  return value === 'visual' ? 'list' : 'map';
+export function exploreRoute(value: unknown) {
+  if (!isAssistance(value)) return '/onboarding' as const;
+  return value === 'visual' ? ('/explore/list' as const) : ('/explore/map' as const);
 }
 export function assistanceSummary(store: Store, mode?: Assistance) {
   const a = store.accessibility;
