@@ -44,6 +44,7 @@ as dismissible notices with a separate retry action, without a bottom error bar.
 | ---------------------- | ------------------------------------ |
 | `_layout.tsx`          | providers, theme, stack, portal host |
 | `index.tsx`            | nearby-store map and accessible list |
+| `accessibility.tsx`    | nearby public accessibility records  |
 | `saved.tsx`            | saved places and place actions       |
 | `orders/index.tsx`     | current cart and latest order        |
 | `onboarding.tsx`       | accessibility profile                |

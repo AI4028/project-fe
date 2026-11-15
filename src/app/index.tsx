@@ -4,7 +4,6 @@ import { Keyboard, Linking, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { List, Map, LocateFixed, Search, X } from 'lucide-react-native';
-import { router } from 'expo-router';
 import StoreMap from '@/components/store-map';
 import { BrandLockup } from '@/components/brand';
 import { NavLink } from '@/components/screen';
@@ -20,18 +19,25 @@ import { useApp } from '@/providers/app-provider';
 import { filterStores, type AccessFilter } from '@/lib/discovery';
 import { distanceM, type Position } from '@/lib/location';
 import { placeSearchUrl } from '@/lib/navigation';
-import type { Store } from '@/lib/types';
+import type { Store, PlaceSearchKind, PlaceSearchResult } from '@/lib/types';
+import { displayPlace, featureLabels } from '@/lib/place-search';
 import { useTranslation } from '@/lib/i18n';
+import { errorMessage } from '@/lib/api';
 
 export default function Discovery() {
   const app = useApp();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [view, setView] = useState<'map' | 'list'>(
     app.settings?.assistance === 'visual' ? 'list' : 'map',
   );
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [submitted, setSubmitted] = useState('');
+  const [searchKind, setSearchKind] = useState<PlaceSearchKind>('all');
+  const [placeStatus, setPlaceStatus] = useState<PlaceSearchResult | null>(null);
+  const [placeLoading, setPlaceLoading] = useState(false);
+  const [placeError, setPlaceError] = useState('');
+  const [placeRevision, setPlaceRevision] = useState(0);
   const [registered, setRegistered] = useState<Store[]>([]);
   const [places, setPlaces] = useState<Store[]>([]);
   const [position, setPosition] = useState<Position | null>(null);
@@ -44,6 +50,40 @@ export default function Discovery() {
   const [revision, setRevision] = useState(0);
   const [access, setAccess] = useState<AccessFilter>('all');
   const request = useRef(0);
+  useEffect(() => {
+    let active = true;
+    setPlaces([]);
+    setPlaceStatus(null);
+    setPlaceError('');
+    if (!submitted && !position && searchKind === 'all') {
+      setPlaceLoading(false);
+      return;
+    }
+    setPlaceLoading(true);
+    void app.api
+      .searchPlaces(submitted, searchKind, position)
+      .then((result) => {
+        if (!active) return;
+        setPlaceStatus(result);
+        setPlaces(
+          result.places.map((place, index) => {
+            const mapped = displayPlace(place, language === 'en');
+            return place.placeKind && !['station', 'venue'].includes(place.placeKind)
+              ? { ...mapped, name: `${t(mapped.name)} ${index + 1}` }
+              : mapped;
+          }),
+        );
+      })
+      .catch((reason) => {
+        if (active) setPlaceError(errorMessage(reason));
+      })
+      .finally(() => {
+        if (active) setPlaceLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [app.api, submitted, position, searchKind, language, placeRevision]);
   useEffect(() => {
     if (app.settings?.assistance === 'visual') setView('list');
   }, [app.settings?.assistance]);
@@ -78,7 +118,10 @@ export default function Discovery() {
     [],
   );
   const stores = useMemo(() => {
-    const filtered = filterStores([...registered, ...places], query, access);
+    const filtered = [
+      ...(searchKind === 'all' ? filterStores(registered, query, access) : []),
+      ...filterStores(places, '', access),
+    ];
     return position
       ? filtered
           .map((store) => ({
@@ -87,12 +130,9 @@ export default function Discovery() {
           }))
           .sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity))
       : filtered;
-  }, [registered, places, query, access, position]);
+  }, [registered, places, query, access, position, searchKind]);
   const selected = stores.find((store) => store.storeId === selectedId);
-  const mapStores = useMemo(
-    () => filterStores(registered, query, access),
-    [registered, query, access],
-  );
+  const mapStores = stores;
   async function locate() {
     setNoticeDismissed(false);
     const id = ++request.current;
@@ -122,6 +162,7 @@ export default function Discovery() {
     setSelectedId(null);
     setSearchOpen(false);
     Keyboard.dismiss();
+    setView('list');
   };
   const notice =
     !noticeDismissed && (failed || !!locationMessage) ? (
@@ -256,9 +297,7 @@ export default function Discovery() {
               setSelectedId(store.storeId);
             }}
             fill
-            showDirectory={access === 'all'}
             query={submitted}
-            onPlaces={setPlaces}
           />
         </View>
         {view === 'list' && (
@@ -268,6 +307,57 @@ export default function Discovery() {
             keyboardShouldPersistTaps="handled"
           >
             {notice}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerClassName="gap-2 pb-2"
+              accessibilityRole="radiogroup"
+              accessibilityLabel="장소 검색 종류"
+            >
+              {(
+                [
+                  'all',
+                  'stations',
+                  'audio_signals',
+                  'voice_guides',
+                  'tactile',
+                  'crossings',
+                ] as const
+              ).map((kind) => (
+                <Button
+                  key={kind}
+                  variant={searchKind === kind ? 'secondary' : 'outline'}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: searchKind === kind }}
+                  onPress={() => {
+                    setSearchKind(kind);
+                    setAccess('all');
+                  }}
+                >
+                  <Text>{featureLabels[kind]}</Text>
+                </Button>
+              ))}
+            </ScrollView>
+            {!!placeError && (
+              <View className="gap-2">
+                <Text accessibilityRole="alert">{placeError}</Text>
+                <Button variant="outline" onPress={() => setPlaceRevision((value) => value + 1)}>
+                  <Text>장소 검색 다시 시도</Text>
+                </Button>
+              </View>
+            )}
+            {placeStatus?.generalSearch === 'not-configured' && (
+              <Text variant="muted">
+                일반 장소 검색은 준비 중이에요. 지하철역과 공공 접근성 자료는 검색할 수 있어요.
+              </Text>
+            )}
+            {placeStatus?.status === 'needs-location' && (
+              <Text>현재 위치를 허용하거나 지하철역 이름을 검색해 주세요.</Text>
+            )}
+            {placeStatus?.status === 'outside-coverage' && <Text>자료 제공 지역 밖이에요.</Text>}
+            {placeStatus?.status === 'not-recorded' && (
+              <Text>주변에 등록된 자료가 없어요. 시설이 없다는 뜻은 아니에요.</Text>
+            )}
             <View className="flex-row flex-wrap items-center justify-between gap-2">
               <Text variant="h2">가까운 장소</Text>
               <Button variant="ghost" disabled={locating} onPress={() => void locate()}>
@@ -275,43 +365,54 @@ export default function Discovery() {
                 <Text>{locating ? '위치 확인 중…' : '내 주변에서 찾기'}</Text>
               </Button>
             </View>
-            <View
-              className="flex-row flex-wrap gap-2"
-              accessibilityRole="radiogroup"
-              accessibilityLabel="접근성 조건"
-            >
-              {(
-                [
-                  { value: 'all', label: '전체' },
-                  { value: 'step-free', label: '턱 없는 입구' },
-                  { value: 'restroom', label: '장애인 화장실' },
-                ] as const
-              ).map((option) => (
-                <Button
-                  key={option.value}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: access === option.value }}
-                  variant={access === option.value ? 'default' : 'outline'}
-                  onPress={() => setAccess(option.value)}
-                >
-                  <Text>{option.label}</Text>
-                </Button>
-              ))}
-            </View>
+            {searchKind === 'all' && (
+              <View
+                className="flex-row flex-wrap gap-2"
+                accessibilityRole="radiogroup"
+                accessibilityLabel="접근성 조건"
+              >
+                {(
+                  [
+                    { value: 'all', label: '전체' },
+                    { value: 'step-free', label: '턱 없는 입구' },
+                    { value: 'restroom', label: '장애인 화장실' },
+                  ] as const
+                ).map((option) => (
+                  <Button
+                    key={option.value}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: access === option.value }}
+                    variant={access === option.value ? 'default' : 'outline'}
+                    onPress={() => setAccess(option.value)}
+                  >
+                    <Text>{option.label}</Text>
+                  </Button>
+                ))}
+              </View>
+            )}
             <Text variant="muted" accessibilityLiveRegion="polite">
-              {loading ? '매장을 찾고 있어요…' : `${stores.length} ${t('개의 장소')}`}
+              {placeLoading
+                ? '장소를 검색하고 있어요.'
+                : loading
+                  ? '매장을 찾고 있어요…'
+                  : `${stores.length} ${t('개의 장소')}`}
             </Text>
             {stores.map((store) => (
               <StoreCard
                 key={store.storeId}
                 store={store}
-                showDistance={!!position}
+                showDistance={!!position || (searchKind !== 'all' && searchKind !== 'stations')}
                 onPress={() => setSelectedId(store.storeId)}
               />
             ))}
-            {!loading && !failed && !stores.length && (
-              <Text>검색 결과가 없어요. 검색어를 바꾸거나 지도 앱에서 찾아보세요.</Text>
-            )}
+            {!loading &&
+              !placeLoading &&
+              !failed &&
+              !placeError &&
+              !stores.length &&
+              (!placeStatus || placeStatus.status === 'empty') && (
+                <Text>검색 결과가 없어요. 검색어를 바꾸거나 지도 앱에서 찾아보세요.</Text>
+              )}
             <Button
               variant="outline"
               onPress={() => void Linking.openURL(placeSearchUrl(query)).catch(app.report)}

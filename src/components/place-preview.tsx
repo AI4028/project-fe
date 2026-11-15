@@ -72,6 +72,23 @@ export function PlacePreview({ store, onClose }: { store: Store; onClose: () => 
           </Button>
         )}
       </View>
+      {store.location && (
+        <Button
+          variant="outline"
+          onPress={() =>
+            router.push({
+              pathname: '/accessibility',
+              params: {
+                lat: String(store.location!.lat),
+                lng: String(store.location!.lng),
+                name: store.name,
+              },
+            })
+          }
+        >
+          <Text>주변 접근성 정보</Text>
+        </Button>
+      )}
       <Text variant="muted">
         외부 지도에서 경로를 확인해요. 접근 가능한 경로인지는 별도 확인이 필요해요.
       </Text>

@@ -19,6 +19,9 @@ export type MenuItem = {
   options: MenuOption[];
 };
 export type Store = {
+  nameEn?: string;
+  placeKind?: 'station' | 'venue' | 'audio_signals' | 'voice_guides' | 'tactile' | 'crossings';
+  source?: DataSource;
   directoryOnly?: boolean;
   storeId: string;
   name: string;
@@ -38,6 +41,47 @@ export type Store = {
   orderingMethods?: string[];
   indoorDirections?: string;
   menu?: MenuItem[];
+};
+export type DataSource = {
+  name: string;
+  url: string;
+  license: string;
+  date: string;
+  coverage: string;
+};
+export type PlaceSearchKind =
+  | 'all'
+  | 'stations'
+  | 'audio_signals'
+  | 'voice_guides'
+  | 'tactile'
+  | 'crossings';
+export type PlaceSearchResult = {
+  places: Store[];
+  status:
+    | 'results'
+    | 'empty'
+    | 'records'
+    | 'not-recorded'
+    | 'outside-coverage'
+    | 'needs-location'
+    | 'unavailable';
+  generalSearch: 'available' | 'not-configured' | 'not-requested' | 'unavailable';
+};
+export type AccessibilityRecords = {
+  radiusM: number;
+  groups: {
+    kind: Exclude<PlaceSearchKind, 'all' | 'stations'>;
+    status: 'records' | 'not-recorded' | 'outside-coverage';
+    source: DataSource;
+    items: {
+      id: string;
+      location: { lat: number; lng: number };
+      distanceM: number;
+      detail: string | null;
+      coordinatePrecision: 'station' | 'recorded-point';
+    }[];
+  }[];
 };
 export type CartItem = { itemId: string; qty: number; options: Options };
 export type PricedLine = {
