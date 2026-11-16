@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { LanguageContext, translate } from '@/lib/i18n';
+import { LanguageContext, objectParticle, translate } from '@/lib/i18n';
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
 import { LanguageSwitch } from '@/components/language-switch';
@@ -46,4 +46,19 @@ test('language switch saves the selected language alongside existing preferences
   await render(<LanguageSwitch compact />);
   await fireEvent.press(screen.getByLabelText('Switch to English'));
   expect(mockSave).toHaveBeenCalledWith({ language: 'en', contrast: true });
+});
+
+test('uses the right Korean object particle for menu names', () => {
+  expect(objectParticle('크루아상')).toBe('을');
+  expect(objectParticle('카페라떼')).toBe('를');
+  expect(objectParticle('Latte')).toBe('을(를)');
+  expect(translate('크루아상을 장바구니에서 삭제합니다.', 'en')).toBe(
+    'Remove 크루아상 from your cart.',
+  );
+  expect(translate('카페라떼를 장바구니에서 삭제합니다.', 'en')).toBe(
+    'Remove 카페라떼 from your cart.',
+  );
+  expect(translate('Latte을(를) 장바구니에서 삭제합니다.', 'en')).toBe(
+    'Remove Latte from your cart.',
+  );
 });

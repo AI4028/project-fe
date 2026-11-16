@@ -37,10 +37,21 @@ const patterns: [RegExp, (...parts: string[]) => string][] = [
   [/^(.+)에서 고른 메뉴예요\.$/, (name) => `Your items from ${name}`],
   [/^(.+) 옵션을 선택해 주세요\.$/, (name) => `Choose an option for ${name}.`],
   [/^(.+) 선택 개수를 확인해 주세요\.$/, (name) => `Check the number of choices for ${name}.`],
-  [/^(.+)를 장바구니에서 삭제합니다\.$/, (name) => `Remove ${name} from your cart.`],
+  [
+    /^(.+?)(?:을|를|을\(를\)) 장바구니에서 삭제합니다\.$/,
+    (name) => `Remove ${name} from your cart.`,
+  ],
   [/^들은 말: (.+)$/, (text) => `Heard: ${text}`],
   [/^음성 인식: (.+)$/, (text) => `Speech recognition: ${messages[text] ?? text}`],
 ];
+
+// Korean object particle for a menu name: 을 after a final consonant, 를 after a
+// vowel, 을(를) when the name doesn't end in Hangul (e.g. "Latte").
+export function objectParticle(word: string): string {
+  const code = word.trim().charCodeAt(word.trim().length - 1);
+  if (Number.isNaN(code) || code < 0xac00 || code > 0xd7a3) return '을(를)';
+  return (code - 0xac00) % 28 === 0 ? '를' : '을';
+}
 
 // Exact messages only: never replace words inside names, addresses or user input.
 export function translate(value: string, language: Language): string {
