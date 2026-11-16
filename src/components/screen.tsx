@@ -121,7 +121,7 @@ export function Screen({
                 className="justify-start px-0"
                 icon={ArrowUpRight}
               >
-                이용 안내
+                장애 유형 선택
               </NavLink>
             </View>
           </ScrollView>

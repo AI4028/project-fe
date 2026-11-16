@@ -23,7 +23,7 @@ export default function Saved() {
         <EmptyState
           icon={Bookmark}
           title="아직 저장한 장소가 없어요"
-          description="지도에서 장소를 선택하고 저장 버튼을 눌러보세요."
+          description="장소 정보를 열고 저장 버튼을 눌러보세요."
         >
           <NavLink href="/">둘러보기</NavLink>
         </EmptyState>

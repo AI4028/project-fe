@@ -134,6 +134,22 @@ test('existing preferences without a language retain Korean', async () => {
   expect(hook.result.current.settings.language).toBe('ko');
   expect(hook.result.current.settings.contrast).toBe(true);
 });
+
+test('persists the selected disability profile without changing other preferences or calling the API', async () => {
+  const first = await mount();
+  await act(() =>
+    first.result.current.saveSettings({
+      ...first.result.current.settings,
+      assistance: 'visual',
+      largeText: true,
+    }),
+  );
+  expect(fetchMock).not.toHaveBeenCalled();
+  await first.unmount();
+  const second = await mount();
+  expect(second.result.current.settings.assistance).toBe('visual');
+  expect(second.result.current.settings.largeText).toBe(true);
+});
 test('connects, uses authoritative cart totals, submits once, and clears the session', async () => {
   const { result } = await mount();
   await act(() => result.current.connect('GK01', 'ABCDEFGH'));

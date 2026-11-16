@@ -4,6 +4,8 @@ import { Compass, Bookmark, ReceiptText, Settings2 } from 'lucide-react-native';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
 import { Icon } from './ui/icon';
+import { useApp } from '@/providers/app-provider';
+import { exploreRoute } from '@/lib/location';
 
 const tabs = [
   { href: '/', label: '둘러보기', icon: Compass },
@@ -13,6 +15,8 @@ const tabs = [
 ] as const;
 export function AppNavigation({ vertical = false }: { vertical?: boolean }) {
   const path = usePathname();
+  const { settings } = useApp();
+  const home = exploreRoute(settings.assistance);
   const active =
     path.startsWith('/orders') || ['/cart', '/review', '/connect', '/leave'].includes(path)
       ? '/orders'
@@ -40,7 +44,8 @@ export function AppNavigation({ vertical = false }: { vertical?: boolean }) {
               : 'min-w-0 flex-1 flex-col gap-1 rounded-2xl px-1 py-2'
           }
           onPress={() => {
-            if (path !== href) router.navigate(href);
+            const target = href === '/' ? home : href;
+            if (path !== target) router.navigate(target);
           }}
         >
           <Icon

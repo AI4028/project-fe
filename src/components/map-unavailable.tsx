@@ -9,7 +9,7 @@ export function MapUnavailable() {
       <Icon as={MapPin} size={30} className="text-primary" accessible={false} />
       <Text variant="h3">지도를 표시할 수 없어요</Text>
       <Text className="max-w-sm text-center text-muted-foreground">
-        목록 보기에서 매장 주소와 접근성 정보를 확인해 주세요.
+        검색으로 장소를 찾거나 외부 지도 앱을 이용해 주세요.
       </Text>
     </View>
   );

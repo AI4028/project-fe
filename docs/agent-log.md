@@ -23,6 +23,20 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-15 · Scope nested route guards to their own screens
+
+- **Hit:** review of the profile-specific Explore layout found that an unconditional pathname redirect would also redirect visits to Orders and Settings.
+- **Why:** a stack layout can remain mounted while another section is active, and `usePathname` follows the active route.
+- **Fix:** scoped the guard to `/explore`, reset its navigator when the profile changes, and covered leaving Explore and returning after a profile change.
+- **Rule:** nested route guards must ignore routes outside their subtree; test navigation away as well as direct entry.
+
+### 2026-11-15 · Hidden controls can conceal missing accessibility labels
+
+- **Hit:** after removing the hidden map from the list experience, `getByLabelText('내 주변에서 찾기')` could no longer find the list's location action.
+- **Why:** the old test matched the hidden map control; the visible list action relied only on its child text.
+- **Fix:** gave the list action its own Korean accessibility label and busy state, and tested list and map searches separately.
+- **Rule:** mount only the chosen experience and give shared actions explicit accessible names in every presentation.
+
 ### 2026-11-15 · A stale saved order wiped the cart on web reload
 
 - **Hit:** on dev.galjido.shop, refreshing mid-order showed an empty cart and `Order not found.` while the kiosk still held the cart and stayed busy.
