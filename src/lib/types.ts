@@ -39,6 +39,7 @@ export type Store = {
   distanceM?: number;
   insideGeofence?: boolean;
   orderingMethods?: string[];
+  orderingPaused?: boolean;
   indoorDirections?: string;
   menu?: MenuItem[];
 };

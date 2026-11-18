@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { CircleAlert } from 'lucide-react-native';
+import { CircleAlert, PauseCircle } from 'lucide-react-native';
 import { Icon } from './ui/icon';
 import { router } from 'expo-router';
 import { Text } from './ui/text';
@@ -34,6 +34,24 @@ export function Problem({
     </View>
   );
 }
+// Wireframe v3 #05-3: the store paused phone orders. Menus stay visible.
+export function OrderingPaused() {
+  return (
+    <View className="gap-2 rounded-2xl border border-primary bg-secondary p-5">
+      <View className="flex-row items-start gap-3">
+        <Icon as={PauseCircle} size={22} className="text-primary" accessible={false} />
+        <Text variant="h4" className="flex-1" accessibilityRole="alert">
+          지금은 주문을 받지 않고 있어요
+        </Text>
+      </View>
+      <Text>
+        매장에서 휴대폰 주문을 잠시 멈췄어요. 메뉴는 계속 볼 수 있고, 카운터나 직원에게 직접 주문할
+        수 있어요.
+      </Text>
+    </View>
+  );
+}
+
 export function ConfirmAction({
   open,
   onOpenChange,

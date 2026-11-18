@@ -8,7 +8,7 @@ import { Text } from '@/components/ui/text';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Check, Hash } from 'lucide-react-native';
-import { Problem, SubmissionRecovery } from '@/components/feedback';
+import { OrderingPaused, Problem, SubmissionRecovery } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { ApiError, errorMessage } from '@/lib/api';
 import type { Store } from '@/lib/types';
@@ -56,6 +56,13 @@ export default function Connect() {
       router.replace('/menu');
     } catch (reason) {
       setWaiting(reason instanceof ApiError && reason.code === 'kiosk-busy');
+      if (reason instanceof ApiError && reason.code === 'ordering-paused') {
+        // Paused after the store was checked: show the notice instead of an error.
+        setCandidate((current) =>
+          current ? { ...current, store: { ...current.store, orderingPaused: true } } : current,
+        );
+        return;
+      }
       setError(errorMessage(reason));
     } finally {
       setLoading(false);
@@ -178,6 +185,8 @@ export default function Connect() {
                       </Text>
                       <NavLink href="/">매장 다시 선택</NavLink>
                     </>
+                  ) : candidate.store.orderingPaused ? (
+                    <OrderingPaused />
                   ) : (
                     <Button disabled={loading || app.busy} onPress={() => void connect()}>
                       <Text>{waiting ? '다시 연결하기' : '이 매장이 맞아요 · 연결하기'}</Text>

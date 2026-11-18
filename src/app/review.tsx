@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import { Problem, SubmissionRecovery } from '@/components/feedback';
+import { OrderingPaused, Problem, SubmissionRecovery } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { money } from '@/lib/cart';
 import { errorMessage } from '@/lib/api';
@@ -58,7 +58,9 @@ export default function Review() {
             <Button
               size="lg"
               className="w-full justify-between"
-              disabled={app.busy || sending || !!app.pendingSubmission}
+              disabled={
+                app.busy || sending || !!app.pendingSubmission || !!app.store?.orderingPaused
+              }
               onPress={() => void submit()}
             >
               <Text>{sending ? '전송 중' : '이 내용으로 주문 제출'}</Text>
@@ -69,6 +71,7 @@ export default function Review() {
       }
     >
       <OrderSteps current={3} />
+      {app.store?.orderingPaused && <OrderingPaused />}
       {sending ? (
         <Text accessibilityLiveRegion="polite">주문 전송 중입니다. 잠시 기다려 주세요.</Text>
       ) : (
