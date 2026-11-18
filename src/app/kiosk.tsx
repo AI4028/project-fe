@@ -218,7 +218,16 @@ export default function Kiosk() {
               <CardContent className="gap-4">
                 <IconTile icon={Link2} />
                 <Text variant="h3">휴대폰 연결</Text>
-                {heartbeat && expires > 0 ? (
+                {store?.orderingPaused ? (
+                  <View className="gap-2 rounded-2xl border border-primary bg-secondary p-4">
+                    <Text className="font-bold" accessibilityLiveRegion="polite">
+                      휴대폰 주문 일시중지 중
+                    </Text>
+                    <Text variant="muted">
+                      고객은 메뉴를 볼 수 있지만 새로 연결하거나 주문을 보낼 수 없어요.
+                    </Text>
+                  </View>
+                ) : heartbeat && expires > 0 ? (
                   <>
                     <Text>{heartbeat.kioskId} · 연결 코드</Text>
                     <View className="rounded-2xl border border-primary bg-secondary p-4">
@@ -237,6 +246,17 @@ export default function Kiosk() {
                   </>
                 ) : (
                   <Text>연결 코드를 갱신하는 중입니다. 네트워크를 확인해 주세요.</Text>
+                )}
+                {store && (
+                  <Button
+                    variant={store.orderingPaused ? 'default' : 'outline'}
+                    disabled={busy}
+                    onPress={() => void act(() => app.api.ordering(!store.orderingPaused, key))}
+                  >
+                    <Text>
+                      {store.orderingPaused ? '휴대폰 주문 다시 받기' : '휴대폰 주문 일시중지'}
+                    </Text>
+                  </Button>
                 )}
               </CardContent>
             </Card>

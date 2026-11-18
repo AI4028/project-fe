@@ -149,6 +149,13 @@ export class Api {
     this.request(`/kiosk/sessions/${id}/resolve-help`, 'POST', undefined, key);
   endKioskSession = (id: string, key: string) =>
     this.request(`/kiosk/sessions/${id}/end`, 'POST', undefined, key);
+  ordering = (paused: boolean, key: string) =>
+    this.request<{ storeId: string; orderingPaused: boolean }>(
+      '/kiosk/ordering',
+      'PUT',
+      { paused },
+      key,
+    );
   availability = (id: string, available: boolean, key: string) =>
     this.request(`/kiosk/menu/${encodeURIComponent(id)}/availability`, 'PUT', { available }, key);
 }
@@ -157,6 +164,8 @@ const messages: Record<string, string> = {
   'price-changed': '가격이 변경되었습니다. 장바구니를 새로고침하고 다시 확인해 주세요.',
   'idempotency-conflict': '이전 주문과 내용이 다릅니다. 주문 결과를 먼저 확인해 주세요.',
   'token-invalid': '연결 코드가 만료되었습니다. 키오스크에서 새 코드를 확인해 주세요.',
+  'ordering-paused':
+    '지금은 이 매장에서 휴대폰 주문을 받지 않아요. 카운터나 직원에게 주문해 주세요.',
   'kiosk-busy': '다른 고객이 사용 중입니다. 잠시 후 다시 연결해 주세요.',
   'session-expired': '연결이 만료되었습니다. 다시 연결해 주세요.',
   'session-not-found': '연결을 찾을 수 없습니다. 다시 연결해 주세요.',

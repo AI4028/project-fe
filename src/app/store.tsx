@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Accessibility, Navigation, ShoppingBag } from 'lucide-react-native';
-import { Problem } from '@/components/feedback';
+import { OrderingPaused, Problem } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { knownText } from '@/lib/location';
 import { errorMessage } from '@/lib/api';
@@ -104,7 +104,8 @@ export default function StoreDetails() {
           >
             <Text>길찾기</Text>
           </Button>
-          {!different && (
+          {store.orderingPaused && <OrderingPaused />}
+          {!different && !store.orderingPaused && (
             <View className="flex-row flex-wrap items-center justify-between gap-3 rounded-2xl bg-secondary p-4">
               <View className="min-w-0 flex-1 gap-1">
                 <Text className="font-semibold">지금 매장에 계신가요?</Text>

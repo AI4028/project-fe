@@ -392,6 +392,12 @@ function useAppState() {
               setHelpState('acknowledged');
               announce('직원이 도움 요청을 확인했습니다. 실제 도움은 직원에게 확인해 주세요.');
             }
+            if (event.type === 'ordering')
+              announce(
+                event.orderingPaused
+                  ? '매장에서 휴대폰 주문을 잠시 멈췄어요. 카운터나 직원에게 주문할 수 있어요.'
+                  : '휴대폰 주문을 다시 받고 있어요.',
+              );
             sync();
           },
           sync,

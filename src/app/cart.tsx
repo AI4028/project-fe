@@ -8,7 +8,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { ConfirmAction, Problem, SubmissionRecovery } from '@/components/feedback';
+import { ConfirmAction, OrderingPaused, Problem, SubmissionRecovery } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { errorMessage } from '@/lib/api';
 import { money } from '@/lib/cart';
@@ -66,6 +66,7 @@ export default function CartScreen() {
       }
     >
       <OrderSteps current={2} />
+      {app.store?.orderingPaused && <OrderingPaused />}
       <SubmissionRecovery />
       {!!error && <Problem message={error} />}
       {!app.items.length ? (

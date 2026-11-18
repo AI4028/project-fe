@@ -4,7 +4,7 @@ import { Link, useLocalSearchParams } from 'expo-router';
 import { ArrowRight, Check, Coffee, RefreshCw, ShoppingBag } from 'lucide-react-native';
 import { OrderSteps } from '@/components/brand';
 import { useTranslation } from '@/lib/i18n';
-import { Problem } from '@/components/feedback';
+import { OrderingPaused, Problem } from '@/components/feedback';
 import { errorMessage } from '@/lib/api';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
@@ -85,6 +85,7 @@ export default function Menu() {
       ) : (
         <>
           {app.connection && <OrderSteps current={1} />}
+          {store.orderingPaused && <OrderingPaused />}
           {!app.connection && (
             <View className="gap-1 rounded-2xl bg-secondary p-4">
               <Text className="font-semibold text-primary">메뉴를 미리 살펴보세요</Text>
