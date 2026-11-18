@@ -33,6 +33,7 @@ type Settings = {
   apiBase: string;
   contrast: boolean;
   largeText: boolean;
+  textSize?: import('@/lib/text-size').TextSize;
   speech: boolean;
   voiceInput?: boolean;
 };

@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-18 · Fixed bars crowd out content at 200% text
+
+- **Hit:** at 200% text on a 390 px screen the bottom tab labels collided ("둘러보기" clipped) and header + footer + tabs took about half the screen.
+- **Why:** every `Text` scales with `TextScaleContext`, including the fixed header and tab bar that never scroll.
+- **Fix:** `LimitTextScale` caps the mobile header and bottom tabs at 1.3; page content and the footer action keep the full scale.
+- **Rule:** check new fixed UI at 200% on a phone-width screen; cap only chrome that doesn't scroll, never content.
+
 ### 2026-11-15 · Scope nested route guards to their own screens
 
 - **Hit:** review of the profile-specific Explore layout found that an unconditional pathname redirect would also redirect visits to Orders and Settings.
