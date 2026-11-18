@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { View } from 'react-native';
 import { ArrowRight, Check, CreditCard, MapPin, MessageSquareText } from 'lucide-react-native';
@@ -18,12 +18,25 @@ export default function Review() {
   const app = useApp();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  // The connection being submitted. If its result is lost, the app may recover
+  // the order in the background; open it instead of leaving the stale error.
+  const attempted = useRef<string | null>(null);
+
+  useEffect(() => {
+    const order = app.order;
+    if (!attempted.current || order?.sessionId !== attempted.current) return;
+    attempted.current = null;
+    setError('');
+    router.replace({ pathname: '/orders/[orderId]', params: { orderId: order.orderId } });
+  }, [app.order]);
 
   async function submit() {
     setSending(true);
     setError('');
+    attempted.current = app.connection?.sessionId ?? null;
     try {
       const placed = await app.submit(app.checkout.payment, app.checkout.note);
+      attempted.current = null;
       router.replace({ pathname: '/orders/[orderId]', params: { orderId: placed.orderId } });
     } catch (reason) {
       setError(errorMessage(reason));
