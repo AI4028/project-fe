@@ -74,6 +74,15 @@ const ARIA_LEVEL: Partial<Record<TextVariant, string>> = {
 export const TextScaleContext = React.createContext(1);
 export const FontReadyContext = React.createContext(false);
 
+// Fixed bars (header, bottom tabs) grow only part of the way so page content
+// keeps room at 200%; content itself always uses the full scale.
+export function LimitTextScale({ max, children }: { max: number; children: React.ReactNode }) {
+  const scale = React.useContext(TextScaleContext);
+  return (
+    <TextScaleContext.Provider value={Math.min(scale, max)}>{children}</TextScaleContext.Provider>
+  );
+}
+
 const TextClassContext = React.createContext<string | undefined>(undefined);
 
 function Text({
