@@ -10,6 +10,7 @@ import { vars } from 'nativewind';
 import { AppProvider, useApp } from '@/providers/app-provider';
 import { themeVariables } from '@/lib/theme';
 import { TextScaleContext, FontReadyContext } from '@/components/ui/text';
+import { resolveTextSize, textScale } from '@/lib/text-size';
 import { LanguageContext, translate } from '@/lib/i18n';
 function Layout() {
   const { ready, settings } = useApp();
@@ -32,7 +33,7 @@ function Layout() {
   return (
     <LanguageContext.Provider value={settings.language ?? 'ko'}>
       <FontReadyContext.Provider value={fontsLoaded}>
-        <TextScaleContext.Provider value={settings.largeText ? 1.3 : 1}>
+        <TextScaleContext.Provider value={textScale(resolveTextSize(settings))}>
           <View style={[{ flex: 1 }, vars(themeVariables(settings.contrast))]}>
             <StatusBar style={settings.contrast ? 'light' : 'dark'} />
             {ready && (fontsLoaded || fontError) ? (

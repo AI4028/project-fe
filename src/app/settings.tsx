@@ -21,6 +21,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useApp } from '@/providers/app-provider';
 import { LanguageSwitch } from '@/components/language-switch';
 import { AssistancePicker } from '@/components/assistance-picker';
+import { resolveTextSize, textSizes } from '@/lib/text-size';
 
 const preferences = [
   {
@@ -28,12 +29,6 @@ const preferences = [
     icon: Contrast,
     title: '고대비 화면',
     description: '검은 배경과 밝은 글자, 선명한 테두리로 구분해요.',
-  },
-  {
-    key: 'largeText',
-    icon: Type,
-    title: '큰 글자',
-    description: '화면의 글자와 입력 내용을 더 크게 보여 드려요.',
   },
   {
     key: 'speech',
@@ -72,6 +67,53 @@ export default function Settings() {
       <View className="flex-row flex-wrap gap-6">
         <View className="min-w-0 flex-1 gap-4" style={{ flexBasis: 500 }}>
           <SectionHeading title="화면과 음성" detail="설정은 이 기기에 저장돼요." />
+          <View className="gap-4 rounded-2xl border border-border bg-card p-5">
+            <View className="flex-row items-center gap-3">
+              <IconTile icon={Type} small />
+              <View className="min-w-0 flex-1 gap-1">
+                <Text className="font-bold">글자 크기</Text>
+                <Text variant="muted" className="text-sm">
+                  화면의 글자와 입력 내용을 최대 200%까지 키워요.
+                </Text>
+              </View>
+            </View>
+            <View
+              className="flex-row flex-wrap gap-2"
+              accessibilityRole="radiogroup"
+              accessibilityLabel="글자 크기"
+            >
+              {textSizes.map((size) => {
+                const selected = resolveTextSize(app.settings) === size.key;
+                return (
+                  <Button
+                    key={size.key}
+                    variant={selected ? 'secondary' : 'outline'}
+                    className="min-h-14 flex-1 flex-row gap-2 px-3"
+                    style={{ flexBasis: 120 }}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`${size.label} ${size.percent}%`}
+                    accessibilityState={{ checked: selected }}
+                    disabled={app.busy}
+                    onPress={() =>
+                      void app
+                        .saveSettings({
+                          ...app.settings,
+                          textSize: size.key,
+                          largeText: size.key !== 'base',
+                        })
+                        .catch(app.report)
+                    }
+                  >
+                    {selected && (
+                      <Icon as={Check} size={16} className="text-primary" accessible={false} />
+                    )}
+                    <Text className="font-bold">{size.label}</Text>
+                    <Text variant="small">{size.percent}%</Text>
+                  </Button>
+                );
+              })}
+            </View>
+          </View>
           {preferences.map(({ key, icon, title, description }) => (
             <Button
               key={key}

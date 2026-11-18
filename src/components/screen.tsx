@@ -12,7 +12,7 @@ import {
   Check,
   type LucideIcon,
 } from 'lucide-react-native';
-import { Text } from './ui/text';
+import { LimitTextScale, Text } from './ui/text';
 import { Button, type ButtonProps } from './ui/button';
 import { Icon } from './ui/icon';
 import { VoiceControls } from './voice-controls';
@@ -127,31 +127,33 @@ export function Screen({
           </ScrollView>
         )}
         <View className="min-w-0 flex-1">
-          <View className="border-b border-border bg-background px-5 py-2 sm:px-8">
-            <View className="mx-auto w-full max-w-6xl flex-row flex-wrap items-center justify-between gap-3">
-              {desktop ? (
-                <Text variant="small" className="font-bold text-muted-foreground">
-                  {staff ? '매장 관리' : (app.store?.name ?? '어디든, 내 방식대로')}
-                </Text>
-              ) : (
-                <Link href="/" asChild>
-                  <Button
-                    variant="ghost"
-                    accessibilityLabel="갈지도 홈"
-                    className="items-start px-0"
-                  >
-                    <BrandLockup />
-                  </Button>
-                </Link>
-              )}
-              <View className="flex-row flex-wrap items-center gap-1">
-                <LanguageSwitch compact />
-                <NavLink href="/settings" variant="ghost" icon={Settings2}>
-                  이용 설정
-                </NavLink>
+          <LimitTextScale max={1.3}>
+            <View className="border-b border-border bg-background px-5 py-2 sm:px-8">
+              <View className="mx-auto w-full max-w-6xl flex-row flex-wrap items-center justify-between gap-3">
+                {desktop ? (
+                  <Text variant="small" className="font-bold text-muted-foreground">
+                    {staff ? '매장 관리' : (app.store?.name ?? '어디든, 내 방식대로')}
+                  </Text>
+                ) : (
+                  <Link href="/" asChild>
+                    <Button
+                      variant="ghost"
+                      accessibilityLabel="갈지도 홈"
+                      className="items-start px-0"
+                    >
+                      <BrandLockup />
+                    </Button>
+                  </Link>
+                )}
+                <View className="flex-row flex-wrap items-center gap-1">
+                  <LanguageSwitch compact />
+                  <NavLink href="/settings" variant="ghost" icon={Settings2}>
+                    이용 설정
+                  </NavLink>
+                </View>
               </View>
             </View>
-          </View>
+          </LimitTextScale>
           <ScrollView
             keyboardShouldPersistTaps="handled"
             automaticallyAdjustKeyboardInsets
