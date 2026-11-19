@@ -9,6 +9,9 @@ Thumbs.db
 # Local settings
 .env
 
+# Local archives (wireframes, backups)
+*.zip
+
 # Expo / React Native
 node_modules/
 .expo/
