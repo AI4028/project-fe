@@ -153,7 +153,7 @@ export function CartScreen({
               onPress={() => void review()}
             >
               <Text className="shrink text-left">
-                {checking ? '가격과 재고 확인 중' : '결제 수단 선택'}
+                {checking ? '가격과 재고 확인 중' : app.demo ? '결제 수단 선택' : '주문 확인하기'}
               </Text>
               <Icon
                 as={ArrowRight}
