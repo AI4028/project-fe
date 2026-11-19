@@ -142,13 +142,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
       return true;
     });
     return position
-      ? filtered
+      ? uniqueStores
           .map((store) => ({
             ...store,
             distanceM: store.location ? Math.round(distanceM(position, store.location)) : undefined,
           }))
           .sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity))
-      : filtered;
+      : uniqueStores;
   }, [registered, places, access, position, searchKind, submitted]);
   const selected = stores.find((store) => store.storeId === selectedId);
   const mapStores = stores;
@@ -319,12 +319,12 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
       )}
       {placeStatus?.generalSearch === 'not-configured' && (
         <Text variant="muted">
-          일반 장소 검색은 준비 중이에요. 지하철역과 공공 접근성 자료는 검색할 수 있어요.
+          일반 장소 검색은 준비 중이에요. 등록 매장과 공공 접근성 자료는 검색할 수 있어요.
         </Text>
       )}
       {placeStatus?.generalSearch === 'unavailable' && placeStatus.status === 'results' && (
         <Text variant="muted">
-          일반 장소 검색에 연결하지 못했어요. 지하철역 검색 결과만 표시합니다.
+          일반 장소 검색에 연결하지 못했어요. 찾은 등록 매장과 공공 자료를 표시합니다.
         </Text>
       )}
       {placeStatus?.status === 'needs-location' && (

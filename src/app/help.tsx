@@ -9,6 +9,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Problem } from '@/components/feedback';
+import { CallStore } from '@/components/call-store';
 import { useApp } from '@/providers/app-provider';
 import { errorMessage } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
@@ -189,6 +190,7 @@ export default function Help() {
           </Text>
         </Button>
       )}
+      <CallStore phone={store?.phone} />
       <Card className="py-4 shadow-none">
         <CardContent className="gap-3 px-4">
           <IconTile icon={MessageCircle} />
