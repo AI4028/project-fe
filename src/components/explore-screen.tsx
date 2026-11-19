@@ -142,13 +142,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
       return true;
     });
     return position
-      ? uniqueStores
+      ? filtered
           .map((store) => ({
             ...store,
             distanceM: store.location ? Math.round(distanceM(position, store.location)) : undefined,
           }))
           .sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity))
-      : uniqueStores;
+      : filtered;
   }, [registered, places, access, position, searchKind, submitted]);
   const selected = stores.find((store) => store.storeId === selectedId);
   const mapStores = stores;
