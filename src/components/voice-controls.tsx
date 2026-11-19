@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Platform, View } from 'react-native';
-import { requireOptionalNativeModule } from 'expo';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { Mic, Volume2 } from 'lucide-react-native';
@@ -9,14 +8,8 @@ import { Button } from './ui/button';
 import { Text } from './ui/text';
 import { useApp } from '@/providers/app-provider';
 import { voiceSelection } from '@/lib/voice';
-type SpeechRecognition = typeof import('expo-speech-recognition');
+import { recognition, type SpeechRecognition } from '@/lib/speech-recognition';
 type VoiceControlsProps = { onTranscript?: (text: string) => boolean };
-// Expo Go has no ExpoSpeechRecognition native module and the package throws on import there,
-// so only load it when the build (or the browser implementation on web) provides it.
-const recognition: SpeechRecognition | null =
-  Platform.OS === 'web' || requireOptionalNativeModule('ExpoSpeechRecognition')
-    ? require('expo-speech-recognition')
-    : null;
 export function VoiceControls(props: VoiceControlsProps) {
   return recognition ? (
     <RecognitionVoiceControls {...props} recognition={recognition} />

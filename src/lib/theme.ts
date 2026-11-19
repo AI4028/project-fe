@@ -52,8 +52,12 @@ export const fontFamily = {
 } as const;
 
 export const layout = {
+  desktopBreakpoint: 1080,
+  shellWidth: 1280,
   contentWidth: 1040,
   readingWidth: 720,
+  onboardingWidth: 480,
+  sheetBreakpoint: 640,
   mapHeight: 380,
   radius: 24,
 } as const;
@@ -83,11 +87,11 @@ export const palettes = {
   contrast: {
     background: '0 0% 0%',
     foreground: '0 0% 100%',
-    card: '0 0% 0%',
+    card: hsl('#121212'),
     'card-foreground': '0 0% 100%',
-    popover: '0 0% 0%',
+    popover: hsl('#121212'),
     'popover-foreground': '0 0% 100%',
-    primary: hsl(brandColors.beige),
+    primary: '0 0% 100%',
     'primary-foreground': '0 0% 0%',
     secondary: '0 0% 15%',
     'secondary-foreground': '0 0% 100%',

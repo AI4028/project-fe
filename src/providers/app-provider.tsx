@@ -11,7 +11,7 @@ import { AccessibilityInfo, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
 import * as Haptics from 'expo-haptics';
-import { Api, ApiError, errorMessage, normalizeBase } from '@/lib/api';
+import { Api, ApiError, CartChangedError, errorMessage, normalizeBase } from '@/lib/api';
 import { restoreCart, validateItem } from '@/lib/cart';
 import { subscribe } from '@/lib/live';
 import { secrets } from '@/lib/storage';
@@ -30,6 +30,7 @@ import {
 type Settings = {
   language?: Language;
   assistance?: import('@/lib/location').Assistance;
+  exploreMode?: 'list' | 'map';
   apiBase: string;
   contrast: boolean;
   largeText: boolean;
@@ -50,8 +51,24 @@ const initialSettings: Settings = {
   voiceInput: false,
 };
 const emptyCart: Cart = { lines: [], summary: '', total: 0 };
+
+async function readSavedPlaces(base: string): Promise<Store[]> {
+  const raw = await AsyncStorage.getItem(`saved-places:${base}`);
+  const value: unknown = raw ? JSON.parse(raw) : [];
+  if (!Array.isArray(value)) throw new Error('저장한 매장을 불러오지 못했어요.');
+  return value.filter(
+    (item): item is Store =>
+      !!item &&
+      typeof item.storeId === 'string' &&
+      typeof item.name === 'string' &&
+      !!item.accessibility,
+  );
+}
+
 function useAppState() {
   const [settings, setSettings] = useState(initialSettings);
+  const settingsRef = useRef(initialSettings);
+  const settingsQueue = useRef<Promise<void>>(Promise.resolve());
   const [ready, setReady] = useState(false);
   const [restoring, setRestoring] = useState(true);
   const [store, setStore] = useState<Store | null>(null);
@@ -80,61 +97,52 @@ function useAppState() {
 
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
-  const lastSpoken = useRef(
-    '갈지도에 오신 것을 환영합니다. 매장을 선택하고 키오스크에 연결해 주세요.',
-  );
+  const lastSpoken = useRef('갈지도에 오신 것을 환영합니다. 매장을 선택하고 메뉴를 살펴보세요.');
   const api = useMemo(() => new Api(settings.apiBase), [settings.apiBase]);
-  const [saved, setSaved] = useState<{ base: string; places: Store[] }>({
+  const [saved, setSaved] = useState<{
+    base: string;
+    places: Store[];
+    ready: boolean;
+    error?: string;
+  }>({
     base: api.base,
     places: [],
+    ready: false,
   });
-  const savedRef = useRef<Store[]>([]);
   const savedQueue = useRef<Promise<void>>(Promise.resolve());
-  useEffect(() => {
-    let active = true;
-    savedRef.current = [];
-    void AsyncStorage.getItem(`saved-places:${api.base}`)
-      .then((raw) => {
-        if (!active) return;
-        const value: unknown = raw ? JSON.parse(raw) : [];
-        const places = Array.isArray(value)
-          ? value.filter(
-              (item): item is Store =>
-                !!item &&
-                typeof item.storeId === 'string' &&
-                typeof item.name === 'string' &&
-                typeof item.address === 'string' &&
-                !!item.accessibility,
-            )
-          : [];
-        savedRef.current = places;
-        setSaved({ base: api.base, places });
-      })
-      .catch(() => {
-        if (active) setSaved({ base: api.base, places: [] });
-      });
-    return () => {
-      active = false;
-    };
-  }, [api.base]);
-  function toggleSaved(store: Store) {
+  function changeSavedPlaces(store?: Store) {
     const base = api.base;
     const task = savedQueue.current
       .catch(() => {})
       .then(async () => {
         if (currentApi.current.base !== base) return;
-        const next = savedRef.current.some((item) => item.storeId === store.storeId)
-          ? savedRef.current.filter((item) => item.storeId !== store.storeId)
-          : [...savedRef.current, { ...store, menu: undefined }];
-        await AsyncStorage.setItem(`saved-places:${base}`, JSON.stringify(next));
-        if (currentApi.current.base === base) {
-          savedRef.current = next;
-          setSaved({ base, places: next });
+        let places = await readSavedPlaces(base);
+        if (store) {
+          places = places.some((item) => item.storeId === store.storeId)
+            ? places.filter((item) => item.storeId !== store.storeId)
+            : [...places, { ...store, menu: undefined }];
+          await AsyncStorage.setItem(`saved-places:${base}`, JSON.stringify(places));
         }
+        if (currentApi.current.base === base) setSaved({ base, places, ready: true });
+      })
+      .catch((error: unknown) => {
+        if (currentApi.current.base === base) {
+          setSaved((current) => ({
+            base,
+            places: current.base === base ? current.places : [],
+            ready: true,
+            error: '저장한 매장을 불러오지 못했어요.',
+          }));
+        }
+        if (store) throw error;
       });
     savedQueue.current = task;
     return task;
   }
+  const reloadSavedPlaces = () => changeSavedPlaces();
+  useEffect(() => {
+    void reloadSavedPlaces();
+  }, [api.base]);
   const currentApi = useRef(api);
   currentApi.current = api;
   const currentConnection = useRef(connection);
@@ -197,7 +205,21 @@ function useAppState() {
       if (pendingToken.current?.promise === promise) pendingToken.current = null;
     }
   }, [api]);
+  const getOrders = useCallback(async () => {
+    const device = await secrets.get(api.base, 'device');
+    return device ? api.orders(device) : [];
+  }, [api]);
+  const getOrder = useCallback(
+    async (id: string) => {
+      const latest = await api.order(id, await token());
+      if (currentApi.current === api)
+        setOrder((current) => (current?.orderId === id ? latest : current));
+      return latest;
+    },
+    [api, token],
+  );
   const clearSession = useCallback(async () => {
+    currentConnection.current = null;
     setConnection(null);
     setItems([]);
     setCart(emptyCart);
@@ -258,11 +280,16 @@ function useAppState() {
     if (!device || currentApi.current !== api) return;
     if (connection) {
       const session = await api.session(connection.sessionId, device);
-      if (currentApi.current !== api) return;
+      if (currentApi.current !== api || currentConnection.current?.sessionId !== session.sessionId)
+        return;
       if (session.status !== 'active') {
         if (session.orderId) {
           const placed = await api.order(session.orderId, device);
-          if (currentApi.current !== api) return;
+          if (
+            currentApi.current !== api ||
+            currentConnection.current?.sessionId !== session.sessionId
+          )
+            return;
           await rememberOrder(placed);
         }
         await clearSession();
@@ -287,7 +314,7 @@ function useAppState() {
         if (raw) {
           const saved = JSON.parse(raw) as Settings;
           normalizeBase(saved.apiBase);
-          setSettings({
+          settingsRef.current = {
             ...initialSettings,
             ...saved,
             apiBase: developmentApiBase(
@@ -296,7 +323,8 @@ function useAppState() {
               Platform.OS !== 'web',
             ),
             language: saved.language === 'en' ? 'en' : 'ko',
-          });
+          };
+          setSettings(settingsRef.current);
         }
       })
       .catch(report)
@@ -389,6 +417,7 @@ function useAppState() {
         stop = subscribe(
           api.wsUrl(`/ws/sessions/${id}`, device),
           (event) => {
+            if (event.type === 'cart') return;
             if (event.type === 'help_resolved') {
               setHelpState('acknowledged');
               announce('직원이 도움 요청을 확인했습니다. 실제 도움은 직원에게 확인해 주세요.');
@@ -445,6 +474,7 @@ function useAppState() {
           device,
         );
         await AsyncStorage.setItem(`session:${api.base}`, result.sessionId);
+        currentConnection.current = result;
         setConnection(result);
         setCheckout({ payment: 'counter', note: '' });
         setHelpState('idle');
@@ -460,18 +490,37 @@ function useAppState() {
       }
     });
   }
-  async function updateCart(next: CartItem[]) {
+  async function updateCart(next: CartItem[], storeId = store?.storeId) {
     return exclusive(async () => {
       if (pendingRef.current) throw new Error('먼저 주문 전송 결과를 확인해 주세요.');
-      if (!connection) throw new Error('먼저 매장에 연결해 주세요.');
+      let active = currentConnection.current;
+      const id = storeId ?? active?.storeId;
+      if (!id) throw new Error('먼저 매장을 선택해 주세요.');
+      if (active && active.storeId !== id)
+        throw new Error('장바구니의 매장을 확인한 뒤 다른 매장을 선택해 주세요.');
       if (next.length > 20) throw new Error('한 번에 20개 메뉴까지 담을 수 있습니다.');
+      if (!active && !next.length) return emptyCart;
+      const selected = store?.storeId === id ? store : await api.store(id);
       for (const line of next) {
-        const item = store?.menu?.find((entry) => entry.id === line.itemId);
+        const item = selected.menu?.find((entry) => entry.id === line.itemId);
         if (!item) throw new Error('메뉴를 새로고침해 주세요.');
         const error = validateItem(item, line.qty, line.options);
         if (error) throw new Error(error);
       }
-      const result = await api.cart(connection.sessionId, next, await token());
+      const device = await token();
+      if (!active) {
+        const session = await api.startStoreSession(id, device);
+        await AsyncStorage.setItem(`session:${api.base}`, session.sessionId);
+        ++selectStoreSeq.current;
+        active = session;
+        currentConnection.current = session;
+        setConnection(session);
+        setStore(selected);
+        setCart(session.cart);
+        setItems(restoreCart(session.cart.lines, selected.menu ?? []));
+        setCheckout({ payment: 'counter', note: '' });
+      }
+      const result = await api.cart(active.sessionId, next, device);
       setItems(next);
       setCart(result);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -491,9 +540,7 @@ function useAppState() {
         latest.total !== cart.total ||
         JSON.stringify(latest.lines) !== JSON.stringify(cart.lines)
       )
-        throw new Error(
-          '가격 또는 주문 정보가 변경되었습니다. 새 합계를 확인하고 다시 제출해 주세요.',
-        );
+        throw new CartChangedError(cart, latest);
       if (!latest.quoteId) throw new Error('서버 업데이트가 필요합니다. 직원에게 주문해 주세요.');
       await AsyncStorage.setItem(
         `submission:${api.base}`,
@@ -521,9 +568,14 @@ function useAppState() {
         if (
           error instanceof ApiError &&
           error.status < 500 &&
-          !['session-expired', 'session-not-found'].includes(error.code)
+          !['session-expired', 'session-not-found', 'idempotency-conflict'].includes(error.code)
         )
           await markPending(null);
+        if (error instanceof ApiError && error.code === 'price-changed') {
+          const changed = await api.cart(connection.sessionId, items, device);
+          setCart(changed);
+          throw new CartChangedError(latest, changed);
+        }
         throw error;
       }
       await rememberOrder(placed);
@@ -534,31 +586,45 @@ function useAppState() {
   async function disconnect() {
     return exclusive(async () => {
       if (pendingRef.current) throw new Error('먼저 주문 전송 결과를 확인해 주세요.');
-      if (connection) await api.end(connection.sessionId, await token());
+      const active = currentConnection.current;
+      if (active) await api.end(active.sessionId, await token());
       await clearSession();
       announce('연결을 종료했습니다.');
     });
   }
-  async function saveSettings(next: Settings) {
-    if (lock.current && next.apiBase !== api.base)
-      throw new Error('요청이 완료된 후 서버를 변경해 주세요.');
-    const normalized = { ...next, apiBase: normalizeBase(next.apiBase) };
-    if ((connection || pendingRef.current) && normalized.apiBase !== api.base)
-      throw new Error('서버를 바꾸기 전에 연결을 종료해 주세요.');
-    await AsyncStorage.setItem('galjido.settings', JSON.stringify(normalized));
-    if (normalized.apiBase !== api.base) {
-      setStore(null);
-      setOrder(null);
-      setItems([]);
-      setCart(emptyCart);
-    }
-    setSettings(normalized);
-    if (!next.speech) await Speech.stop();
+  function updateSettings(patch: Partial<Settings>) {
+    const task = settingsQueue.current
+      .catch(() => {})
+      .then(async () => {
+        const previous = settingsRef.current;
+        const base = patch.apiBase === undefined ? previous.apiBase : normalizeBase(patch.apiBase);
+        if (base !== previous.apiBase) {
+          if (lock.current) throw new Error('요청이 완료된 후 서버를 변경해 주세요.');
+          if (currentConnection.current || pendingRef.current)
+            throw new Error('서버를 바꾸기 전에 연결을 종료해 주세요.');
+        }
+        const next = { ...previous, ...patch, apiBase: base };
+        await AsyncStorage.setItem('galjido.settings', JSON.stringify(next));
+        if (base !== previous.apiBase) {
+          setStore(null);
+          setOrder(null);
+          setItems([]);
+          setCart(emptyCart);
+        }
+        settingsRef.current = next;
+        setSettings(next);
+        if (previous.speech && !next.speech) await Speech.stop();
+      });
+    settingsQueue.current = task;
+    return task;
   }
   return {
     api,
     savedPlaces: saved.base === api.base ? saved.places : [],
-    toggleSaved,
+    savedPlacesReady: saved.base === api.base && saved.ready,
+    savedPlacesError: saved.base === api.base ? saved.error : undefined,
+    reloadSavedPlaces,
+    toggleSaved: (store: Store) => changeSavedPlaces(store),
     pendingSubmission,
     recoverSubmission,
     helpState,
@@ -566,7 +632,8 @@ function useAppState() {
     setCheckout,
     ready,
     settings,
-    saveSettings,
+    saveSettings: updateSettings,
+    updateSettings,
     store,
     selectStore,
     connection,
@@ -577,6 +644,14 @@ function useAppState() {
     updateCart,
     submit,
     order,
+    getOrders,
+    requestOrderHelp: async (id: string) =>
+      exclusive(async () => {
+        await api.orderHelp(id, await token());
+        setOrder((current) =>
+          current?.orderId === id ? { ...current, helpState: 'sent' } : current,
+        );
+      }),
     refresh,
     busy: busy || restoring,
     notice,
@@ -599,12 +674,7 @@ function useAppState() {
         setOrder(latest);
         return latest;
       }),
-    getOrder: async (id: string) => {
-      const latest = await api.order(id, await token());
-      if (currentApi.current === api)
-        setOrder((current) => (current?.orderId === id ? latest : current));
-      return latest;
-    },
+    getOrder,
   };
 }
 const AppContext = createContext<ReturnType<typeof useAppState> | null>(null);

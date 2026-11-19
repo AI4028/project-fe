@@ -14,7 +14,7 @@ export type StoreMapProps = {
   onSelect: (store: Store) => void;
 };
 export default function StoreMap({ stores, position, onSelect, fill, query }: StoreMapProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const ref = useRef<MapView>(null);
   const center = (query ? stores.find((store) => store.location)?.location : null) ??
     position ??
@@ -57,7 +57,7 @@ export default function StoreMap({ stores, position, onSelect, fill, query }: St
             <Marker
               key={store.storeId}
               coordinate={{ latitude: store.location.lat, longitude: store.location.lng }}
-              title={store.name}
+              title={language === 'en' ? store.nameEn || store.name : store.name}
               pinColor={brandColors.walnut}
               onPress={() => onSelect(store)}
             />

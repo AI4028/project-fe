@@ -4,5 +4,5 @@ import { exploreRoute } from '@/lib/location';
 
 export default function Home() {
   const { settings } = useApp();
-  return <Redirect href={exploreRoute(settings.assistance)} />;
+  return <Redirect href={exploreRoute(settings.assistance, settings.exploreMode)} />;
 }

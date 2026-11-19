@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import Review from '@/app/review';
+import { CartChangedError } from '@/lib/api';
+import type { Cart } from '@/lib/types';
 
 // Found on dev.galjido.shop: after a lost submit response the app recovered the
 // order in the background, but the review screen kept "서버에 연결할 수 없습니다"
@@ -11,8 +13,17 @@ jest.mock('expo-router', () => ({ router: { replace: jest.fn() } }));
 jest.mock('@/components/screen', () => {
   const { Text, View } = require('react-native');
   return {
-    Screen: ({ children, footer }: { children: React.ReactNode; footer?: React.ReactNode }) => (
+    Screen: ({
+      title,
+      children,
+      footer,
+    }: {
+      title: string;
+      children: React.ReactNode;
+      footer?: React.ReactNode;
+    }) => (
       <View>
+        <Text>{title}</Text>
         {children}
         {footer}
       </View>
@@ -20,7 +31,6 @@ jest.mock('@/components/screen', () => {
     NavLink: ({ children }: { children: React.ReactNode }) => <Text>{children}</Text>,
   };
 });
-jest.mock('@/components/brand', () => ({ OrderSteps: () => null }));
 jest.mock('@/components/feedback', () => {
   const { Text } = require('react-native');
   return {
@@ -84,4 +94,39 @@ test('does not jump to an older order from a different connection', async () => 
   });
   await view.rerender(<Review />);
   expect(router.replace).not.toHaveBeenCalled();
+});
+
+test('requires confirmation of the new server price before restarting submission', async () => {
+  const before = mockApp.cart as Cart;
+  const after = {
+    ...before,
+    total: 3600,
+    lines: before.lines.map((line) => ({ ...line, lineTotal: 3600 })),
+  };
+  const submit = jest
+    .fn()
+    .mockRejectedValueOnce(new CartChangedError(before, after))
+    .mockResolvedValueOnce({ orderId: 'price-confirmed', sessionId: 's1' });
+  mockApp.submit = submit;
+  await render(<Review />);
+  await act(async () => fireEvent.press(screen.getByText('이 내용으로 주문 제출')));
+  expect(screen.getByText('변경 전 3,000원')).toBeTruthy();
+  expect(screen.getByText('변경 후 3,600원')).toBeTruthy();
+  expect(submit).toHaveBeenCalledTimes(1);
+  expect(router.replace).not.toHaveBeenCalled();
+  await act(async () => fireEvent.press(screen.getByText('변경된 금액으로 주문 보내기')));
+  expect(submit).toHaveBeenCalledTimes(2);
+  expect(router.replace).toHaveBeenCalledWith({
+    pathname: '/orders/[orderId]',
+    params: { orderId: 'price-confirmed' },
+  });
+});
+
+test('offers recovery instead of a new submission when the original result is uncertain', async () => {
+  mockApp.pendingSubmission = 's1';
+  await render(<Review />);
+  expect(screen.getByText('주문 결과를 확인해 주세요')).toBeTruthy();
+  expect(screen.queryByText('전송 실패')).toBeNull();
+  expect(screen.queryByText('이 내용으로 주문 제출')).toBeNull();
+  expect(mockApp.submit).not.toHaveBeenCalled();
 });

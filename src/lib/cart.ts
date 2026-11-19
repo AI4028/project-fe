@@ -69,7 +69,16 @@ export function replaceCartItem(
   original: CartItem,
   next: CartItem,
 ) {
+  assertCartLine(items, index, original);
+  return items.map((item, i) => (i === index ? next : item));
+}
+
+export function removeCartItem(items: CartItem[], index: number, original: CartItem) {
+  assertCartLine(items, index, original);
+  return items.filter((_, i) => i !== index);
+}
+
+function assertCartLine(items: CartItem[], index: number, original: CartItem) {
   if (!Number.isInteger(index) || JSON.stringify(items[index]) !== JSON.stringify(original))
     throw new Error('장바구니가 변경되었습니다. 장바구니에서 수정할 메뉴를 다시 선택해 주세요.');
-  return items.map((item, i) => (i === index ? next : item));
 }

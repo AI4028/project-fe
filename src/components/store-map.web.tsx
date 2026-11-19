@@ -1,38 +1,89 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapUnavailable } from './map-unavailable';
 import { useTranslation } from '@/lib/i18n';
 import { layout } from '@/lib/theme';
 import type { StoreMapProps } from './store-map';
 
+function mapDocument(key: string) {
+  const publicKey = JSON.stringify(key).replace(/</g, '\\u003c');
+  return `<!doctype html>
+<html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body,#map{height:100%;margin:0;font-family:sans-serif}</style><div id="map"></div>
+<script>
+const origin = new URL(document.baseURI).origin;
+const send = (type, fields = {}) => parent.postMessage({type, ...fields}, origin);
+const host = document.getElementById('map');
+let map, current, previousView;
+let markers = [];
+
+function update() {
+  if (!map || !current) return;
+  const { stores, position, query, language } = current;
+  document.documentElement.lang = language;
+  const point = ({lat, lng}) => new kakao.maps.LatLng(lat, lng);
+  const center = position || stores[0]?.location || {lat:37.5445,lng:127.056};
+  for (const marker of markers) marker.setMap(null);
+  markers = stores.map(({storeId, name, location}) => {
+    const marker = new kakao.maps.Marker({map, position:point(location), title:name});
+    kakao.maps.event.addListener(marker, 'click', () => send('galjido-store', {id:storeId}));
+    return marker;
+  });
+  if (position) {
+    markers.push(new kakao.maps.Marker({
+      map, position:point(position), title:language === 'en' ? 'My location' : '내 위치'
+    }));
+  }
+  const view = JSON.stringify([query, position, stores.map(store => store.location)]);
+  if (previousView !== view) {
+    previousView = view;
+    if (query && stores.length > 1) {
+      const bounds = new kakao.maps.LatLngBounds();
+      for (const store of stores) bounds.extend(point(store.location));
+      map.setBounds(bounds);
+    } else {
+      map.setCenter(point(query && stores.length ? stores[0].location : center));
+    }
+  }
+}
+
+window.addEventListener('message', (event) => {
+  if (event.source !== parent || event.origin !== origin || event.data?.type !== 'galjido-map-data') return;
+  current = event.data;
+  update();
+});
+const script = document.createElement('script');
+const fail = () => { clearTimeout(timeout); send('galjido-map-unavailable'); };
+const timeout = setTimeout(fail, 15000);
+script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey=' + encodeURIComponent(${publicKey});
+script.onerror = fail;
+script.onload = () => {
+  if (!window.kakao?.maps) return fail();
+  kakao.maps.load(() => {
+    clearTimeout(timeout);
+    map = new kakao.maps.Map(host, {center:new kakao.maps.LatLng(37.5445,127.056), level:5});
+    map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPRIGHT);
+    new ResizeObserver(() => map.relayout()).observe(host);
+    update();
+    send('galjido-map-ready');
+  });
+};
+document.head.appendChild(script);
+</script></html>`;
+}
+
 export default function StoreMap({ stores, position, onSelect, fill, query = '' }: StoreMapProps) {
   const key = process.env.EXPO_PUBLIC_KAKAO_MAP_KEY;
   const frame = useRef<HTMLIFrameElement>(null);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
   const { language } = useTranslation();
-  const html = useMemo(() => {
-    const data = JSON.stringify({ stores, position, key, query, language }).replace(
-      /</g,
-      '\\u003c',
-    );
-    return `<!doctype html><html lang="${language}"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body,#map{height:100%;margin:0;font-family:sans-serif}#error{position:absolute;inset:20px;background:white;padding:16px;z-index:10}</style><div id="map"></div><script>
-const data=${data};
-const send=(type,payload)=>parent.postMessage({type,...payload},'*');
-const fail=()=>{if(document.getElementById('error'))return;const e=document.createElement('p');e.id='error';e.textContent=data.language==='en'?'Map unavailable. Use search or open an external map app.':'지도를 불러오지 못했어요. 검색이나 외부 지도 앱을 이용하세요.';document.body.appendChild(e);};
-const script=document.createElement('script');script.src='https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey='+encodeURIComponent(data.key);script.onerror=fail;
-const timeout=setTimeout(fail,15000);
-script.onload=()=>{if(!window.kakao?.maps){fail();return;}kakao.maps.load(()=>{
-clearTimeout(timeout);
-const center=data.position||data.stores.find(s=>s.location)?.location||{lat:37.5445,lng:127.056};
-const map=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(center.lat,center.lng),level:5});
-const add=(point,name,id)=>{const marker=new kakao.maps.Marker({map,position:point,title:name});kakao.maps.event.addListener(marker,'click',()=>send('galjido-store',{id}));};
-data.stores.forEach(store=>{if(store.location)add(new kakao.maps.LatLng(store.location.lat,store.location.lng),store.name,store.storeId);});
-if(data.position)add(new kakao.maps.LatLng(center.lat,center.lng),data.language==='en'?'My location':'내 위치','user');
-new ResizeObserver(()=>{map.relayout();}).observe(document.getElementById('map'));
-if(data.query && data.stores.some(s=>s.location)){const bounds=new kakao.maps.LatLngBounds();data.stores.forEach(s=>{if(s.location)bounds.extend(new kakao.maps.LatLng(s.location.lat,s.location.lng));});map.setBounds(bounds);}
-});};document.head.appendChild(script);</script></html>`;
-  }, [stores, position, key, query, language]);
+  const html = useMemo(() => (key ? mapDocument(key) : ''), [key]);
+
   useEffect(() => {
     function message(event: MessageEvent) {
       if (event.source !== frame.current?.contentWindow) return;
+      if (event.data?.type === 'galjido-map-ready') setReady(true);
+      if (event.data?.type === 'galjido-map-unavailable') setFailed(true);
       if (event.data?.type === 'galjido-store') {
         const store = stores.find((item) => item.storeId === event.data.id);
         if (store) onSelect(store);
@@ -41,7 +92,27 @@ if(data.query && data.stores.some(s=>s.location)){const bounds=new kakao.maps.La
     window.addEventListener('message', message);
     return () => window.removeEventListener('message', message);
   }, [stores, onSelect]);
-  if (!key) return <MapUnavailable />;
+
+  useEffect(() => {
+    if (!ready) return;
+    const pins = stores.flatMap((store) =>
+      store.location
+        ? [
+            {
+              storeId: store.storeId,
+              name: language === 'en' ? store.nameEn || store.name : store.name,
+              location: store.location,
+            },
+          ]
+        : [],
+    );
+    frame.current?.contentWindow?.postMessage(
+      { type: 'galjido-map-data', stores: pins, position, query, language },
+      window.location.origin,
+    );
+  }, [ready, stores, position, query, language]);
+
+  if (!key || failed) return <MapUnavailable />;
   return (
     <iframe
       ref={frame}

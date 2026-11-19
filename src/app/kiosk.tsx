@@ -28,6 +28,7 @@ import {
   type Heartbeat,
   type Order,
   type Session,
+  type StaffHelpRequest,
   type Store,
 } from '@/lib/types';
 export default function Kiosk() {
@@ -40,6 +41,7 @@ export default function Kiosk() {
   const [heartbeat, setHeartbeat] = useState<Heartbeat | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [helpRequests, setHelpRequests] = useState<StaffHelpRequest[]>([]);
   const [store, setStore] = useState<Store | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -50,6 +52,7 @@ export default function Kiosk() {
     setHeartbeat(null);
     setSession(null);
     setOrders([]);
+    setHelpRequests([]);
     setStore(null);
     void secrets
       .get(app.api.base, 'kiosk')
@@ -68,6 +71,7 @@ export default function Kiosk() {
     setHeartbeat(null);
     setSession(null);
     setOrders([]);
+    setHelpRequests([]);
     setStore(null);
   }
   useEffect(() => {
@@ -94,6 +98,7 @@ export default function Kiosk() {
         if (active) {
           setSession(state.session);
           setOrders(state.orders);
+          setHelpRequests(state.helpRequests ?? []);
           setStore(state.store);
         }
       } catch (error) {
@@ -146,9 +151,11 @@ export default function Kiosk() {
     try {
       await action();
       if (key) {
-        setOrders(await app.api.kioskOrders(key));
-        setSession(await app.api.kioskSession(key));
-        if (store) setStore(await app.api.store(store.storeId));
+        const state = await app.api.kioskState(key);
+        setOrders(state.orders);
+        setSession(state.session);
+        setHelpRequests(state.helpRequests ?? []);
+        setStore(state.store);
       }
     } catch (error) {
       app.report(error);
@@ -297,6 +304,34 @@ export default function Kiosk() {
               </CardContent>
             </Card>
           </View>
+          {!!helpRequests.length && (
+            <Card>
+              <CardContent className="gap-4">
+                <Text variant="h3" accessibilityLiveRegion="polite">
+                  도움 요청
+                </Text>
+                {helpRequests.map((request) => (
+                  <View
+                    key={request.sessionId}
+                    className="flex-row flex-wrap items-center justify-between gap-3"
+                  >
+                    <Text>
+                      {request.orderNumber == null
+                        ? '주문 전 고객의 도움 요청'
+                        : `주문 번호 ${request.orderNumber} · 도움 요청`}
+                    </Text>
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onPress={() => void act(() => app.api.resolveHelp(request.sessionId, key))}
+                    >
+                      <Text>도움 요청 확인</Text>
+                    </Button>
+                  </View>
+                ))}
+              </CardContent>
+            </Card>
+          )}
           <SectionHeading
             title="오늘의 주문"
             detail={'전체 ' + orders.length + '건 · 서버에서 확인한 주문 상태예요.'}

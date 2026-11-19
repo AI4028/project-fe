@@ -8,10 +8,12 @@
    Accessibility preferences are available through settings and onboarding.
 2. **Find a store.** With location allowed, the map shows nearby stores and arrival
    announcements. Without it, the full accessible list still works. Unknown access info reads 확인 필요.
-3. **Connect.** Enter the kiosk ID and the rotating 8-character code, or scan its QR link.
-   The phone and kiosk must use the same API server.
-4. **Order.** Pick options and quantity, edit the cart, call staff if needed.
-   Totals come from the server; payment happens at the counter or kiosk.
+3. **Choose.** Order Now opens the selected store's menu. Adding the first item
+   creates a store-scoped cart with prices from the server. QR or kiosk code
+   pairing remains available as another entry point.
+4. **Order.** Pick options and quantity, edit the cart, and review the current
+   quote. Payment happens at the counter or kiosk. Directions are available
+   before and after ordering.
 5. **Track.** Follow the live status and cancel before staff accepts.
 
 See [design direction](design-direction.md) for references, visual decisions,
@@ -33,11 +35,11 @@ guidance are in settings.
 
 ## Screens
 
-The four primary destinations are Explore, Saved, Orders and Settings. On the
+The four primary destinations are Home, Orders, Favorites and Settings. On the
 map, the search button expands into a focused field; map/list controls stay
 compact. Place previews offer Directions, Save and store-specific menu access.
-Saved places persist per API origin. Orders shows the current cart and latest
-known order, not a complete server order history. Ordering-service errors appear
+Saved items persist per API origin. Orders shows the current cart and the
+device's recent server-confirmed orders. Ordering-service errors appear
 as dismissible notices with a separate retry action, without a bottom error bar.
 
 | Route                  | Screen                               |

@@ -1,6 +1,6 @@
 import '../global.css';
 import { useEffect } from 'react';
-import { View, ActivityIndicator, Platform } from 'react-native';
+import { View, ActivityIndicator, Image, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
@@ -8,8 +8,8 @@ import { PortalHost } from '@rn-primitives/portal';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { vars } from 'nativewind';
 import { AppProvider, useApp } from '@/providers/app-provider';
-import { themeVariables } from '@/lib/theme';
-import { TextScaleContext, FontReadyContext } from '@/components/ui/text';
+import { brandColors, themeVariables } from '@/lib/theme';
+import { Text, TextScaleContext, FontReadyContext } from '@/components/ui/text';
 import { resolveTextSize, textScale } from '@/lib/text-size';
 import { LanguageContext, translate } from '@/lib/i18n';
 function Layout() {
@@ -39,9 +39,32 @@ function Layout() {
             {ready && (fontsLoaded || fontError) ? (
               <Stack screenOptions={{ headerShown: false }} />
             ) : (
-              <ActivityIndicator
-                accessibilityLabel={translate('앱 준비 중', settings.language ?? 'ko')}
-              />
+              <View className="flex-1 items-center justify-center gap-6 bg-background px-8">
+                <Text variant="h3" className="text-center">
+                  갈 곳을 살피고, 내 방식으로 주문하다.
+                </Text>
+                <Image
+                  source={require('../../assets/brand/galjido-logo-654B3C.png')}
+                  resizeMode="contain"
+                  style={{
+                    width: 96,
+                    height: 116,
+                    tintColor: settings.contrast ? brandColors.beige : brandColors.walnut,
+                  }}
+                  accessible={false}
+                />
+                <View className="items-center">
+                  <Text variant="h1" className="text-center text-primary">
+                    갈지도
+                  </Text>
+                  <Text variant="muted" translate={false}>
+                    Galjido Service
+                  </Text>
+                </View>
+                <ActivityIndicator
+                  accessibilityLabel={translate('앱 준비 중', settings.language ?? 'ko')}
+                />
+              </View>
             )}
             <PortalHost />
           </View>

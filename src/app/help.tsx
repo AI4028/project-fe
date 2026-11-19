@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { HandHelping, MessageCircle, Clock, Check } from 'lucide-react-native';
-import { IconTile, StatusBadge } from '@/components/brand';
+import { Check, Clock, HandHelping, MessageCircle } from 'lucide-react-native';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { IconTile } from '@/components/brand';
 import { Icon } from '@/components/ui/icon';
-import { useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -11,148 +11,207 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Problem } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { errorMessage } from '@/lib/api';
-import { knownText } from '@/lib/location';
-import type { Store } from '@/lib/types';
+import { useTranslation } from '@/lib/i18n';
+import { isOpenOrder, orderStoreId } from '@/lib/order';
+import type { Order, Store } from '@/lib/types';
+
 export default function Help() {
   const app = useApp();
+  const { language } = useTranslation();
   const { storeId, orderId } = useLocalSearchParams<{ storeId?: string; orderId?: string }>();
+  const [order, setOrder] = useState<Order | null>(null);
   const [store, setStore] = useState<Store | null>(null);
-  const [error, setError] = useState('');
+  const [orderError, setOrderError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [revision, setRevision] = useState(0);
+  const [sending, setSending] = useState(false);
+  const focus = useRef(0);
+  const sequence = useRef(0);
+
+  const refresh = useCallback(async () => {
+    if (!orderId) return;
+    const request = ++sequence.current;
+    try {
+      const latest = await app.getOrder(orderId);
+      if (request !== sequence.current) return;
+      setOrder(latest);
+      setOrderError('');
+    } catch (reason) {
+      if (request === sequence.current) setOrderError(errorMessage(reason));
+    }
+  }, [orderId, app.getOrder]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setOrder(null);
+      setOrderError('');
+      setActionError('');
+      setSending(false);
+      if (!orderId) return;
+      let active = true;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const poll = async () => {
+        await refresh();
+        if (active) timer = setTimeout(() => void poll(), 10000);
+      };
+      void poll();
+      return () => {
+        active = false;
+        focus.current++;
+        sequence.current++;
+        if (timer !== undefined) clearTimeout(timer);
+      };
+    }, [orderId, refresh]),
+  );
+
+  const linkedStore = orderId
+    ? order?.storeId
+    : storeId || app.connection?.storeId || app.store?.storeId;
+  const linkedKiosk = orderId ? order?.kioskId : undefined;
   useEffect(() => {
     let active = true;
     setStore(null);
-    setError('');
-    void (async () => {
-      let id = storeId || app.connection?.storeId || app.store?.storeId;
-      if (orderId) {
-        const order = await app.getOrder(orderId);
-        if (!order.kioskId) return;
-        id = (await app.api.kioskInfo(order.kioskId)).storeId;
-      }
-      if (id) {
-        const value = await app.api.store(id);
-        if (active) setStore(value);
-      }
-    })().catch((reason) => {
-      if (active) setError(errorMessage(reason));
-    });
+    void orderStoreId(app.api, linkedStore, linkedKiosk)
+      .then(async (id) => {
+        if (id && active) {
+          const value = await app.api.store(id);
+          if (active) setStore(value);
+        }
+      })
+      .catch(() => {});
     return () => {
       active = false;
     };
-  }, [storeId, orderId, app.api, app.connection?.storeId, revision]);
-  const canRequest =
-    !!app.connection &&
-    !orderId &&
-    !app.pendingSubmission &&
-    (!storeId || storeId === app.connection.storeId);
+  }, [app.api, linkedStore, linkedKiosk, revision]);
+
+  const canRequest = orderId
+    ? !!order && isOpenOrder(order) && !orderError
+    : !!app.connection &&
+      !app.pendingSubmission &&
+      (!storeId || storeId === app.connection.storeId);
+  const state = orderId ? (order?.helpState ?? 'idle') : canRequest ? app.helpState : 'idle';
+  const waiting = state === 'sent';
+  const acknowledged = state === 'acknowledged';
+
+  async function requestHelp() {
+    if (!canRequest || sending || waiting) return;
+    const visit = focus.current;
+    setSending(true);
+    setActionError('');
+    try {
+      if (orderId) {
+        await app.requestOrderHelp(orderId);
+        if (visit !== focus.current) return;
+        setOrder((current) =>
+          current?.orderId === orderId ? { ...current, helpState: 'sent' } : current,
+        );
+        await refresh();
+      } else await app.help();
+    } catch (reason) {
+      if (visit !== focus.current) return;
+      setActionError(errorMessage(reason));
+      if (orderId) await refresh();
+    } finally {
+      if (visit === focus.current) setSending(false);
+    }
+  }
+
   return (
     <Screen
-      title="필요할 때, 도움을 요청해요."
-      subtitle="연결된 매장에 요청하거나, 직원에게 직접 문의할 수 있어요."
+      title="직원 도움이 필요하신가요?"
+      subtitle="방문·주문·픽업에 필요한 도움을 요청할 수 있어요."
       voice={false}
+      reading
     >
-      {store && (
-        <View className="gap-2 rounded-2xl border border-border bg-card p-5">
-          <Text translate={false} className="font-bold">
-            {store.name}
-          </Text>
-          <Text translate={false} variant="muted">
-            {store.address}
-          </Text>
-        </View>
+      {(store || order) && (
+        <Card className="py-4 shadow-none">
+          <CardContent className="gap-2 px-4">
+            {store && (
+              <>
+                <Text translate={false} className="font-bold">
+                  {(language === 'en' && store.nameEn) || store.name}
+                </Text>
+                {!!store.address && (
+                  <Text translate={false} variant="muted">
+                    {store.address}
+                  </Text>
+                )}
+              </>
+            )}
+            {order && <Text variant="h3">{`주문 번호 ${order.orderNumber}`}</Text>}
+          </CardContent>
+        </Card>
       )}
-      {!!error && <Problem message={error} retry={() => setRevision((value) => value + 1)} />}
-      {canRequest ? (
-        <Card>
-          <CardContent className="gap-5">
-            <View className="flex-row flex-wrap items-center justify-between gap-4">
-              <IconTile icon={HandHelping} />
-              <StatusBadge selected={app.helpState !== 'idle'}>
-                {app.helpState === 'idle'
-                  ? '요청 전'
-                  : app.helpState === 'sent'
-                    ? '직원 확인 대기'
-                    : '직원 확인됨'}
-              </StatusBadge>
-            </View>
-            <Text variant="h2">매장에 도움 요청 보내기</Text>
-            <Text accessibilityLiveRegion="polite">
-              {
-                {
-                  idle: '현재 연결된 매장으로 요청을 보낼 수 있습니다.',
-                  sent: '요청을 보냈습니다. 직원의 확인을 기다리고 있어요.',
-                  acknowledged:
-                    '직원이 요청을 확인했습니다. 실제 도움 제공 여부는 직원에게 확인해 주세요.',
-                }[app.helpState]
-              }
-            </Text>
-            <Button
-              disabled={app.busy || app.helpState === 'sent'}
-              onPress={() => {
-                setError('');
-                void app.help().catch((reason) => setError(errorMessage(reason)));
-              }}
-            >
+      {orderId && !order && !orderError && (
+        <Text accessibilityLiveRegion="polite">주문 상태를 확인하고 있습니다.</Text>
+      )}
+      {!!orderError && (
+        <Problem
+          message={orderError}
+          retry={() => {
+            void refresh();
+            setRevision((value) => value + 1);
+          }}
+        />
+      )}
+      {!!actionError && <Problem message={actionError} />}
+      {(waiting || acknowledged) && (
+        <Card className="border-0 bg-secondary py-4 shadow-none">
+          <CardContent className="gap-2 px-4">
+            <View className="flex-row items-start gap-2">
               <Icon
-                as={
-                  app.helpState === 'sent'
-                    ? Clock
-                    : app.helpState === 'acknowledged'
-                      ? Check
-                      : HandHelping
-                }
+                as={waiting ? Clock : Check}
                 size={20}
+                className="mt-1 text-primary"
                 accessible={false}
               />
-              <Text>{app.helpState === 'sent' ? '직원 확인 대기 중' : '도움 요청 보내기'}</Text>
-            </Button>
+              <Text variant="h4" className="flex-1" accessibilityLiveRegion="polite">
+                {waiting ? '도움 요청을 보냈어요' : '직원이 도움 요청을 확인했어요'}
+              </Text>
+            </View>
             <Text>
-              답이 없거나 기다리기 어렵다면 주변 직원에게 직접 요청해 주세요. 요청 전송만으로 도움이
-              제공된 것은 아닙니다.
+              {waiting
+                ? '직원 확인을 기다리고 있어요.'
+                : '도움이 더 필요하면 직원에게 말씀해 주세요.'}
             </Text>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="gap-4">
-            <IconTile icon={HandHelping} />
-            <Text variant="h2">직원에게 직접 문의해 주세요</Text>
-            <Text>
-              연결 전이나 주문 제출 후에는 앱에서 도움 요청을 보낼 수 없습니다. 매장 직원에게 직접
-              문의해 주세요.
-            </Text>
-            {orderId && (
-              <NavLink href={{ pathname: '/orders/[orderId]', params: { orderId } }}>
-                주문 번호와 상태 보여 주기
-              </NavLink>
-            )}
           </CardContent>
         </Card>
       )}
-      <Card className="bg-secondary">
-        <CardContent className="gap-4">
+      {canRequest && !waiting && (
+        <Button disabled={app.busy || sending} onPress={() => void requestHelp()}>
+          <Icon as={HandHelping} size={19} className="text-primary-foreground" accessible={false} />
+          <Text className="shrink text-center">
+            {sending
+              ? '도움 요청을 보내고 있어요'
+              : acknowledged
+                ? '다시 도움 요청하기'
+                : '앱으로 직원 도움 요청하기'}
+          </Text>
+        </Button>
+      )}
+      <Card className="py-4 shadow-none">
+        <CardContent className="gap-3 px-4">
           <IconTile icon={MessageCircle} />
-          <Text variant="h2">이 문장을 보여 드려도 좋아요</Text>
-          <Text variant="lead" className="leading-8 text-foreground">
+          <Text variant="h3">직원에게 직접 문의하기</Text>
+          <Text>급하거나 앱에서 요청하기 어렵다면 주변 직원에게 직접 말씀해 주세요.</Text>
+          <Text variant="muted">
             {orderId
               ? '“휴대폰으로 주문했습니다. 주문 상태, 취소 또는 픽업 안내를 도와주세요.”'
-              : '“휴대폰 주문 연결 코드나 링크를 알려주세요. 연결이 어렵다면 직접 주문을 도와주세요.”'}
+              : '“휴대폰 주문을 도와주세요.”'}
           </Text>
         </CardContent>
       </Card>
-      <View className="gap-3 rounded-2xl border border-border p-5">
-        <Text>등록된 실내 안내: {knownText(store?.indoorDirections)}</Text>
-        <Text variant="muted">
-          매장 연락처와 직원 위치는 확인이 필요합니다. 주변 직원에게 직접 도움을 요청해 주세요.
-        </Text>
-      </View>
-      <View className="flex-row flex-wrap gap-3">
-        <NavLink href="/connect">연결 코드 다시 입력</NavLink>
-        <NavLink href={store ? { pathname: '/store', params: { storeId: store.storeId } } : '/'}>
-          매장 정보로 돌아가기
+      {orderId ? (
+        <NavLink href={{ pathname: '/orders/[orderId]', params: { orderId } }}>
+          주문으로 돌아가기
         </NavLink>
-      </View>
+      ) : (
+        <NavLink
+          href={linkedStore ? { pathname: '/store', params: { storeId: linkedStore } } : '/'}
+        >
+          {linkedStore ? '매장 정보로 돌아가기' : '매장 찾기로'}
+        </NavLink>
+      )}
     </Screen>
   );
 }

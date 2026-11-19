@@ -6,6 +6,7 @@ import type {
   LiveEvent,
   Order,
   OrderStatus,
+  StaffHelpRequest,
   Session,
   Store,
   PlaceSearchKind,
@@ -19,6 +20,15 @@ export class ApiError extends Error {
     message: string,
   ) {
     super(message);
+  }
+}
+
+export class CartChangedError extends Error {
+  constructor(
+    public before: Cart,
+    public after: Cart,
+  ) {
+    super('가격 또는 주문 정보가 변경되었습니다. 새 합계를 확인하고 다시 제출해 주세요.');
   }
 }
 export function normalizeBase(value: string) {
@@ -101,10 +111,18 @@ export class Api {
   demoToken = (id: string) => this.request<Heartbeat>(`/kiosks/${encodeURIComponent(id)}/token`);
   connect = (kioskId: string, token: string, device: string) =>
     this.request<Connection>('/sessions', 'POST', { kioskId, token }, device);
+  startStoreSession = (storeId: string, device: string) =>
+    this.request<Session>(
+      `/stores/${encodeURIComponent(storeId)}/sessions`,
+      'POST',
+      undefined,
+      device,
+    );
   session = (id: string, device: string) =>
     this.request<Session>(`/sessions/${id}`, 'GET', undefined, device);
   cart = (id: string, items: CartItem[], device: string) =>
     this.request<Cart>(`/sessions/${id}/cart`, 'PUT', { items }, device);
+  orders = (device: string) => this.request<Order[]>('/orders', 'GET', undefined, device);
   order = (id: string, device: string) =>
     this.request<Order>(`/orders/${id}`, 'GET', undefined, device);
   submit = (
@@ -126,16 +144,18 @@ export class Api {
     this.request<LiveEvent>(`/orders/${id}/cancel`, 'POST', undefined, device);
   help = (id: string, device: string) =>
     this.request<LiveEvent>(`/sessions/${id}/help`, 'POST', undefined, device);
+  orderHelp = (id: string, device: string) =>
+    this.request<LiveEvent>(`/orders/${id}/help`, 'POST', undefined, device);
   end = (id: string, device: string) =>
     this.request<LiveEvent>(`/sessions/${id}/end`, 'POST', undefined, device);
   heartbeat = (key: string) => this.request<Heartbeat>('/kiosk/heartbeat', 'POST', undefined, key);
   kioskState = (key: string) =>
-    this.request<{ session: Session | null; orders: Order[]; store: Store }>(
-      '/kiosk/state',
-      'GET',
-      undefined,
-      key,
-    );
+    this.request<{
+      session: Session | null;
+      orders: Order[];
+      store: Store;
+      helpRequests?: StaffHelpRequest[];
+    }>('/kiosk/state', 'GET', undefined, key);
   kioskSession = (key: string) =>
     this.request<Session | null>('/kiosk/session', 'GET', undefined, key);
   kioskOrders = (key: string) => this.request<Order[]>('/kiosk/orders', 'GET', undefined, key);
@@ -166,6 +186,7 @@ const messages: Record<string, string> = {
   'token-invalid': '연결 코드가 만료되었습니다. 키오스크에서 새 코드를 확인해 주세요.',
   'ordering-paused':
     '지금은 이 매장에서 휴대폰 주문을 받지 않아요. 카운터나 직원에게 주문해 주세요.',
+  'ordering-unavailable': '이 매장은 휴대폰 주문을 받을 수 없어요. 매장 직원에게 문의해 주세요.',
   'kiosk-busy': '다른 고객이 사용 중입니다. 잠시 후 다시 연결해 주세요.',
   'session-expired': '연결이 만료되었습니다. 다시 연결해 주세요.',
   'session-not-found': '연결을 찾을 수 없습니다. 다시 연결해 주세요.',

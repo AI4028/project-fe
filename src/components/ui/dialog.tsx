@@ -2,7 +2,7 @@
 import { Icon } from '@/components/ui/icon';
 import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
 import { cn } from '@/lib/utils';
-import { fontFamily } from '@/lib/theme';
+import { fontFamily, layout } from '@/lib/theme';
 import { useTranslation } from '@/lib/i18n';
 import { FontReadyContext, TextScaleContext } from './text';
 import * as DialogPrimitive from '@rn-primitives/dialog';
@@ -13,11 +13,13 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type GestureResponderEvent,
   type ViewProps,
 } from 'react-native';
 import { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 const Dialog = DialogPrimitive.Root;
 
@@ -33,9 +35,11 @@ function DialogOverlay({
   className,
   children,
   onPress,
+  sheet = false,
   ...props
 }: Omit<React.ComponentProps<typeof DialogPrimitive.Overlay>, 'asChild'> & {
   children?: React.ReactNode;
+  sheet?: boolean;
 }) {
   const { onOpenChange } = DialogPrimitive.useRootContext();
 
@@ -50,7 +54,8 @@ function DialogOverlay({
     <FullWindowOverlay>
       <DialogPrimitive.Overlay
         className={cn(
-          'absolute bottom-0 left-0 right-0 top-0 flex items-center justify-center bg-black/50 p-2',
+          'absolute bottom-0 left-0 right-0 top-0 flex flex-col items-center justify-center bg-black/50 p-2',
+          sheet && 'justify-end px-0 pb-0',
           Platform.select({
             web: 'animate-in fade-in-0 fixed cursor-default [&>*]:cursor-auto',
           }),
@@ -66,6 +71,7 @@ function DialogOverlay({
           as="Pressable"
         >
           <NativeOnlyAnimatedView
+            className={sheet ? 'w-full' : undefined}
             entering={FadeIn.delay(50).reduceMotion(ReduceMotion.System)}
             exiting={FadeOut.duration(150).reduceMotion(ReduceMotion.System)}
           >
@@ -80,23 +86,53 @@ function DialogContent({
   className,
   portalHost,
   children,
+  presentation = 'dialog',
+  style,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   portalHost?: string;
+  presentation?: 'dialog' | 'sheet';
 }) {
   const { t } = useTranslation();
+  const { width, height } = useWindowDimensions();
+  const insets = React.useContext(SafeAreaInsetsContext);
+  const previouslyFocused = React.useRef<HTMLElement | null>(null);
+  const sheet = presentation === 'sheet' && width < layout.sheetBreakpoint;
+  const availableWidth = width - (insets?.left ?? 0) - (insets?.right ?? 0);
+  const dialogWidth = sheet ? availableWidth : Math.min(availableWidth - 16, 512);
   return (
     <DialogPortal hostName={portalHost}>
-      <DialogOverlay>
+      <DialogOverlay sheet={sheet}>
         <DialogPrimitive.Content
           className={cn(
-            'bg-card border-border z-50 mx-auto flex w-full max-w-[calc(100%-2rem)] flex-col gap-5 rounded-3xl border p-6 pt-16 shadow-lg shadow-black/5 sm:max-w-lg',
+            'bg-card border-border z-50 mx-auto flex flex-col gap-5 border p-6 pt-16 shadow-lg shadow-black/5',
+            sheet ? 'rounded-t-3xl border-b-0 px-4' : 'max-w-lg rounded-3xl',
             Platform.select({
               web: 'animate-in fade-in-0 zoom-in-95 duration-200',
             }),
             className,
           )}
           {...props}
+          onOpenAutoFocus={(event) => {
+            if (Platform.OS === 'web' && document.activeElement instanceof HTMLElement)
+              previouslyFocused.current = document.activeElement;
+            onOpenAutoFocus?.(event);
+          }}
+          onCloseAutoFocus={(event) => {
+            onCloseAutoFocus?.(event);
+            const previous = previouslyFocused.current;
+            if (!event.defaultPrevented && previous?.isConnected) {
+              event.preventDefault();
+              previous.focus();
+            }
+          }}
+          style={StyleSheet.flatten([
+            { width: dialogWidth, maxHeight: height - (insets?.top ?? 0) - 16 },
+            sheet && { paddingBottom: Math.max(insets?.bottom ?? 0, 16) },
+            style,
+          ])}
         >
           <>{children}</>
           <DialogPrimitive.Close

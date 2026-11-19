@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Linking, View, useWindowDimensions } from 'react-native';
-import { directionsUrl } from '@/lib/navigation';
+import { Image, View, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
@@ -12,9 +11,12 @@ import { OrderingPaused, Problem } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { knownText } from '@/lib/location';
 import { errorMessage } from '@/lib/api';
+import { useTranslation } from '@/lib/i18n';
+import { PlaceBookmark } from '@/components/place-actions';
 import type { Store } from '@/lib/types';
 export default function StoreDetails() {
   const app = useApp();
+  const { language, t } = useTranslation();
   const { width } = useWindowDimensions();
   const { storeId } = useLocalSearchParams<{ storeId?: string }>();
   const id = storeId || app.store?.storeId;
@@ -26,6 +28,7 @@ export default function StoreDetails() {
     let active = true;
     setStore(null);
     setError('');
+    setLoading(false);
     if (!id) return;
     setLoading(true);
     void app.api
@@ -53,16 +56,16 @@ export default function StoreDetails() {
   const different = app.connection && app.connection.storeId !== id;
   return (
     <Screen
-      title={store?.name ?? '매장 정보'}
+      title={(language === 'en' ? store?.nameEn || store?.name : store?.name) ?? '매장 정보'}
       subtitle={store?.address || '방문에 필요한 정보를 한눈에 확인하세요.'}
       footer={
-        store && !different ? (
+        store && !store.directoryOnly ? (
           <NavLink
             href={{ pathname: '/menu', params: { storeId: store.storeId } }}
             variant="default"
             icon={ShoppingBag}
           >
-            메뉴 둘러보기
+            {store.orderingPaused ? '메뉴 둘러보기' : '바로 주문하기'}
           </NavLink>
         ) : undefined
       }
@@ -73,7 +76,10 @@ export default function StoreDetails() {
           if (preview?.length) {
             app.announce(
               preview
-                .map((item) => `${item.name} ${item.price}원${item.available ? '' : ' 품절'}`)
+                .map(
+                  (item) =>
+                    `${language === 'en' ? item.nameEn || item.name : item.name} ${t(`${item.price.toLocaleString('ko-KR')}원`)}${item.available ? '' : ` ${t('품절')}`}`,
+                )
                 .join(', '),
             );
           } else {
@@ -98,12 +104,32 @@ export default function StoreDetails() {
       )}
       {store && (
         <>
-          <Button
-            variant="secondary"
-            onPress={() => void Linking.openURL(directionsUrl(store)).catch(app.report)}
-          >
-            <Text>길찾기</Text>
-          </Button>
+          <Card className="rounded-3xl">
+            <CardContent className="gap-3">
+              {store.imageUrl && (
+                <Image
+                  accessible={false}
+                  source={{ uri: store.imageUrl }}
+                  className="h-48 w-full rounded-2xl bg-secondary"
+                />
+              )}
+              <View className="flex-row flex-wrap items-center justify-between gap-2">
+                <Text variant="h3">매장 이용 정보</Text>
+                <PlaceBookmark store={store} />
+              </View>
+              {!!(language === 'en' ? store.hoursEn || store.hours : store.hours) && (
+                <Text translate={false}>
+                  {language === 'en' ? store.hoursEn || store.hours : store.hours}
+                </Text>
+              )}
+              <NavLink
+                href={{ pathname: '/guide', params: { storeId: store.storeId } }}
+                icon={Navigation}
+              >
+                길 안내
+              </NavLink>
+            </CardContent>
+          </Card>
           {store.orderingPaused && <OrderingPaused />}
           {!different && !store.orderingPaused && (
             <View className="flex-row flex-wrap items-center justify-between gap-3 rounded-2xl bg-secondary p-4">
