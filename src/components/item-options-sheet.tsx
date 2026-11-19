@@ -289,7 +289,7 @@ export function ItemOptionsSheet({
                     <View
                       className="gap-2"
                       accessibilityRole={group.type === 'single' ? 'radiogroup' : undefined}
-                      accessibilityLabel={group.name}
+                      accessibilityLabel={t(group.name)}
                     >
                       {group.choices.map((choice) => {
                         const selected = ids.includes(choice.id);
@@ -311,7 +311,7 @@ export function ItemOptionsSheet({
                             accessibilityRole={group.type === 'multi' ? 'checkbox' : 'radio'}
                             accessibilityState={{ checked: selected, disabled }}
                             accessibilityLabel={[
-                              choice.name,
+                              t(choice.name),
                               choice.priceDelta ? t(money(choice.priceDelta)) : '',
                               unavailable ? t('품절') : '',
                             ]

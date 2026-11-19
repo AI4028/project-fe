@@ -75,15 +75,15 @@ export function QuantityStepper({
 }
 
 export function CartLineSummary({ line }: { line: PricedLine }) {
-  const { language } = useTranslation();
+  const { language, t } = useTranslation();
   const name = language === 'en' ? line.nameEn || line.name : line.name;
   return (
     <View className="gap-1">
       <Text translate={false} className="font-bold">
         {name} × {line.qty}
       </Text>
-      <Text variant="muted">
-        {line.options.map((option) => option.choiceName).join(' · ') || '추가 옵션 없음'}
+      <Text variant="muted" translate={false}>
+        {line.options.map((option) => t(option.choiceName)).join(' · ') || t('추가 옵션 없음')}
       </Text>
     </View>
   );

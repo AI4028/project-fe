@@ -19,6 +19,9 @@ test('translates fixed and dynamic UI messages while preserving unknown content'
   expect(translate('장바구니', 'en')).toBe('Cart');
   expect(translate('주문 번호 42', 'en')).toBe('Order #42');
   expect(translate('장바구니 2개 · 5,000원', 'en')).toBe('Cart · 2 items · ₩5,000');
+  expect(translate('장바구니 1개 · 2,500원', 'en')).toBe('Cart · 1 item · ₩2,500');
+  expect(translate('따뜻하게', 'en')).toBe('Hot');
+  expect(translate('온도 옵션을 선택해 주세요.', 'en')).toBe('Choose an option for Temperature.');
   expect(translate('카페 갈지도 서울점', 'en')).toBe('카페 갈지도 서울점');
   expect(translate('장바구니', 'ko')).toBe('장바구니');
 });
