@@ -30,6 +30,7 @@ jobs:
           pnpm install --frozen-lockfile
           EXPO_PUBLIC_API_URL=https://dev.galjido.shop/api \
           EXPO_PUBLIC_DEMO_MODE=false \
+          EXPO_PUBLIC_KAKAO_MAP_KEY=${{ secrets.KAKAO_MAP_KEY }} \
           pnpm export:web
 
       - uses: webfactory/ssh-agent@v0.9.1

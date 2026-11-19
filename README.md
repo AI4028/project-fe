@@ -90,8 +90,9 @@ real-device testing; automated tests are not an accessibility certification.
 ### Maps, optional voice, and hardware
 
 - Web uses Kakao Maps with `EXPO_PUBLIC_KAKAO_MAP_KEY`; register the origin and enable
-  Maps in Kakao. iOS uses Apple Maps. Android uses Google Maps with a restricted
-  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` and a native rebuild. The list works without keys.
+  Maps in Kakao. Directions open Kakao Maps. iOS uses Apple Maps. Android uses Google
+  Maps with a restricted `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` and a native rebuild. The
+  list works without keys.
 - The current location feature uses foreground coordinates and server/local radius
   comparisons. It is not background geofencing or indoor navigation. A nearby
   store is not automatically selected or connected.
