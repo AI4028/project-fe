@@ -1,3 +1,6 @@
+import { pickMenuPhoto } from '@/lib/pick-menu-photo';
+import { MenuThumbnail } from '@/components/menu-controls';
+import { useTranslation } from '@/lib/i18n';
 import { paymentLabels } from '@/lib/types';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
@@ -34,6 +37,8 @@ import {
 } from '@/lib/types';
 export default function Kiosk() {
   const app = useApp();
+  const { t } = useTranslation();
+  const [photoUploadsEnabled, setPhotoUploadsEnabled] = useState(false);
   const [credential, setCredential] = useState<{ base: string; key: string } | null>(null);
   const key = credential?.base === app.api.base ? credential.key : null;
   const setKey = (value: string | null) =>
@@ -55,6 +60,7 @@ export default function Kiosk() {
     setOrders([]);
     setHelpRequests([]);
     setStore(null);
+    setPhotoUploadsEnabled(false);
     void secrets
       .get(app.api.base, 'kiosk')
       .then((value) => {
@@ -74,6 +80,7 @@ export default function Kiosk() {
     setOrders([]);
     setHelpRequests([]);
     setStore(null);
+    setPhotoUploadsEnabled(false);
   }
   useEffect(() => {
     if (!key) return;
@@ -100,6 +107,7 @@ export default function Kiosk() {
           setSession(state.session);
           setOrders(state.orders);
           setHelpRequests(state.helpRequests ?? []);
+          setPhotoUploadsEnabled(!!state.photoUploadsEnabled);
           setStore(state.store);
         }
       } catch (error) {
@@ -164,6 +172,14 @@ export default function Kiosk() {
       actionLock.current = false;
       setBusy(false);
     }
+  }
+  async function replacePhoto(itemId: string, kioskKey: string) {
+    const photo = await pickMenuPhoto();
+    if (!photo) return;
+    await act(async () => {
+      await app.api.uploadMenuPhoto(itemId, photo, kioskKey);
+      app.announce('메뉴 사진을 변경했어요.');
+    });
   }
   async function login() {
     const candidate = draft.trim();
@@ -394,12 +410,23 @@ export default function Kiosk() {
                   key={item.id}
                   className="flex-row flex-wrap items-center justify-between gap-3 border-b border-border pb-4"
                 >
+                  {photoUploadsEnabled && <MenuThumbnail imageUrl={item.imageUrl} size={48} />}
                   <View className="gap-1">
                     <Text translate={false} className="font-bold">
                       {item.name}
                     </Text>
                     <Text variant="muted">{item.available ? '판매 중' : '품절'}</Text>
                   </View>
+                  {photoUploadsEnabled && (
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      accessibilityLabel={`${item.name}, ${t('메뉴 사진 변경')}`}
+                      onPress={() => void replacePhoto(item.id, key).catch(app.report)}
+                    >
+                      <Text>메뉴 사진 변경</Text>
+                    </Button>
+                  )}
                   <Button
                     disabled={busy}
                     variant={item.available ? 'outline' : 'secondary'}

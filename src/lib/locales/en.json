@@ -1,4 +1,9 @@
 {
+  "메뉴 사진을 변경했어요.": "Menu photo updated.",
+  "메뉴 사진 변경": "Change menu photo",
+  "1 MiB 이하의 사진을 선택해 주세요.": "Choose a photo of 1 MiB or less.",
+  "1600만 화소 이하의 JPG, PNG 또는 WebP 사진을 선택해 주세요.": "Choose a JPG, PNG or WebP photo up to 16 megapixels.",
+  "사진을 저장할 수 없어요. 잠시 후 다시 시도해 주세요.": "The photo could not be saved. Please try again shortly.",
   "시각장애": "Visual impairment",
   "지체장애": "Physical disability",
   "휠체어 사용자": "Wheelchair user",

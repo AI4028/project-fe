@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-20 · Reuse the pnpm store attached to the project
+
+- **Hit:** Adding the Expo file picker stopped with `ERR_PNPM_UNEXPECTED_STORE`.
+- **Why:** The shell selected a different store from the one linked to `node_modules`.
+- **Fix:** Passed the linked store directory from pnpm's error to `pnpm add --store-dir`.
+- **Rule:** Check the linked store path before rebuilding a working installation.
+
 ### 2026-11-19 · Use Corepack when local pnpm is unavailable
 
 - **Hit:** `pnpm typecheck` failed with `/bin/bash: pnpm: command not found`; an appended `--runInBand` also made Jest report no tests.
