@@ -20,6 +20,9 @@ export type MenuItem = {
 };
 export type Store = {
   nameEn?: string;
+  imageUrl?: string;
+  hours?: string;
+  hoursEn?: string;
   placeKind?: 'station' | 'venue' | 'audio_signals' | 'voice_guides' | 'tactile' | 'crossings';
   source?: DataSource;
   directoryOnly?: boolean;
@@ -88,6 +91,7 @@ export type CartItem = { itemId: string; qty: number; options: Options };
 export type PricedLine = {
   itemId: string;
   name: string;
+  nameEn?: string | null;
   qty: number;
   lineTotal: number;
   options: { optionId: string; choiceId: string; choiceName: string }[];
@@ -95,14 +99,14 @@ export type PricedLine = {
 export type Cart = { quoteId?: string; total: number; summary: string; lines: PricedLine[] };
 export type Session = {
   sessionId: string;
-  kioskId: string;
+  kioskId: string | null;
   storeId: string;
   status: 'active' | 'ordered' | 'ended' | 'expired';
   cart: Cart;
   helpRequested: boolean;
   orderId?: string;
 };
-export type Connection = { sessionId: string; kioskId: string; storeId: string };
+export type Connection = { sessionId: string; kioskId: string | null; storeId: string };
 export type OrderStatus =
   | 'submitted'
   | 'accepted'
@@ -112,16 +116,22 @@ export type OrderStatus =
   | 'cancelled';
 export type Order = {
   orderId: string;
-  kioskId?: string;
+  kioskId?: string | null;
+  storeId?: string;
+  createdAtMs?: number;
+  helpState?: 'idle' | 'sent' | 'acknowledged';
+  cancelledBy?: 'customer' | 'staff' | null;
   updatedAtMs?: number;
   orderNumber: number;
   sessionId: string;
   status: OrderStatus;
   total: number;
   summary: string;
+  lines?: PricedLine[];
   paymentMethod: 'counter' | 'kiosk';
   note: string;
 };
+export type StaffHelpRequest = { sessionId: string; orderNumber: number | null };
 export type Heartbeat = {
   kioskId: string;
   token: string;

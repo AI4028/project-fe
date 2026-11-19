@@ -1,70 +1,117 @@
-import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRef, useState } from 'react';
+import { View } from 'react-native';
+import { vars } from 'nativewind';
 import { router } from 'expo-router';
 import { ArrowRight } from 'lucide-react-native';
-import { BrandLockup } from '@/components/brand';
-import { AssistancePicker } from '@/components/assistance-picker';
-import { LanguageSwitch } from '@/components/language-switch';
+import { PreferenceSwitch } from '@/components/preference-switch';
+import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { Text } from '@/components/ui/text';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Text, TextScaleContext } from '@/components/ui/text';
 import { useApp } from '@/providers/app-provider';
-import { exploreRoute, isAssistance, type Assistance } from '@/lib/location';
+import { exploreRoute, resolveExploreMode, type ExploreMode } from '@/lib/location';
 import { errorMessage } from '@/lib/api';
-import { layout } from '@/lib/theme';
+import { useTranslation } from '@/lib/i18n';
+import { resolveTextSize, textScale } from '@/lib/text-size';
+import { themeVariables } from '@/lib/theme';
 
 export default function Onboarding() {
   const app = useApp();
-  const [choice, setChoice] = useState<Assistance | undefined>(
-    isAssistance(app.settings.assistance) ? app.settings.assistance : undefined,
+  const { t } = useTranslation();
+  const [contrast, setContrast] = useState(app.settings.contrast);
+  const [size, setSize] = useState(() => resolveTextSize(app.settings));
+  const [voiceInput, setVoiceInput] = useState(!!app.settings.voiceInput);
+  const [mode, setMode] = useState(
+    () => resolveExploreMode(app.settings.assistance, app.settings.exploreMode) ?? 'list',
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  async function start() {
-    if (!choice || saving) return;
+  const pending = useRef(false);
+
+  async function start(defaults = false) {
+    if (pending.current) return;
+    pending.current = true;
     setSaving(true);
     setError('');
+    const exploreMode = defaults ? 'list' : mode;
+    const textSize = defaults ? 'base' : size;
     try {
-      await app.saveSettings({ ...app.settings, assistance: choice });
-      router.replace(exploreRoute(choice));
+      await app.updateSettings({
+        exploreMode,
+        textSize,
+        largeText: textSize !== 'base',
+        contrast: !defaults && contrast,
+        voiceInput: !defaults && voiceInput,
+      });
+      router.replace(exploreRoute(undefined, exploreMode));
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
+      pending.current = false;
       setSaving(false);
     }
   }
+
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-row flex-wrap items-center justify-between gap-2 px-5 py-3">
-        <BrandLockup />
-        <LanguageSwitch compact disabled={saving} />
-      </View>
-      <ScrollView
-        contentContainerClassName="grow justify-center px-5 py-8"
-        keyboardShouldPersistTaps="handled"
-      >
-        <View className="mx-auto w-full gap-7" style={{ maxWidth: layout.readingWidth }}>
+    <TextScaleContext.Provider value={textScale(size)}>
+      <View style={[{ flex: 1 }, vars(themeVariables(contrast))]}>
+        <Screen
+          title="나에게 편한 이용 설정"
+          subtitle="필요한 기능만 골라 켜 주세요."
+          chrome="onboarding"
+          headerDisabled={saving}
+          contrast={contrast}
+          voice={false}
+        >
           <View className="gap-3">
-            <Text variant="h1">나에게 맞는 지도로 시작해요</Text>
-            <Text className="leading-7 text-muted-foreground">
-              장애 유형을 선택하면 나에게 맞는 장소 탐색 화면이 열려요.
-            </Text>
+            <PreferenceSwitch
+              title="고대비"
+              description="글자와 버튼 경계를 선명하게"
+              value={contrast}
+              disabled={saving}
+              onChange={setContrast}
+            />
+            <PreferenceSwitch
+              title="큰 글씨"
+              description="기본 글자의 2배로 확대"
+              value={size === 'xlarge'}
+              disabled={saving}
+              onChange={(enabled) => setSize(enabled ? 'xlarge' : 'base')}
+            />
+            <PreferenceSwitch
+              title="음성 명령"
+              description="말로 매장과 메뉴 검색"
+              value={voiceInput}
+              disabled={saving}
+              onChange={setVoiceInput}
+            />
           </View>
-          <AssistancePicker value={choice} onSelect={setChoice} disabled={saving} descriptions />
-          <View className="gap-4">
-            <Text variant="muted">선택은 이 기기에 저장돼요. 설정에서 언제든 바꿀 수 있어요.</Text>
-            <Text variant="muted">
-              VoiceOver와 TalkBack, 큰 글자와 고대비 설정도 함께 사용할 수 있어요.
-            </Text>
+          <View className="gap-2">
+            <Text variant="h3">지도 방식</Text>
+            <SegmentedControl<ExploreMode>
+              value={mode}
+              onChange={setMode}
+              label={t('지도 방식')}
+              disabled={saving}
+              options={[
+                { value: 'list', label: '글 지도' },
+                { value: 'map', label: '그림 지도' },
+              ]}
+            />
+          </View>
+          <View className="gap-2">
             {!!error && <Text accessibilityRole="alert">{error}</Text>}
+            <Button variant="outline" disabled={saving} onPress={() => void start(true)}>
+              <Text>기본 설정으로 바로 시작</Text>
+            </Button>
             <Button
-              disabled={!choice || saving}
               size="lg"
+              disabled={saving}
               accessibilityState={{ busy: saving }}
               onPress={() => void start()}
             >
-              <Text>{saving ? '저장 중…' : '시작하기'}</Text>
+              <Text>{saving ? '저장 중…' : '설정 완료하고 시작하기'}</Text>
               <Icon
                 as={ArrowRight}
                 size={20}
@@ -73,8 +120,8 @@ export default function Onboarding() {
               />
             </Button>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </Screen>
+      </View>
+    </TextScaleContext.Provider>
   );
 }

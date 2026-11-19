@@ -163,6 +163,49 @@ test('connects, uses authoritative cart totals, submits once, and clears the ses
   expect(await AsyncStorage.getItem(`session:${result.current.api.base}`)).toBeNull();
   expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'))).toHaveLength(1);
 });
+test('obtains a server cart and submits without pairing to a kiosk', async () => {
+  const previous = route;
+  route = (path, method) => {
+    if (path === '/stores/cafe/sessions')
+      return {
+        data: {
+          ...connection,
+          kioskId: null,
+          status: 'active',
+          cart: { lines: [], total: 0, summary: '' },
+        },
+      };
+    return previous(path, method);
+  };
+  const { result } = await mount();
+  await act(() => result.current.updateCart([{ itemId: 'coffee', qty: 1, options: {} }], 'cafe'));
+  expect(result.current.connection?.kioskId).toBeNull();
+  expect(result.current.store?.storeId).toBe('cafe');
+  expect(result.current.cart.total).toBe(2500);
+  expect(await AsyncStorage.getItem(`session:${result.current.api.base}`)).toBe('s1');
+  await act(() => result.current.submit('counter', ''));
+  expect(result.current.order?.orderId).toBe('o1');
+  const requested = fetchMock.mock.calls.map(([url]) => new URL(url).pathname);
+  expect(requested).toContain('/stores/cafe/sessions');
+  expect(requested).not.toContain('/sessions');
+  expect(requested).not.toContain('/kiosks/GK01');
+});
+
+test('keeps independently saved preferences when changes overlap', async () => {
+  const { result } = await mount();
+  await act(async () => {
+    await Promise.all([
+      result.current.updateSettings({ language: 'en' }),
+      result.current.updateSettings({ contrast: true, exploreMode: 'list' }),
+    ]);
+  });
+  expect(result.current.settings).toMatchObject({
+    language: 'en',
+    contrast: true,
+    exploreMode: 'list',
+  });
+});
+
 test('does not invent an offline session when the kiosk is busy', async () => {
   const previous = route;
   route = (path, method) =>

@@ -15,7 +15,7 @@ jest.mock('expo-router', () => ({
 const mockSaveSettings = jest.fn().mockResolvedValue(undefined);
 const mockApp = {
   settings: { apiBase: 'http://127.0.0.1:8000', contrast: false, largeText: false, speech: false },
-  saveSettings: mockSaveSettings,
+  updateSettings: mockSaveSettings,
   report: jest.fn(),
   announce: jest.fn(),
   busy: false,

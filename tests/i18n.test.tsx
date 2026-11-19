@@ -9,7 +9,7 @@ const mockSave = jest.fn().mockResolvedValue(undefined);
 jest.mock('@/providers/app-provider', () => ({
   useApp: () => ({
     settings: { language: 'ko', contrast: true },
-    saveSettings: mockSave,
+    updateSettings: mockSave,
     report: jest.fn(),
     busy: false,
   }),
@@ -45,7 +45,8 @@ test('language changes update UI and placeholders without changing original cont
 test('language switch saves the selected language alongside existing preferences', async () => {
   await render(<LanguageSwitch compact />);
   await fireEvent.press(screen.getByLabelText('Switch to English'));
-  expect(mockSave).toHaveBeenCalledWith({ language: 'en', contrast: true });
+  expect(screen.getByRole('radio', { name: '한국어로 전환' })).toBeTruthy();
+  expect(mockSave).toHaveBeenCalledWith({ language: 'en' });
 });
 
 test('uses the right Korean object particle for menu names', () => {

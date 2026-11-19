@@ -8,21 +8,28 @@ import { brandColors } from '@/lib/theme';
 import { useApp } from '@/providers/app-provider';
 import { useTranslation } from '@/lib/i18n';
 
-export function BrandLockup() {
+export function BrandLockup({ contrast }: { contrast?: boolean }) {
   const { settings } = useApp();
   return (
-    <View accessible accessibilityLabel="갈지도" className="flex-row items-center gap-3">
+    <View className="shrink flex-row items-center gap-2">
       <Image
         source={require('../../assets/brand/galjido-logo-654B3C.png')}
         resizeMode="contain"
         style={{
-          width: 28,
-          height: 34,
-          tintColor: settings.contrast ? brandColors.beige : brandColors.walnut,
+          width: 25,
+          height: 32,
+          tintColor: (contrast ?? settings.contrast) ? brandColors.beige : brandColors.walnut,
         }}
         accessible={false}
       />
-      <Text className="text-2xl font-bold tracking-tight text-primary">갈지도</Text>
+      <View className="min-w-0 shrink">
+        <Text className="text-left text-xl font-bold leading-6 tracking-tight text-primary">
+          갈지도
+        </Text>
+        <Text translate={false} className="text-left text-[11px] leading-4 text-muted-foreground">
+          Galjido Service
+        </Text>
+      </View>
     </View>
   );
 }

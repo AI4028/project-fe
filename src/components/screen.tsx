@@ -3,24 +3,16 @@ import { useState, useCallback, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Link, router, useFocusEffect, usePathname, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  ShoppingBag,
-  Settings2,
-  Store,
-  Check,
-  type LucideIcon,
-} from 'lucide-react-native';
-import { LimitTextScale, Text } from './ui/text';
+import { ArrowLeft, Check, type LucideIcon } from 'lucide-react-native';
+import { Text } from './ui/text';
 import { Button, type ButtonProps } from './ui/button';
 import { Icon } from './ui/icon';
 import { VoiceControls } from './voice-controls';
-import { BrandLockup } from './brand';
+import { AppHeader } from './app-header';
 import { useApp } from '@/providers/app-provider';
 import { cn } from '@/lib/utils';
 import { layout } from '@/lib/theme';
-import { LanguageSwitch } from './language-switch';
+import { useTranslation } from '@/lib/i18n';
 
 export function NavLink({
   href,
@@ -65,6 +57,10 @@ export function Screen({
   onTranscript,
   footer,
   reading = false,
+  roomy = false,
+  chrome = 'app',
+  headerDisabled = false,
+  contrast,
 }: {
   title: string;
   subtitle?: string;
@@ -73,12 +69,25 @@ export function Screen({
   onTranscript?: (text: string) => boolean;
   footer?: ReactNode;
   reading?: boolean;
+  roomy?: boolean;
+  chrome?: 'app' | 'onboarding' | 'minimal';
+  headerDisabled?: boolean;
+  contrast?: boolean;
 }) {
   const app = useApp();
+  const { t } = useTranslation();
   const path = usePathname();
   const { width } = useWindowDimensions();
-  const desktop = width >= 1080;
-  const staff = path === '/kiosk';
+  const desktop = width >= layout.desktopBreakpoint;
+  const showNavigation = chrome === 'app';
+  const onboarding = chrome === 'onboarding';
+  const showBack = !onboarding && path !== '/' && router.canGoBack();
+  const paired = !!app.connection?.kioskId;
+  const maxWidth = onboarding
+    ? layout.onboardingWidth
+    : reading
+      ? layout.readingWidth
+      : layout.contentWidth;
   const [focused, setFocused] = useState(false);
   useFocusEffect(
     useCallback(() => {
@@ -87,153 +96,89 @@ export function Screen({
     }, []),
   );
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1 flex-row">
-        {desktop && (
-          <ScrollView
-            className="w-56 shrink-0 border-r border-border bg-background"
-            style={{ flexGrow: 0 }}
-            contentContainerClassName="grow px-5 py-8"
-          >
-            <Link href="/" asChild>
-              <Button
-                variant="ghost"
-                accessibilityLabel="갈지도 홈"
-                className="mb-10 justify-start px-3 py-2"
-              >
-                <BrandLockup />
-              </Button>
-            </Link>
-            <AppNavigation vertical />
-            <View className="mt-8 gap-2 border-t border-border pt-5">
-              <NavLink href="/settings" variant="ghost" icon={Settings2} className="justify-start">
-                이용 설정
-              </NavLink>
-              <NavLink href="/kiosk" variant="ghost" icon={Store} className="justify-start">
-                매장 직원 화면
-              </NavLink>
-            </View>
-            <View className="mt-auto gap-3 pt-10">
-              <Text variant="muted">어디든, 내 방식대로.</Text>
-              <NavLink
-                href="/onboarding"
-                variant="ghost"
-                className="justify-start px-0"
-                icon={ArrowUpRight}
-              >
-                장애 유형 선택
-              </NavLink>
-            </View>
-          </ScrollView>
-        )}
-        <View className="min-w-0 flex-1">
-          <LimitTextScale max={1.3}>
-            <View className="border-b border-border bg-background px-5 py-2 sm:px-8">
-              <View className="mx-auto w-full max-w-6xl flex-row flex-wrap items-center justify-between gap-3">
-                {desktop ? (
-                  <Text variant="small" className="font-bold text-muted-foreground">
-                    {staff ? '매장 관리' : (app.store?.name ?? '어디든, 내 방식대로')}
-                  </Text>
-                ) : (
-                  <Link href="/" asChild>
-                    <Button
-                      variant="ghost"
-                      accessibilityLabel="갈지도 홈"
-                      className="items-start px-0"
-                    >
-                      <BrandLockup />
-                    </Button>
-                  </Link>
-                )}
-                <View className="flex-row flex-wrap items-center gap-1">
-                  <LanguageSwitch compact />
-                  <NavLink href="/settings" variant="ghost" icon={Settings2}>
-                    이용 설정
-                  </NavLink>
-                </View>
-              </View>
-            </View>
-          </LimitTextScale>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets
-            contentContainerClassName="grow px-5 py-5 sm:px-8 sm:py-8"
-            contentContainerStyle={{ paddingBottom: 32 }}
-          >
-            <View
-              className="mx-auto w-full gap-6"
-              style={{ maxWidth: reading ? layout.readingWidth : layout.contentWidth }}
+    <SafeAreaView className="flex-1 bg-card" edges={['top', 'left', 'right']}>
+      <AppHeader onboarding={onboarding} contrast={contrast} disabled={headerDisabled} />
+      <View className="flex-1 bg-background">
+        <View className="mx-auto w-full flex-1 flex-row" style={{ maxWidth: layout.shellWidth }}>
+          {desktop && showNavigation && (
+            <ScrollView
+              className="w-52 shrink-0 border-r border-border"
+              style={{ flexGrow: 0 }}
+              contentContainerClassName="px-4 py-6"
             >
-              {(path !== '/' || app.connection) && (
-                <View className="flex-row flex-wrap items-center justify-between gap-3">
-                  {path !== '/' && router.canGoBack() ? (
-                    <Button
-                      variant="ghost"
-                      onPress={() => router.back()}
-                      className="self-start px-0"
-                      accessibilityLabel="이전 화면으로"
-                    >
-                      <Icon as={ArrowLeft} size={20} accessible={false} />
-                      <Text>뒤로</Text>
-                    </Button>
-                  ) : null}
-                  {app.connection && (
-                    <View className="flex-row items-center gap-2 rounded-full bg-secondary px-3 py-2">
-                      <Icon as={Check} className="text-primary" size={16} accessible={false} />
-                      <Text variant="small" className="shrink text-primary">
-                        {app.store?.name ?? '매장'} 연결됨
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
-              <View className="max-w-3xl gap-2">
-                <Text variant="h1" className="text-left">
-                  {title}
-                </Text>
-                {subtitle && <Text className="leading-7 text-muted-foreground">{subtitle}</Text>}
-              </View>
-              {app.busy && (
-                <View className="flex-row items-center gap-3">
-                  <ActivityIndicator accessibilityLabel="요청 처리 중" />
-                  <Text variant="muted">잠시만 기다려 주세요.</Text>
-                </View>
-              )}
-              {!!app.notice && (
-                <View className="rounded-2xl border border-primary bg-secondary p-4">
-                  <Text accessibilityLiveRegion={Platform.OS === 'web' ? 'polite' : undefined}>
-                    {app.notice}
-                  </Text>
-                </View>
-              )}
-              {children}
-              {voice && app.settings.voiceInput && focused && (
-                <VoiceControls onTranscript={onTranscript} />
-              )}
-              {app.order && (
-                <NavLink
-                  href={{ pathname: '/orders/[orderId]', params: { orderId: app.order.orderId } }}
-                  icon={ShoppingBag}
-                  className="self-start"
-                >
-                  진행 중인 주문 확인
-                </NavLink>
-              )}
-            </View>
-          </ScrollView>
-          {footer && (
-            <View className="border-t border-border bg-card px-5 py-3 sm:px-8">
-              <View
-                className="mx-auto w-full gap-2"
-                style={{ maxWidth: reading ? layout.readingWidth : layout.contentWidth }}
-              >
-                {footer}
-              </View>
-            </View>
+              <AppNavigation vertical />
+            </ScrollView>
           )}
-          {!desktop && <AppNavigation />}
+          <View className="min-w-0 flex-1">
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets
+              contentContainerClassName="grow px-4 pb-8 pt-5 sm:px-7 sm:pt-8"
+            >
+              <View
+                className={cn('mx-auto w-full', roomy ? 'gap-7 sm:gap-9' : 'gap-5')}
+                style={{ maxWidth }}
+              >
+                {!onboarding && (showBack || paired) && (
+                  <View className="flex-row flex-wrap items-center justify-between gap-2">
+                    {showBack && (
+                      <Button
+                        variant="ghost"
+                        onPress={() => router.back()}
+                        className="self-start px-0"
+                        accessibilityLabel="이전 화면으로"
+                      >
+                        <Icon as={ArrowLeft} size={20} accessible={false} />
+                        <Text>뒤로</Text>
+                      </Button>
+                    )}
+                    {paired && (
+                      <View className="flex-row items-center gap-2 rounded-full bg-secondary px-3 py-2">
+                        <Icon as={Check} className="text-primary" size={16} accessible={false} />
+                        <Text variant="small" className="shrink text-primary">
+                          {app.store?.name ?? '매장'} 연결됨
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+                <View className="max-w-3xl gap-2">
+                  <Text variant="h1" className="text-left">
+                    {title}
+                  </Text>
+                  {subtitle && <Text className="leading-7 text-muted-foreground">{subtitle}</Text>}
+                </View>
+                {app.busy && (
+                  <View className="flex-row items-center gap-3">
+                    <ActivityIndicator accessibilityLabel={t('요청 처리 중')} />
+                    <Text variant="muted">잠시만 기다려 주세요.</Text>
+                  </View>
+                )}
+                {!!app.notice && (
+                  <View className="rounded-2xl border border-primary bg-secondary p-4">
+                    <Text accessibilityLiveRegion={Platform.OS === 'web' ? 'polite' : undefined}>
+                      {app.notice}
+                    </Text>
+                  </View>
+                )}
+                {children}
+                {voice && app.settings.voiceInput && focused && (
+                  <VoiceControls onTranscript={onTranscript} />
+                )}
+              </View>
+            </ScrollView>
+            {footer && (
+              <View className="shrink-0 border-t border-border bg-card px-4 py-2 sm:px-7">
+                <View className="mx-auto w-full gap-2" style={{ maxWidth }}>
+                  {footer}
+                </View>
+              </View>
+            )}
+            {!desktop && showNavigation && <AppNavigation />}
+          </View>
         </View>
       </View>
+      <SafeAreaView edges={['bottom']} className="bg-card" />
     </SafeAreaView>
   );
 }

@@ -1,4 +1,4 @@
-import { estimate, restoreCart, validateItem, replaceCartItem } from '@/lib/cart';
+import { estimate, restoreCart, validateItem, replaceCartItem, removeCartItem } from '@/lib/cart';
 import type { MenuItem, PricedLine } from '@/lib/types';
 const item: MenuItem = {
   id: 'coffee',
@@ -62,4 +62,11 @@ test('editing replaces one line and refuses a stale edit instead of adding a dup
   const edited = { ...original, qty: 2 };
   expect(replaceCartItem([original, another], 0, original, edited)).toEqual([edited, another]);
   expect(() => replaceCartItem([another], 0, original, edited)).toThrow('장바구니가 변경');
+});
+
+test('removing a line keeps other options for the same menu item and rejects a stale target', () => {
+  const iced = { itemId: 'coffee', qty: 1, options: { temp: 'ice' } };
+  const hot = { itemId: 'coffee', qty: 2, options: { temp: 'hot' } };
+  expect(removeCartItem([iced, hot], 1, hot)).toEqual([iced]);
+  expect(() => removeCartItem([hot, iced], 1, hot)).toThrow('장바구니가 변경');
 });

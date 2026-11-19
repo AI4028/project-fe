@@ -6,12 +6,19 @@ export const assistanceLabels = {
   wheelchair: '휠체어 사용자',
 } as const;
 export type Assistance = keyof typeof assistanceLabels;
+export type ExploreMode = 'list' | 'map';
 export function isAssistance(value: unknown): value is Assistance {
   return typeof value === 'string' && Object.hasOwn(assistanceLabels, value);
 }
-export function exploreRoute(value: unknown) {
-  if (!isAssistance(value)) return '/onboarding' as const;
-  return value === 'visual' ? ('/explore/list' as const) : ('/explore/map' as const);
+export function resolveExploreMode(assistance: unknown, mode?: unknown): ExploreMode | undefined {
+  if (mode === 'list' || mode === 'map') return mode;
+  if (!isAssistance(assistance)) return undefined;
+  return assistance === 'visual' ? 'list' : 'map';
+}
+export function exploreRoute(assistance: unknown, mode?: unknown) {
+  const view = resolveExploreMode(assistance, mode);
+  if (!view) return '/onboarding' as const;
+  return view === 'list' ? ('/explore/list' as const) : ('/explore/map' as const);
 }
 export function assistanceSummary(store: Store, mode?: Assistance) {
   const a = store.accessibility;

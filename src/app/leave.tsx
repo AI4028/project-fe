@@ -1,85 +1,77 @@
 import { useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
-import { Pause, ShoppingBag, LogOut } from 'lucide-react-native';
-import { Screen, NavLink } from '@/components/screen';
-import { EmptyState, IconTile } from '@/components/brand';
-import { Text } from '@/components/ui/text';
+import { ShoppingBag } from 'lucide-react-native';
+import { NavLink, Screen } from '@/components/screen';
+import { EmptyState } from '@/components/brand';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
-import { Card, CardContent } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
 import { Problem, SubmissionRecovery } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { errorMessage } from '@/lib/api';
+
 export default function Leave() {
   const app = useApp();
+  const { storeId } = useLocalSearchParams<{ storeId?: string }>();
   const [error, setError] = useState('');
+  const target = storeId ? { pathname: '/menu' as const, params: { storeId } } : ('/' as const);
+
   return (
-    <Screen
-      title="잠시 멈춰도 괜찮아요."
-      subtitle="장바구니를 유지할지, 매장 연결을 종료할지 선택해 주세요."
-      voice={false}
-    >
+    <Screen title="매장을 바꿀까요?" reading voice={false}>
       <SubmissionRecovery />
-      {!app.pendingSubmission && app.connection ? (
-        <>
-          <View className="flex-row flex-wrap gap-5">
-            <Card className="flex-1" style={{ flexBasis: 320 }}>
-              <CardContent className="gap-5">
-                <IconTile icon={Pause} />
-                <Text variant="h2">장바구니는 그대로</Text>
-                <Text>{app.store?.name}에서 고른 메뉴를 유지하고 매장을 더 살펴볼 수 있어요.</Text>
-                <Text variant="muted">
-                  오래 이용하지 않아 연결이 만료되면 메뉴를 다시 선택해야 할 수 있어요.
-                </Text>
-                <NavLink href="/" variant="default">
-                  장바구니 유지하고 둘러보기
-                </NavLink>
-                <NavLink href="/cart" icon={ShoppingBag}>
-                  주문 계속하기
-                </NavLink>
-              </CardContent>
-            </Card>
-            <Card className="flex-1" style={{ flexBasis: 320 }}>
-              <CardContent className="gap-5">
-                <IconTile icon={LogOut} />
-                <Text variant="h2">이 매장과 연결 종료</Text>
-                <Text>
-                  현재 장바구니를 비우고 연결을 종료해요. 다른 매장에서 주문하려면 새로 연결해
-                  주세요.
-                </Text>
-                <Text variant="muted">아직 제출하지 않은 장바구니가 삭제돼요.</Text>
-                <Button
-                  variant="destructive"
-                  disabled={app.busy}
-                  onPress={() => {
-                    setError('');
-                    void app
-                      .disconnect()
-                      .then(() => router.replace('/'))
-                      .catch((reason) => setError(errorMessage(reason)));
-                  }}
-                >
-                  <Icon as={LogOut} size={20} accessible={false} />
-                  <Text className="shrink">장바구니 비우고 연결 종료</Text>
-                </Button>
-              </CardContent>
-            </Card>
+      {!!error && <Problem message={error} />}
+      {!app.pendingSubmission && app.connection && (
+        <View className="gap-3">
+          <View className="gap-2 rounded-2xl bg-secondary p-4">
+            {!!app.store?.name && (
+              <Text translate={false} className="font-bold">
+                {app.store.name}
+              </Text>
+            )}
+            <Text className="text-secondary-foreground">
+              {app.items.length
+                ? '매장을 바꾸면 현재 연결을 종료하고 장바구니를 비워요.'
+                : '매장을 바꾸면 현재 매장 연결을 종료해요.'}
+            </Text>
           </View>
-          {!!error && <Problem message={error} />}
-        </>
-      ) : (
-        !app.pendingSubmission && (
-          <EmptyState
-            icon={ShoppingBag}
-            title="진행 중인 매장 연결이 없어요"
-            description="이미 제출한 주문은 주문 상태 화면에서 확인해 주세요."
+          <NavLink href={app.items.length ? '/cart' : '/menu'} variant="default" size="lg">
+            현재 매장 유지
+          </NavLink>
+          <Button
+            variant="outline"
+            size="lg"
+            disabled={app.busy}
+            onPress={() => {
+              setError('');
+              void app
+                .disconnect()
+                .then(() => router.replace(target))
+                .catch((reason) => setError(errorMessage(reason)));
+            }}
           >
-            <NavLink href="/" variant="default">
-              매장 찾기로
-            </NavLink>
-          </EmptyState>
-        )
+            <Text>
+              {app.items.length
+                ? storeId
+                  ? '비우고 새 매장 메뉴 보기'
+                  : '비우고 다른 매장 찾기'
+                : '다른 매장 찾기'}
+            </Text>
+          </Button>
+          <NavLink href={target} variant="ghost">
+            장바구니 유지하고 둘러보기
+          </NavLink>
+        </View>
+      )}
+      {!app.pendingSubmission && !app.connection && !app.busy && (
+        <EmptyState
+          icon={ShoppingBag}
+          title="진행 중인 매장 연결이 없어요"
+          description="이미 제출한 주문은 주문 상태 화면에서 확인해 주세요."
+        >
+          <NavLink href={target} variant="default">
+            {storeId ? '새 매장 메뉴 보기' : '매장 찾기로'}
+          </NavLink>
+        </EmptyState>
       )}
     </Screen>
   );
