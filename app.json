@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "갈지도",
+    "slug": "galjido",
+    "scheme": "galjido",
+    "version": "1.0.0",
+    "userInterfaceStyle": "automatic",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.ai4028.galjido" },
+    "android": { "package": "com.ai4028.galjido" },
+    "web": { "bundler": "metro", "output": "single" },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "음성으로 메뉴를 선택하기 위해 마이크를 사용합니다.",
+          "speechRecognitionPermission": "한국어 음성 주문을 인식합니다."
+        }
+      ]
+    ],
+    "experiments": { "typedRoutes": true }
+  }
+}

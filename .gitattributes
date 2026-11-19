@@ -1,0 +1,5 @@
+# LF everywhere, so Prettier and diffs agree on Windows and macOS.
+* text=auto eol=lf
+
+*.jpg binary
+*.png binary

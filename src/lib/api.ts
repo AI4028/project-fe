@@ -1,0 +1,209 @@
+import type {
+  Cart,
+  CartItem,
+  Connection,
+  Heartbeat,
+  LiveEvent,
+  Order,
+  OrderStatus,
+  StaffHelpRequest,
+  Session,
+  Store,
+  PlaceSearchKind,
+  PlaceSearchResult,
+  AccessibilityRecords,
+} from './types';
+export class ApiError extends Error {
+  constructor(
+    public code: string,
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export class CartChangedError extends Error {
+  constructor(
+    public before: Cart,
+    public after: Cart,
+  ) {
+    super('가격 또는 주문 정보가 변경되었습니다. 새 합계를 확인하고 다시 제출해 주세요.');
+  }
+}
+export function normalizeBase(value: string) {
+  const url = new URL(value.trim());
+  if (
+    !['http:', 'https:'].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  )
+    throw new Error('HTTP 또는 HTTPS 서버 주소를 입력해 주세요.');
+  return url.toString().replace(/\/+$/, '');
+}
+export class Api {
+  readonly base: string;
+  constructor(
+    base: string,
+    private readonly transport: typeof fetch = globalThis.fetch.bind(globalThis),
+  ) {
+    this.base = normalizeBase(base);
+  }
+  async request<T>(
+    path: string,
+    method = 'GET',
+    body?: unknown,
+    token?: string,
+    headers?: Record<string, string>,
+  ): Promise<T> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+      const response = await this.transport(`${this.base}${path}`, {
+        method,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new ApiError(
+          data.error ?? 'server-error',
+          response.status,
+          data.message ?? '서버 요청에 실패했습니다.',
+        );
+      return data as T;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  wsUrl(path: string, token?: string) {
+    const url = new URL(`${this.base}${path}`);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (token) url.searchParams.set('token', token);
+    return url.toString();
+  }
+  stores = () => this.request<Store[]>('/stores');
+  searchPlaces = (
+    query: string,
+    kind: PlaceSearchKind,
+    position?: { lat: number; lng: number } | null,
+  ) => {
+    const params = new URLSearchParams({ q: query, kind });
+    if (position) {
+      params.set('lat', String(position.lat));
+      params.set('lng', String(position.lng));
+    }
+    return this.request<PlaceSearchResult>(`/places/search?${params}`);
+  };
+  accessibilityNearby = (lat: number, lng: number) =>
+    this.request<AccessibilityRecords>(`/accessibility/nearby?lat=${lat}&lng=${lng}&radiusM=300`);
+  nearby = (lat: number, lng: number) =>
+    this.request<Store[]>(`/stores/nearby?lat=${lat}&lng=${lng}&radiusM=3000`);
+  store = (id: string) => this.request<Store>(`/stores/${encodeURIComponent(id)}`);
+  register = () => this.request<{ deviceId: string; token: string }>('/devices', 'POST');
+  demoToken = (id: string) => this.request<Heartbeat>(`/kiosks/${encodeURIComponent(id)}/token`);
+  connect = (kioskId: string, token: string, device: string) =>
+    this.request<Connection>('/sessions', 'POST', { kioskId, token }, device);
+  startStoreSession = (storeId: string, device: string) =>
+    this.request<Session>(
+      `/stores/${encodeURIComponent(storeId)}/sessions`,
+      'POST',
+      undefined,
+      device,
+    );
+  session = (id: string, device: string) =>
+    this.request<Session>(`/sessions/${id}`, 'GET', undefined, device);
+  cart = (id: string, items: CartItem[], device: string) =>
+    this.request<Cart>(`/sessions/${id}/cart`, 'PUT', { items }, device);
+  orders = (device: string) => this.request<Order[]>('/orders', 'GET', undefined, device);
+  order = (id: string, device: string) =>
+    this.request<Order>(`/orders/${id}`, 'GET', undefined, device);
+  submit = (
+    id: string,
+    items: CartItem[],
+    paymentMethod: 'counter' | 'kiosk',
+    note: string,
+    device: string,
+    quoteId?: string,
+  ) =>
+    this.request<Order>(
+      `/sessions/${id}/order`,
+      'POST',
+      { items, paymentMethod, note, quoteId },
+      device,
+      { 'Idempotency-Key': `order:${id}` },
+    );
+  cancel = (id: string, device: string) =>
+    this.request<LiveEvent>(`/orders/${id}/cancel`, 'POST', undefined, device);
+  help = (id: string, device: string) =>
+    this.request<LiveEvent>(`/sessions/${id}/help`, 'POST', undefined, device);
+  orderHelp = (id: string, device: string) =>
+    this.request<LiveEvent>(`/orders/${id}/help`, 'POST', undefined, device);
+  end = (id: string, device: string) =>
+    this.request<LiveEvent>(`/sessions/${id}/end`, 'POST', undefined, device);
+  heartbeat = (key: string) => this.request<Heartbeat>('/kiosk/heartbeat', 'POST', undefined, key);
+  kioskState = (key: string) =>
+    this.request<{
+      session: Session | null;
+      orders: Order[];
+      store: Store;
+      helpRequests?: StaffHelpRequest[];
+    }>('/kiosk/state', 'GET', undefined, key);
+  kioskSession = (key: string) =>
+    this.request<Session | null>('/kiosk/session', 'GET', undefined, key);
+  kioskOrders = (key: string) => this.request<Order[]>('/kiosk/orders', 'GET', undefined, key);
+  kioskInfo = (id: string) =>
+    this.request<{ kioskId: string; storeId: string; name: string }>(
+      `/kiosks/${encodeURIComponent(id)}`,
+    );
+  setStatus = (id: string, status: OrderStatus, key: string) =>
+    this.request<LiveEvent>(`/kiosk/orders/${id}/status`, 'POST', { status }, key);
+  resolveHelp = (id: string, key: string) =>
+    this.request(`/kiosk/sessions/${id}/resolve-help`, 'POST', undefined, key);
+  endKioskSession = (id: string, key: string) =>
+    this.request(`/kiosk/sessions/${id}/end`, 'POST', undefined, key);
+  ordering = (paused: boolean, key: string) =>
+    this.request<{ storeId: string; orderingPaused: boolean }>(
+      '/kiosk/ordering',
+      'PUT',
+      { paused },
+      key,
+    );
+  availability = (id: string, available: boolean, key: string) =>
+    this.request(`/kiosk/menu/${encodeURIComponent(id)}/availability`, 'PUT', { available }, key);
+}
+const messages: Record<string, string> = {
+  'places-unavailable': '장소 검색에 연결하지 못했어요. 잠시 후 다시 시도하세요.',
+  'price-changed': '가격이 변경되었습니다. 장바구니를 새로고침하고 다시 확인해 주세요.',
+  'idempotency-conflict': '이전 주문과 내용이 다릅니다. 주문 결과를 먼저 확인해 주세요.',
+  'token-invalid': '연결 코드가 만료되었습니다. 키오스크에서 새 코드를 확인해 주세요.',
+  'ordering-paused':
+    '지금은 이 매장에서 휴대폰 주문을 받지 않아요. 카운터나 직원에게 주문해 주세요.',
+  'ordering-unavailable': '이 매장은 휴대폰 주문을 받을 수 없어요. 매장 직원에게 문의해 주세요.',
+  'kiosk-busy': '다른 고객이 사용 중입니다. 잠시 후 다시 연결해 주세요.',
+  'session-expired': '연결이 만료되었습니다. 다시 연결해 주세요.',
+  'session-not-found': '연결을 찾을 수 없습니다. 다시 연결해 주세요.',
+  'item-unavailable': '품절된 메뉴입니다. 메뉴를 새로고침해 주세요.',
+  'choice-unavailable': '선택한 옵션이 품절되었습니다.',
+  'missing-option': '필수 옵션을 모두 선택해 주세요.',
+  'order-not-found': '주문을 찾을 수 없습니다. 주문 번호를 직원에게 보여 주세요.',
+  'too-late-to-cancel': '매장에서 이미 접수한 주문입니다. 직원에게 문의해 주세요.',
+  'not-signed-in': '기기 인증이 만료되었습니다. 다시 연결해 주세요.',
+  'not-kiosk': '키오스크 키를 확인해 주세요.',
+  'demo-disabled': '데모 연결이 꺼져 있습니다. 키오스크의 연결 코드를 입력해 주세요.',
+};
+export function errorMessage(error: unknown) {
+  if (error instanceof ApiError) return messages[error.code] ?? error.message;
+  if (error instanceof Error && error.name === 'AbortError')
+    return '서버 응답 시간이 초과되었습니다. 연결 상태를 확인해 주세요.';
+  if (error instanceof TypeError)
+    return '서버에 연결할 수 없습니다. 설정에서 서버 주소와 네트워크를 확인해 주세요.';
+  return error instanceof Error ? error.message : '요청에 실패했습니다. 다시 시도해 주세요.';
+}
