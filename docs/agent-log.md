@@ -23,6 +23,62 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-19 · Lucide `Map` icon hides the global `Map`
+
+- **Hit:** `tsc` reported TS7009 and TS2345 on `new Map(...)` in `explore-screen.tsx`.
+- **Why:** the file imports `Map` from `lucide-react-native`, which shadows the built-in constructor.
+- **Fix:** used `new globalThis.Map(...)`.
+- **Rule:** in files that import lucide's `Map`, reach the collection through `globalThis`.
+
+### 2026-11-19 · Keep registered search when the venue provider rejects a request
+
+- **Hit:** iPhone search showed a failure and the same queries returned `503 places-unavailable` directly from the backend.
+- **Why:** Kakao returned `401 AccessDeniedError`, and the place endpoint kept only station matches during an upstream failure.
+- **Fix:** search registered store and menu names independently, merge the results by store ID, and show a partial-results notice.
+- **Rule:** test registered results under provider denial without revealing the server key or presenting external search as available.
+
+### 2026-11-19 · Target the menu item after searching in Metro web
+
+- **Hit:** the browser search check timed out waiting on a single startup screen, then matched both the previous search query and the menu item.
+- **Why:** Metro can take longer to serve the first bundle, and Expo Router can keep the previous screen mounted.
+- **Fix:** wait for onboarding or search, and match the menu item by its accessible button name after opening the result.
+- **Rule:** use the visible route's controls when verifying search and navigation together.
+
+### 2026-11-19 · Reuse Metro for an iPhone Expo Go preview
+
+- **Hit:** a combined command to replace the running Metro process was blocked, and `qrcode-terminal` and `qr.js` were absent.
+- **Why:** the existing server was already reachable on Wi-Fi and Expo's QR dependencies differ by SDK.
+- **Fix:** verified `GET /_expo/open?platform=ios&runtime=expo` and the iOS manifest, then generated the phone QR with the installed `qrcode` package.
+- **Rule:** confirm the Wi-Fi address in the manifest and reuse the running server before restarting Metro or adding tools.
+
+### 2026-11-19 · Translate complete order-number labels
+
+- **Hit:** `주문 번호 {order.orderNumber}` bypassed the English order-number pattern because React passed the label and number as separate children.
+- **Why:** the Text primitive translates each string child independently and normalizes whitespace when matching messages.
+- **Fix:** passed the complete order-number label as one string and used an explicit space between translated labels and separately formatted values.
+- **Rule:** keep pattern-translated values in a single string and preserve spacing explicitly around independently localized children.
+
+### 2026-11-19 · Set dialog sheet width from the viewport
+
+- **Hit:** the mobile web option sheet measured about 244 px across on a 390 px viewport.
+- **Why:** the Radix wrapper sizes itself to the content, so percentage width on the inner React Native view resolves against that wrapper.
+- **Fix:** calculated the sheet or dialog width from the window and safe-area insets and passed it as a flattened style.
+- **Rule:** inspect both the outer dialog and the inner panel on web and check the panel's width alongside its contents.
+
+### 2026-11-19 · Discovery tests can be CPU-bound during Expo exports
+
+- **Hit:** different discovery tests exceeded Jest's 5000 ms timeout during parallel exports, then passed on isolated reruns.
+- **Why:** rendering the route and its children competes for CPU with Metro export workers.
+- **Fix:** set a 15 second limit for the discovery suite while keeping the assertions and async boundaries unchanged.
+- **Rule:** verify the failing assertion in isolation before changing an async state transition to address a timeout.
+
+### 2026-11-19 · Type React Native refs from the component
+
+- **Hit:** `tsc` reported `Property 'scrollTo' does not exist` and rejected passing a `View` ref to `sendAccessibilityEvent`.
+- **Why:** Expo's React Native declarations expose `View` and `ScrollView` as components, while their refs point to host instances.
+- **Fix:** typed the refs with `ComponentRef<typeof View>` and `ComponentRef<typeof ScrollView>`.
+- **Rule:** infer native host ref types from the component when adding focus or scroll behavior.
+
 ### 2026-11-18 · Fixed bars crowd out content at 200% text
 
 - **Hit:** at 200% text on a 390 px screen the bottom tab labels collided ("둘러보기" clipped) and header + footer + tabs took about half the screen.
