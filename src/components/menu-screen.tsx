@@ -143,11 +143,12 @@ export function MenuScreen({
       }
       onTranscript={(transcript) => {
         if (!store) return false;
-        if (/메뉴.*(읽|알려)/.test(transcript)) {
+        if (/메뉴.*(읽|알려)|\bread (?:the )?menu\b/i.test(transcript)) {
           app.announce(
             menu
               .map(
-                (entry) => `${entry.name} ${money(entry.price)}${entry.available ? '' : ' 품절'}`,
+                (entry) =>
+                  `${language === 'en' ? entry.nameEn || entry.name : entry.name} ${t(money(entry.price))}${entry.available ? '' : ' ' + t('품절')}`,
               )
               .join(', ') || '메뉴가 아직 없어요',
           );

@@ -186,6 +186,11 @@ test('obtains a server cart and submits without pairing to a kiosk', async () =>
   await act(() => result.current.submit('counter', ''));
   expect(result.current.order?.orderId).toBe('o1');
   const requested = fetchMock.mock.calls.map(([url]) => new URL(url).pathname);
+  const posted = fetchMock.mock.calls.find(([url]) => url.endsWith('/sessions/s1/order'));
+  expect(JSON.parse(posted![1].body)).toMatchObject({
+    paymentMethod: 'counter',
+    simulatePayment: false,
+  });
   expect(requested).toContain('/stores/cafe/sessions');
   expect(requested).not.toContain('/sessions');
   expect(requested).not.toContain('/kiosks/GK01');
@@ -436,4 +441,37 @@ test('replays the exact persisted request when the first submission has no known
   expect(result.current.pendingSubmission).toBeNull();
   expect(result.current.order?.orderId).toBe('o1');
   expect(await AsyncStorage.getItem('submission:http://127.0.0.1:8000')).toBeNull();
+});
+
+test('keeps the original cart on a rejected switch and releases it only after the new cart is saved', async () => {
+  const { result } = await mount();
+  const line = { itemId: 'coffee', qty: 1, options: {} };
+  await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+  await act(() => result.current.updateCart([line]));
+  const previous = route;
+  let rejectCart = true;
+  route = (path, method) => {
+    if (path === '/stores/next') return { data: { ...store, storeId: 'next' } };
+    if (path === '/stores/next/cart')
+      return rejectCart
+        ? { status: 409, data: { error: 'ordering-paused' } }
+        : { data: { sessionId: 's2', storeId: 'next', kioskId: null, cart } };
+    if (path === '/sessions/s1/end') return { data: { type: 'ended' } };
+    return previous(path, method);
+  };
+  await act(async () => {
+    await expect(result.current.updateCart([line], 'next', 's1')).rejects.toMatchObject({
+      code: 'ordering-paused',
+    });
+  });
+  expect(result.current.connection?.sessionId).toBe('s1');
+  expect(result.current.items).toEqual([line]);
+  const key = `session:${result.current.api.base}`;
+  expect(await AsyncStorage.getItem(key)).toBe('s1');
+  expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/s1/end'))).toBe(false);
+  rejectCart = false;
+  await act(() => result.current.updateCart([line], 'next', 's1'));
+  expect(result.current.connection?.sessionId).toBe('s2');
+  expect(await AsyncStorage.getItem(key)).toBe('s2');
+  expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/s1/end'))).toBe(true);
 });

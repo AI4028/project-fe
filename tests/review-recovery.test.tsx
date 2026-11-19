@@ -15,15 +15,18 @@ jest.mock('@/components/screen', () => {
   return {
     Screen: ({
       title,
+      subtitle,
       children,
       footer,
     }: {
       title: string;
+      subtitle?: string;
       children: React.ReactNode;
       footer?: React.ReactNode;
     }) => (
       <View>
         <Text>{title}</Text>
+        {subtitle && <Text>{subtitle}</Text>}
         {children}
         {footer}
       </View>
@@ -129,4 +132,14 @@ test('offers recovery instead of a new submission when the original result is un
   expect(screen.queryByText('전송 실패')).toBeNull();
   expect(screen.queryByText('주문 완료')).toBeNull();
   expect(mockApp.submit).not.toHaveBeenCalled();
+});
+
+test('offers simulated wallets only in demo checkout', async () => {
+  const view = await render(<Review />);
+  expect(screen.getByText('주문을 보내고 매장에서 결제해 주세요.')).toBeTruthy();
+  expect(screen.queryByText('카카오페이')).toBeNull();
+  mockApp.demo = true;
+  await view.rerender(<Review />);
+  expect(screen.getByText('카카오페이')).toBeTruthy();
+  expect(screen.getByText(/모의 결제입니다/)).toBeTruthy();
 });
