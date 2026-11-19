@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, type Ref, useRef, useState } from 'react';
 import { Platform, ScrollView, View } from 'react-native';
 import * as Speech from 'expo-speech';
 import { AudioLines, Mic, MicOff } from 'lucide-react-native';
@@ -10,6 +10,8 @@ import { Input } from './ui/input';
 import { Text } from './ui/text';
 
 type Props = {
+  open?: boolean;
+  mic?: Ref<{ start: () => void }>;
   query: string;
   onEdit: (query: string) => void;
   onSearch: (query: string) => void;
@@ -20,7 +22,7 @@ type Stage = 'idle' | 'starting' | 'listening' | 'review' | 'denied' | 'failed' 
 export function VoiceSearch(props: Props) {
   return recognition ? (
     <RecognitionSearch {...props} recognition={recognition} />
-  ) : (
+  ) : props.open === false ? null : (
     <VoiceSearchView {...props} value={props.query} stage="unavailable" />
   );
 }
@@ -60,13 +62,14 @@ function RecognitionSearch({
 
   useEffect(
     () => () => {
+      if (props.open === false) return;
       operation.current++;
       if (receiving.current) {
         receiving.current = false;
         module.abort();
       }
     },
-    [module],
+    [module, props.open],
   );
 
   async function start() {
@@ -110,6 +113,13 @@ function RecognitionSearch({
     }
   }
 
+  useImperativeHandle(props.mic, () => ({
+    start: () => {
+      setValue(props.query);
+      void start();
+    },
+  }));
+  if (props.open === false) return null;
   return (
     <VoiceSearchView
       {...props}
@@ -121,7 +131,7 @@ function RecognitionSearch({
       cancel={() => {
         receiving.current = false;
         module.abort();
-        setStage('idle');
+        props.onClose();
       }}
     />
   );

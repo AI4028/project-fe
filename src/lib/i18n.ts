@@ -7,6 +7,7 @@ const messages: Record<string, string> = english;
 const itemCount = (count: string) => `${count} ${count === '1' ? 'item' : 'items'}`;
 const patterns: [RegExp, (...parts: string[]) => string][] = [
   [/^장바구니 (\d+)개 · ([\d,]+)원$/, (count, total) => `Cart · ${itemCount(count)} · ₩${total}`],
+  [/^(\d+) 개의 장소$/, (count) => `${count} ${count === '1' ? 'place' : 'places'}`],
   [/^주문 번호 (\d+)$/, (number) => `Order #${number}`],
   [/^주문 3단계 중 (\d)단계$/, (step) => `Order step ${step} of 3`],
   [/^(\d+) · (메뉴 선택|장바구니|최종 확인)$/, (step, label) => `${step} · ${messages[label]}`],

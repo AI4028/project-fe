@@ -1,14 +1,13 @@
 import { AppNavigation } from './app-navigation';
 import { useState, useCallback, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, ScrollView, View, useWindowDimensions } from 'react-native';
-import { Link, router, useFocusEffect, usePathname, type Href } from 'expo-router';
+import { ActivityIndicator, Platform, ScrollView, View } from 'react-native';
+import { Link, router, useFocusEffect, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Check, type LucideIcon } from 'lucide-react-native';
+import { ArrowLeft, type LucideIcon } from 'lucide-react-native';
 import { Text } from './ui/text';
 import { Button, type ButtonProps } from './ui/button';
 import { Icon } from './ui/icon';
 import { VoiceControls } from './voice-controls';
-import { AppHeader } from './app-header';
 import { useApp } from '@/providers/app-provider';
 import { cn } from '@/lib/utils';
 import { layout } from '@/lib/theme';
@@ -59,8 +58,7 @@ export function Screen({
   reading = false,
   roomy = false,
   chrome = 'app',
-  headerDisabled = false,
-  contrast,
+  onBack,
 }: {
   title: string;
   subtitle?: string;
@@ -71,18 +69,12 @@ export function Screen({
   reading?: boolean;
   roomy?: boolean;
   chrome?: 'app' | 'onboarding' | 'minimal';
-  headerDisabled?: boolean;
-  contrast?: boolean;
+  onBack?: () => void;
 }) {
   const app = useApp();
   const { t } = useTranslation();
-  const path = usePathname();
-  const { width } = useWindowDimensions();
-  const desktop = width >= layout.desktopBreakpoint;
   const showNavigation = chrome === 'app';
   const onboarding = chrome === 'onboarding';
-  const showBack = !onboarding && path !== '/' && router.canGoBack();
-  const paired = !!app.connection?.kioskId;
   const maxWidth = onboarding
     ? layout.onboardingWidth
     : reading
@@ -97,18 +89,8 @@ export function Screen({
   );
   return (
     <SafeAreaView className="flex-1 bg-card" edges={['top', 'left', 'right']}>
-      <AppHeader onboarding={onboarding} contrast={contrast} disabled={headerDisabled} />
       <View className="flex-1 bg-background">
         <View className="mx-auto w-full flex-1 flex-row" style={{ maxWidth: layout.shellWidth }}>
-          {desktop && showNavigation && (
-            <ScrollView
-              className="w-52 shrink-0 border-r border-border"
-              style={{ flexGrow: 0 }}
-              contentContainerClassName="px-4 py-6"
-            >
-              <AppNavigation vertical />
-            </ScrollView>
-          )}
           <View className="min-w-0 flex-1">
             <ScrollView
               keyboardShouldPersistTaps="handled"
@@ -119,28 +101,18 @@ export function Screen({
                 className={cn('mx-auto w-full', roomy ? 'gap-7 sm:gap-9' : 'gap-5')}
                 style={{ maxWidth }}
               >
-                {!onboarding && (showBack || paired) && (
-                  <View className="flex-row flex-wrap items-center justify-between gap-2">
-                    {showBack && (
-                      <Button
-                        variant="ghost"
-                        onPress={() => router.back()}
-                        className="self-start px-0"
-                        accessibilityLabel="이전 화면으로"
-                      >
-                        <Icon as={ArrowLeft} size={20} accessible={false} />
-                        <Text>뒤로</Text>
-                      </Button>
-                    )}
-                    {paired && (
-                      <View className="flex-row items-center gap-2 rounded-full bg-secondary px-3 py-2">
-                        <Icon as={Check} className="text-primary" size={16} accessible={false} />
-                        <Text variant="small" className="shrink text-primary">
-                          {app.store?.name ?? '매장'} 연결됨
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+                {!onboarding && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="self-start"
+                    accessibilityLabel="이전 화면으로"
+                    onPress={
+                      onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')))
+                    }
+                  >
+                    <Icon as={ArrowLeft} size={22} />
+                  </Button>
                 )}
                 <View className="max-w-3xl gap-2">
                   <Text variant="h1" className="text-left">
@@ -174,7 +146,7 @@ export function Screen({
                 </View>
               </View>
             )}
-            {!desktop && showNavigation && <AppNavigation />}
+            {showNavigation && <AppNavigation />}
           </View>
         </View>
       </View>

@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-20 · Reuse the pnpm store attached to the project
+
+- **Hit:** Adding the Expo file picker stopped with `ERR_PNPM_UNEXPECTED_STORE`.
+- **Why:** The shell selected a different store from the one linked to `node_modules`.
+- **Fix:** Passed the linked store directory from pnpm's error to `pnpm add --store-dir`.
+- **Rule:** Check the linked store path before rebuilding a working installation.
+
 ### 2026-11-19 · Use Corepack when local pnpm is unavailable
 
 - **Hit:** `pnpm typecheck` failed with `/bin/bash: pnpm: command not found`; an appended `--runInBand` also made Jest report no tests.
@@ -309,3 +316,7 @@ Newest first, four lines, no stories:
 - **Why:** the shell's pipe encoding could not represent the new text.
 - **Fix:** rewrote the affected messages with the Unicode-safe patch tool and checked for question-mark runs.
 - **Rule:** use direct patches for Korean text; UTF-8 file reads alone do not fix lossy stdin encoding.
+
+### 2026-11-19 · Open voice search from the first microphone tap
+
+The web speech recognizer needs to start during the tap. Keep the listener mounted while discovery is visible, start it in the microphone handler, and abort on leaving the voice screen. Discovery tests cover the first tap and denied permissions. The web gesture test leaves speech playback shutdown pending.

@@ -1,3 +1,4 @@
+import { paymentLabels } from '@/lib/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -200,19 +201,23 @@ export default function OrderScreen() {
           {order.status === 'cancelled' && order.cancelledBy === 'staff' && (
             <Text variant="muted">매장에서 주문을 취소했어요.</Text>
           )}
-          {isOpenOrder(order) && (
+          {(isOpenOrder(order) || order.simulatedApprovedAmount != null) && (
             <Card className="py-4 shadow-none">
               <CardContent className="gap-3 px-4">
                 <View className="flex-row items-center gap-2">
                   <Icon as={CreditCard} size={20} className="text-primary" accessible={false} />
                   <Text variant="h4" className="shrink">
-                    현장 결제 안내
+                    {order.simulatedApprovedAmount != null ? '모의 결제 내역' : '현장 결제 안내'}
                   </Text>
                 </View>
-                <Text className="font-semibold">
-                  {order.paymentMethod === 'counter' ? '카운터에서 결제' : '키오스크에서 결제'}
-                </Text>
-                <Text variant="muted">결제 여부는 직원에게 확인해 주세요.</Text>
+                <Text className="font-semibold">{paymentLabels[order.paymentMethod]}</Text>
+                {order.simulatedApprovedAmount != null ? (
+                  <Text>
+                    <Text>모의 승인 금액</Text> · {money(order.simulatedApprovedAmount)}
+                  </Text>
+                ) : (
+                  <Text variant="muted">결제 여부는 직원에게 확인해 주세요.</Text>
+                )}
               </CardContent>
             </Card>
           )}

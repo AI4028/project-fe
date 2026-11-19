@@ -24,6 +24,7 @@ import {
   type CartItem,
   type Connection,
   type Order,
+  type PaymentMethod,
   type Store,
 } from '@/lib/types';
 
@@ -37,6 +38,10 @@ type Settings = {
   textSize?: import('@/lib/text-size').TextSize;
   speech: boolean;
   voiceInput?: boolean;
+  vibration?: boolean;
+  orderAlerts?: boolean;
+  locateOnStart?: boolean;
+  recentSearches?: string[];
 };
 const initialSettings: Settings = {
   language: 'ko',
@@ -80,7 +85,7 @@ function useAppState() {
   const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
   const pendingRef = useRef<string | null>(null);
   const [helpState, setHelpState] = useState<'idle' | 'sent' | 'acknowledged'>('idle');
-  const [checkout, setCheckout] = useState<{ payment: 'counter' | 'kiosk'; note: string }>({
+  const [checkout, setCheckout] = useState<{ payment: PaymentMethod; note: string }>({
     payment: 'counter',
     note: '',
   });
@@ -244,7 +249,8 @@ function useAppState() {
         const saved = JSON.parse(raw) as {
           sessionId: string;
           items: CartItem[];
-          payment: 'counter' | 'kiosk';
+          simulatePayment?: boolean;
+          payment: PaymentMethod;
           note: string;
           quoteId: string;
         };
@@ -258,6 +264,7 @@ function useAppState() {
             saved.note,
             await token(),
             saved.quoteId,
+            saved.simulatePayment,
           );
           return rememberOrder(placed);
         } catch (error) {
@@ -304,7 +311,7 @@ function useAppState() {
     if (order) {
       const latest = await api.order(order.orderId, device);
       if (currentApi.current !== api) return;
-      if (latest.status !== order.status)
+      if (latest.status !== order.status && settingsRef.current.orderAlerts !== false)
         announce(`주문 ${latest.orderNumber}번, ${statusLabels[latest.status]}`);
       setOrder((current) => (current?.orderId === latest.orderId ? latest : current));
     }
@@ -525,12 +532,13 @@ function useAppState() {
       const result = await api.cart(active.sessionId, next, device);
       setItems(next);
       setCart(result);
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      if (settings.vibration !== false)
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       announce(`장바구니가 변경되었습니다. 합계 ${result.total.toLocaleString('ko-KR')}원`);
       return result;
     });
   }
-  async function submit(payment: 'counter' | 'kiosk', note: string) {
+  async function submit(payment: PaymentMethod, note: string) {
     return exclusive(async () => {
       if (pendingRef.current)
         throw new Error('전송 결과를 먼저 확인해 주세요. 주문을 다시 보내지 않았습니다.');
@@ -552,6 +560,7 @@ function useAppState() {
           payment,
           note,
           quoteId: latest.quoteId,
+          simulatePayment: true,
         }),
       );
       await markPending(connection.sessionId);
@@ -564,6 +573,7 @@ function useAppState() {
           note,
           device,
           latest.quoteId,
+          true,
         );
       } catch (error) {
         // A timeout/5xx or already-closed session can hide a committed order.

@@ -69,7 +69,9 @@ export class Api {
           ...headers,
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        ...(body === undefined
+          ? {}
+          : { body: body instanceof ArrayBuffer ? body : JSON.stringify(body) }),
       });
       let data: Record<string, unknown> | undefined;
       try {
@@ -151,15 +153,16 @@ export class Api {
   submit = (
     id: string,
     items: CartItem[],
-    paymentMethod: 'counter' | 'kiosk',
+    paymentMethod: import('./types').PaymentMethod,
     note: string,
     device: string,
     quoteId?: string,
+    simulatePayment?: boolean,
   ) =>
     this.request<Order>(
       `/sessions/${id}/order`,
       'POST',
-      { items, paymentMethod, note, quoteId },
+      { items, paymentMethod, note, quoteId, simulatePayment },
       device,
       { 'Idempotency-Key': `order:${id}` },
     );
@@ -172,13 +175,16 @@ export class Api {
   end = (id: string, device: string) =>
     this.request<LiveEvent>(`/sessions/${id}/end`, 'POST', undefined, device);
   heartbeat = (key: string) => this.request<Heartbeat>('/kiosk/heartbeat', 'POST', undefined, key);
-  kioskState = (key: string) =>
-    this.request<{
+  kioskState = async (key: string) => {
+    const state = await this.request<{
+      photoUploadsEnabled?: boolean;
       session: Session | null;
       orders: Order[];
       store: Store;
       helpRequests?: StaffHelpRequest[];
     }>('/kiosk/state', 'GET', undefined, key);
+    return { ...state, store: this.withMedia(state.store) };
+  };
   kioskSession = (key: string) =>
     this.request<Session | null>('/kiosk/session', 'GET', undefined, key);
   kioskOrders = (key: string) => this.request<Order[]>('/kiosk/orders', 'GET', undefined, key);
@@ -199,10 +205,21 @@ export class Api {
       { paused },
       key,
     );
+  uploadMenuPhoto = (id: string, photo: ArrayBuffer, key: string) =>
+    this.request<{ itemId: string; imageUrl: string }>(
+      `/kiosk/menu/${encodeURIComponent(id)}/photo`,
+      'PUT',
+      photo,
+      key,
+      { 'Content-Type': 'application/octet-stream' },
+    );
   availability = (id: string, available: boolean, key: string) =>
     this.request(`/kiosk/menu/${encodeURIComponent(id)}/availability`, 'PUT', { available }, key);
 }
 const messages: Record<string, string> = {
+  'photo-too-large': '1 MiB 이하의 사진을 선택해 주세요.',
+  'invalid-photo': '1600만 화소 이하의 JPG, PNG 또는 WebP 사진을 선택해 주세요.',
+  'photo-storage-unavailable': '사진을 저장할 수 없어요. 잠시 후 다시 시도해 주세요.',
   'places-unavailable': '장소 검색에 연결하지 못했어요. 잠시 후 다시 시도하세요.',
   'price-changed': '가격이 변경되었습니다. 장바구니를 새로고침하고 다시 확인해 주세요.',
   'idempotency-conflict': '이전 주문과 내용이 다릅니다. 주문 결과를 먼저 확인해 주세요.',
