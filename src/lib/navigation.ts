@@ -2,7 +2,7 @@ import type { Store } from './types';
 export function directionsUrl(store: Store) {
   if (!store.location) return placeSearchUrl(`${store.name} ${store.address}`);
   const destination = `${store.location.lat},${store.location.lng}`;
-  return `https://m.map.kakao.com/scheme/route?ep=${encodeURIComponent(destination)}&by=walk`;
+  return `https://m.map.kakao.com/scheme/route?ep=${encodeURIComponent(destination)}&by=foot`;
 }
 export function placeSearchUrl(query: string) {
   return `https://map.kakao.com/?q=${encodeURIComponent(query.trim() || '카페')}`;
