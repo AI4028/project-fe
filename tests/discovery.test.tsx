@@ -428,9 +428,26 @@ test('unconfigured general search is not presented as an empty successful search
   await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'Unknown venue');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
   await screen.findByText(
-    '일반 장소 검색은 준비 중이에요. 지하철역과 공공 접근성 자료는 검색할 수 있어요.',
+    '일반 장소 검색은 준비 중이에요. 등록 매장과 공공 접근성 자료는 검색할 수 있어요.',
   );
   expect(screen.queryByText('검색 결과가 없어요')).toBeNull();
+});
+
+test('a registered search result remains orderable and appears once during a provider failure', async () => {
+  mockApi.searchPlaces.mockResolvedValueOnce({
+    places: [stores[0]],
+    status: 'results',
+    generalSearch: 'unavailable',
+  });
+  await render(<Discovery />);
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '첫 번째');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
+  await screen.findByText(
+    '일반 장소 검색에 연결하지 못했어요. 찾은 등록 매장과 공공 자료를 표시합니다.',
+  );
+  expect(screen.getAllByLabelText('첫 번째 카페 매장 정보 보기')).toHaveLength(1);
+  expect(screen.getByText('바로 주문하기')).toBeTruthy();
 });
 
 test('late search responses cannot replace a newer destination', async () => {
@@ -463,4 +480,19 @@ test('late search responses cannot replace a newer destination', async () => {
   });
   expect(screen.queryByLabelText('Old destination 매장 정보 보기')).toBeNull();
   expect(screen.getByLabelText('New destination 매장 정보 보기')).toBeTruthy();
+});
+
+test('deduplicates registered stores returned by both stores and place search', async () => {
+  mockApi.searchPlaces.mockResolvedValueOnce({
+    places: [stores[0]!],
+    status: 'results',
+    generalSearch: 'available',
+  });
+  await render(<Discovery />);
+  await screen.findByLabelText('첫 번째 카페 매장 정보 보기');
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '첫 번째');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
+  await waitFor(() => expect(mockApi.searchPlaces).toHaveBeenCalledWith('첫 번째', 'all', null));
+  expect(screen.getAllByLabelText('첫 번째 카페 매장 정보 보기')).toHaveLength(1);
 });

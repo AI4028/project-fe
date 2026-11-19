@@ -84,10 +84,20 @@ export default function Connect() {
         <Card className="rounded-3xl border-primary/30 bg-secondary">
           <CardContent className="gap-4 pt-6">
             <Icon as={Check} size={28} className="text-primary" />
-            <Text variant="h3">{app.store?.name}에 연결되어 있습니다</Text>
-            <Text>주문을 이어서 진행할 수 있어요.</Text>
+            <Text variant="h3">
+              {app.connection.kioskId
+                ? `${app.store?.name}에 연결되어 있습니다`
+                : '장바구니가 열려 있어요'}
+            </Text>
+            <Text>
+              {app.connection.kioskId
+                ? '주문을 이어서 진행할 수 있어요.'
+                : '이미 담은 메뉴가 있어요. 바로 주문하거나 장바구니를 비우고 기기 코드로 연결할 수 있어요.'}
+            </Text>
             <NavLink href="/menu">메뉴로 이어가기</NavLink>
-            <NavLink href="/leave">다른 매장으로 변경</NavLink>
+            <NavLink href="/leave">
+              {app.connection.kioskId ? '다른 매장으로 변경' : '장바구니 비우고 기기 코드로 연결'}
+            </NavLink>
           </CardContent>
         </Card>
       ) : (

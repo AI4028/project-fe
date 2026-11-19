@@ -71,5 +71,7 @@ export function accessibilitySummary(store: Store) {
     .filter(Boolean)
     .join(' · ');
 }
-export const knownText = (value?: string) =>
-  value && !/^TODO/i.test(value.trim()) ? value : '확인 필요';
+/** False for empty values and seed placeholders that start with "TODO". */
+export const isKnown = (value?: string): value is string =>
+  !!value?.trim() && !/^TODO/i.test(value.trim());
+export const knownText = (value?: string) => (isKnown(value) ? value : '확인 필요');

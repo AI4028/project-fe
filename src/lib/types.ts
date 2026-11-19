@@ -16,6 +16,7 @@ export type MenuItem = {
   category: string;
   price: number;
   available: boolean;
+  imageUrl?: string;
   options: MenuOption[];
 };
 export type Store = {
@@ -44,6 +45,8 @@ export type Store = {
   orderingMethods?: string[];
   orderingPaused?: boolean;
   indoorDirections?: string;
+  pickupLocation?: string;
+  phone?: string | null;
   menu?: MenuItem[];
 };
 export type DataSource = {
@@ -104,6 +107,7 @@ export type Session = {
   status: 'active' | 'ordered' | 'ended' | 'expired';
   cart: Cart;
   helpRequested: boolean;
+  helpState?: 'idle' | 'sent' | 'acknowledged';
   orderId?: string;
 };
 export type Connection = { sessionId: string; kioskId: string | null; storeId: string };

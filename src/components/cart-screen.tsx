@@ -41,6 +41,7 @@ export function CartScreen({
   const storeName =
     app.store && (language === 'en' ? app.store.nameEn || app.store.name : app.store.name);
   const itemToEdit = app.store?.menu?.find((item) => item.id === edit?.original.itemId);
+  const photoOf = (itemId: string) => app.store?.menu?.find((item) => item.id === itemId)?.imageUrl;
   const qty = app.items.reduce((sum, line) => sum + line.qty, 0);
   const disabled = app.busy || checking || !!app.pendingSubmission;
   const menuHref = storeId
@@ -182,7 +183,11 @@ export function CartScreen({
                 <Card key={`${line.itemId}:${index}`} className="rounded-2xl p-0 shadow-none">
                   <CardContent className="gap-3 p-4">
                     <View className="flex-row items-start gap-3">
-                      <MenuThumbnail itemId={line.itemId} size={52} />
+                      <MenuThumbnail
+                        itemId={line.itemId}
+                        imageUrl={photoOf(line.itemId)}
+                        size={52}
+                      />
                       <View className="min-w-0 flex-1 self-center">
                         <CartLineSummary line={localized} />
                       </View>
@@ -247,7 +252,11 @@ export function CartScreen({
           <DialogContent>
             <DialogTitle>이 메뉴를 삭제할까요?</DialogTitle>
             <View className="flex-row items-center gap-3 rounded-2xl border border-border p-3">
-              <MenuThumbnail itemId={remove.line.itemId} size={56} />
+              <MenuThumbnail
+                itemId={remove.line.itemId}
+                imageUrl={photoOf(remove.line.itemId)}
+                size={56}
+              />
               <View className="min-w-0 flex-1">
                 <CartLineSummary line={remove.line} />
               </View>

@@ -4,15 +4,16 @@ import english from './locales/en.json';
 export type Language = 'ko' | 'en';
 export const LanguageContext = createContext<Language>('ko');
 const messages: Record<string, string> = english;
+const itemCount = (count: string) => `${count} ${count === '1' ? 'item' : 'items'}`;
 const patterns: [RegExp, (...parts: string[]) => string][] = [
-  [/^장바구니 (\d+)개 · ([\d,]+)원$/, (count, total) => `Cart · ${count} items · ₩${total}`],
+  [/^장바구니 (\d+)개 · ([\d,]+)원$/, (count, total) => `Cart · ${itemCount(count)} · ₩${total}`],
   [/^주문 번호 (\d+)$/, (number) => `Order #${number}`],
   [/^주문 3단계 중 (\d)단계$/, (step) => `Order step ${step} of 3`],
   [/^(\d+) · (메뉴 선택|장바구니|최종 확인)$/, (step, label) => `${step} · ${messages[label]}`],
   [/^(-?\d+)층\.?$/, (floor) => `Floor ${floor}`],
   [/^([\d,]+)원$/, (amount) => `₩${amount}`],
-  [/^(\d+)개$/, (count) => `${count} items`],
-  [/^장바구니 (\d+)개$/, (count) => `Cart · ${count} items`],
+  [/^(\d+)개$/, itemCount],
+  [/^장바구니 (\d+)개$/, (count) => `Cart · ${itemCount(count)}`],
   [/^(.+)에 연결되었습니다\.$/, (name) => `Connected to ${name}.`],
   [/^장바구니가 변경되었습니다\. 합계 ([\d,]+)원$/, (total) => `Cart updated. Total ₩${total}`],
   [
@@ -35,8 +36,11 @@ const patterns: [RegExp, (...parts: string[]) => string][] = [
   [/^(.+) 삭제$/, (name) => `Remove ${name}`],
   [/^(.+) 품절$/, (name) => `${name} · sold out`],
   [/^(.+)에서 고른 메뉴예요\.$/, (name) => `Your items from ${name}`],
-  [/^(.+) 옵션을 선택해 주세요\.$/, (name) => `Choose an option for ${name}.`],
-  [/^(.+) 선택 개수를 확인해 주세요\.$/, (name) => `Check the number of choices for ${name}.`],
+  [/^(.+) 옵션을 선택해 주세요\.$/, (name) => `Choose an option for ${messages[name] ?? name}.`],
+  [
+    /^(.+) 선택 개수를 확인해 주세요\.$/,
+    (name) => `Check the number of choices for ${messages[name] ?? name}.`,
+  ],
   [
     /^(.+?)(?:을|를|을\(를\)) 장바구니에서 삭제합니다\.$/,
     (name) => `Remove ${name} from your cart.`,

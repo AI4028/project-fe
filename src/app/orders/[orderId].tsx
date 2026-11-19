@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { CreditCard, HandHelping, MapPin, RefreshCw } from 'lucide-react-native';
+import { CreditCard, HandHelping, MapPin, Navigation, RefreshCw } from 'lucide-react-native';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,8 @@ import { money } from '@/lib/cart';
 import { ApiError, errorMessage } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { isOpenOrder, orderStoreId } from '@/lib/order';
+import { isKnown } from '@/lib/location';
+import { CallStore } from '@/components/call-store';
 
 const titles: Record<OrderStatus, string> = {
   submitted: '주문을 보냈어요',
@@ -223,8 +225,15 @@ export default function OrderScreen() {
                     픽업 안내
                   </Text>
                 </View>
-                <Text>픽업 위치는 매장 직원에게 확인해 주세요.</Text>
-                {!!store?.indoorDirections && (
+                {isKnown(store?.pickupLocation) ? (
+                  <Text accessibilityLiveRegion="polite">
+                    <Text className="font-semibold">픽업 위치:</Text>{' '}
+                    <Text translate={false}>{store.pickupLocation}</Text>
+                  </Text>
+                ) : (
+                  <Text>픽업 위치는 매장 직원에게 확인해 주세요.</Text>
+                )}
+                {isKnown(store?.indoorDirections) && (
                   <Text variant="muted">
                     등록된 실내 안내: <Text translate={false}>{store.indoorDirections}</Text>
                   </Text>
@@ -258,6 +267,7 @@ export default function OrderScreen() {
                 ? '직원이 도움 요청을 확인했어요'
                 : '직원 도움 요청'}
           </NavLink>
+          <CallStore phone={store?.phone} />
           {order.status === 'submitted' && (
             <Button
               variant="outline"
@@ -274,9 +284,17 @@ export default function OrderScreen() {
         <Text>상태 새로고침</Text>
       </Button>
       {store && (
-        <NavLink href={{ pathname: '/store', params: { storeId: store.storeId } }} icon={MapPin}>
-          매장 정보 보기
-        </NavLink>
+        <>
+          <NavLink
+            href={{ pathname: '/guide', params: { storeId: store.storeId } }}
+            icon={Navigation}
+          >
+            길 안내
+          </NavLink>
+          <NavLink href={{ pathname: '/store', params: { storeId: store.storeId } }} icon={MapPin}>
+            매장 정보 보기
+          </NavLink>
+        </>
       )}
       <NavLink href="/orders">보낸 주문 내역</NavLink>
       <Dialog

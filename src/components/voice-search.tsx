@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
 import * as Speech from 'expo-speech';
 import { AudioLines, Mic, MicOff } from 'lucide-react-native';
 import { recognition, type SpeechRecognition } from '@/lib/speech-recognition';
@@ -75,6 +75,17 @@ function RecognitionSearch({
     try {
       if (!module.isRecognitionAvailable()) {
         setStage('unavailable');
+        return;
+      }
+      if (Platform.OS === 'web') {
+        // Keep start() synchronous inside the user gesture for iOS Safari.
+        void Speech.stop();
+        receiving.current = true;
+        module.start({
+          lang: language === 'en' ? 'en-US' : 'ko-KR',
+          interimResults: false,
+          continuous: false,
+        });
         return;
       }
       await Speech.stop();

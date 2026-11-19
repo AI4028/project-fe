@@ -131,7 +131,7 @@ export default function StoreDetails() {
             </CardContent>
           </Card>
           {store.orderingPaused && <OrderingPaused />}
-          {!different && !store.orderingPaused && (
+          {!app.connection && !store.orderingPaused && (
             <View className="flex-row flex-wrap items-center justify-between gap-3 rounded-2xl bg-secondary p-4">
               <View className="min-w-0 flex-1 gap-1">
                 <Text className="font-semibold">지금 매장에 계신가요?</Text>

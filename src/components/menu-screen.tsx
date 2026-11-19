@@ -70,6 +70,9 @@ export function MenuScreen({
   const store =
     app.store?.storeId === id ? app.store : previewStore?.storeId === id ? previewStore : null;
   const storeName = store && (language === 'en' ? store.nameEn || store.name : store.name);
+  const cartStoreName =
+    app.store && (language === 'en' ? app.store.nameEn || app.store.name : app.store.name);
+  const differentCartStore = !!connectedStoreId && !!store && connectedStoreId !== store.storeId;
   const menu = store?.menu ?? [];
   const categories = [...new Set(menu.map((item) => item.category))];
   const activeCategory = category && categories.includes(category) ? category : categories[0];
@@ -118,8 +121,12 @@ export function MenuScreen({
                     {qty}
                   </Text>
                 </View>
-                <Text className="shrink text-left">
-                  {qty ? '장바구니 보기' : '장바구니 비어 있음'}
+                <Text translate={false} className="shrink text-left">
+                  {qty
+                    ? differentCartStore && cartStoreName
+                      ? `${cartStoreName} · ${t('장바구니 보기')}`
+                      : t('장바구니 보기')
+                    : t('장바구니 비어 있음')}
                 </Text>
               </View>
               <Text>{money(app.cart.total)}</Text>
@@ -229,7 +236,7 @@ export function MenuScreen({
                       .join(', ')}
                     onPress={() => setSelected({ itemId: entry.id, speech: undefined })}
                   >
-                    <MenuThumbnail itemId={entry.id} />
+                    <MenuThumbnail itemId={entry.id} imageUrl={entry.imageUrl} />
                     <View className="min-w-0 flex-1 gap-0.5">
                       <Text translate={false} className="text-left text-lg font-bold">
                         {name}

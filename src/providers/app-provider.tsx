@@ -295,7 +295,8 @@ function useAppState() {
         await clearSession();
         return;
       }
-      if (session.helpRequested) setHelpState('sent');
+      if (session.helpState) setHelpState(session.helpState);
+      else if (session.helpRequested) setHelpState('sent');
       const latestStore = await api.store(session.storeId);
       if (currentApi.current === api && currentConnection.current?.sessionId === session.sessionId)
         setStore(latestStore);
@@ -365,7 +366,8 @@ function useAppState() {
           setStore(selected);
           setConnection(session);
           setCart(session.cart);
-          if (session.helpRequested) setHelpState('sent');
+          if (session.helpState) setHelpState(session.helpState);
+          else if (session.helpRequested) setHelpState('sent');
           setItems(restoreCart(session.cart.lines, selected.menu ?? []));
         } else await clearSession();
       }

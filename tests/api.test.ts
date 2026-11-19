@@ -14,6 +14,26 @@ test('sends device auth and unpriced lines to the backend', async () => {
   );
   expect(api.wsUrl('/ws/kiosk', 'a+b&c')).toBe('wss://example.test/ws/kiosk?token=a%2Bb%26c');
 });
+test('resolves backend photo paths against the API address', async () => {
+  const store = {
+    storeId: 'cafe',
+    name: '카페',
+    imageUrl: '/media/cafe/store.jpg',
+    menu: [
+      { id: 'tea', imageUrl: '/media/cafe/tea.jpg' },
+      { id: 'cake', imageUrl: 'https://cdn.test/cake.jpg' },
+      { id: 'water' },
+    ],
+  };
+  const transport = jest.fn().mockResolvedValue({ ok: true, json: async () => store });
+  const loaded = await new Api('https://example.test/api', transport).store('cafe');
+  expect(loaded.imageUrl).toBe('https://example.test/api/media/cafe/store.jpg');
+  expect(loaded.menu?.map((item) => item.imageUrl)).toEqual([
+    'https://example.test/api/media/cafe/tea.jpg',
+    'https://cdn.test/cake.jpg',
+    undefined,
+  ]);
+});
 test('surfaces server failures rather than creating a fake offline order', async () => {
   const transport = jest.fn().mockResolvedValue({
     ok: false,
@@ -95,4 +115,25 @@ test('sends the quote and stable retry key with checkout', async () => {
     note: '',
     quoteId: 'q1',
   });
+});
+
+test('handles non-JSON error responses and translates backend error codes to Korean', async () => {
+  const transport = jest.fn().mockResolvedValue({
+    ok: false,
+    status: 502,
+    json: async () => {
+      throw new SyntaxError('Unexpected token <');
+    },
+  });
+  await expect(new Api('https://example.test', transport).stores()).rejects.toMatchObject({
+    code: 'server-error',
+    status: 502,
+    message: '서버 요청에 실패했습니다.',
+  });
+  expect(errorMessage(new ApiError('kiosk-not-found', 404, 'Kiosk not found.'))).toContain(
+    '매장 기기 코드',
+  );
+  expect(errorMessage(new ApiError('bad-transition', 409, 'Already ended.'))).toContain(
+    '종료된 주문',
+  );
 });

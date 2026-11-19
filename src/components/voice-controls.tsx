@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Platform, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { Mic, Volume2 } from 'lucide-react-native';
@@ -11,7 +11,7 @@ import { voiceSelection } from '@/lib/voice';
 import { recognition, type SpeechRecognition } from '@/lib/speech-recognition';
 type VoiceControlsProps = { onTranscript?: (text: string) => boolean };
 export function VoiceControls(props: VoiceControlsProps) {
-  return recognition ? (
+  return recognition && recognition.ExpoSpeechRecognitionModule.isRecognitionAvailable() ? (
     <RecognitionVoiceControls {...props} recognition={recognition} />
   ) : (
     <TouchOnlyVoiceControls />
@@ -24,9 +24,17 @@ function RecognitionVoiceControls({
   const app = useApp();
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  useSpeechRecognitionEvent('start', () => setListening(true));
-  useSpeechRecognitionEvent('end', () => setListening(false));
+  const active = useRef(false);
+  useSpeechRecognitionEvent('start', () => {
+    active.current = true;
+    setListening(true);
+  });
+  useSpeechRecognitionEvent('end', () => {
+    active.current = false;
+    setListening(false);
+  });
   useSpeechRecognitionEvent('error', (event) => {
+    active.current = false;
     setListening(false);
     app.announce(`음성 인식: ${event.message || '마이크 권한과 지원 여부를 확인해 주세요.'}`);
   });
@@ -59,15 +67,44 @@ function RecognitionVoiceControls({
       if (router.canGoBack()) router.back();
     } else app.announce('메뉴 이름, 장바구니, 직원 호출, 다시 듣기라고 말해 주세요.');
   });
-  useEffect(() => () => ExpoSpeechRecognitionModule.abort(), []);
+  useEffect(
+    () => () => {
+      if (active.current) {
+        active.current = false;
+        ExpoSpeechRecognitionModule.abort();
+      }
+    },
+    [ExpoSpeechRecognitionModule],
+  );
   async function start() {
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable())
+      throw new Error('이 환경에서는 음성 주문을 사용할 수 없습니다. 터치로 주문해 주세요.');
+    const begin = () => {
+      active.current = true;
+      try {
+        ExpoSpeechRecognitionModule.start({
+          lang: 'ko-KR',
+          interimResults: false,
+          continuous: false,
+        });
+      } catch (error) {
+        active.current = false;
+        throw error;
+      }
+    };
+    if (Platform.OS === 'web') {
+      // Keep start() synchronous inside the user gesture for iOS Safari.
+      void Speech.stop();
+      begin();
+      return;
+    }
     await Speech.stop();
     const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!permission.granted)
       throw new Error(
         '음성 주문을 사용하려면 마이크와 음성 인식 권한이 필요합니다. 터치로도 주문할 수 있습니다.',
       );
-    ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: false, continuous: false });
+    begin();
   }
   return (
     <View className="gap-4 rounded-2xl border border-border bg-card p-5">
