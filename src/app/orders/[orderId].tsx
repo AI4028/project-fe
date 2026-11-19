@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { CreditCard, HandHelping, MapPin, RefreshCw } from 'lucide-react-native';
+import { CreditCard, HandHelping, MapPin, Navigation, RefreshCw } from 'lucide-react-native';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -284,9 +284,17 @@ export default function OrderScreen() {
         <Text>상태 새로고침</Text>
       </Button>
       {store && (
-        <NavLink href={{ pathname: '/store', params: { storeId: store.storeId } }} icon={MapPin}>
-          매장 정보 보기
-        </NavLink>
+        <>
+          <NavLink
+            href={{ pathname: '/guide', params: { storeId: store.storeId } }}
+            icon={Navigation}
+          >
+            길 안내
+          </NavLink>
+          <NavLink href={{ pathname: '/store', params: { storeId: store.storeId } }} icon={MapPin}>
+            매장 정보 보기
+          </NavLink>
+        </>
       )}
       <NavLink href="/orders">보낸 주문 내역</NavLink>
       <Dialog
