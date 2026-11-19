@@ -10,10 +10,12 @@ type IconProps = LucideProps & {
   as: LucideIcon;
 } & React.RefAttributes<LucideIcon>;
 
-function IconImpl({ as: IconComponent, accessible = false, ...props }: IconProps) {
+function IconImpl({ as: IconComponent, accessible = false, fill, color, ...props }: IconProps) {
   return (
     <IconComponent
       {...props}
+      color={color}
+      fill={fill === 'currentColor' && color ? color : fill}
       {...(Platform.OS === 'web'
         ? { 'aria-hidden': accessible === false ? true : undefined }
         : { accessible })}
@@ -25,6 +27,7 @@ cssInterop(IconImpl, {
   className: {
     target: 'style',
     nativeStyleToProp: {
+      color: true,
       height: 'size',
       width: 'size',
     },
