@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-19 · Use Corepack when local pnpm is unavailable
+
+- **Hit:** `pnpm typecheck` failed with `/bin/bash: pnpm: command not found`; an appended `--runInBand` also made Jest report no tests.
+- **Why:** this runner did not expose pnpm, and the test script already includes `--runInBand`.
+- **Fix:** used `corepack pnpm` and ran the existing `pnpm test` script without extra arguments.
+- **Rule:** use the Corepack fallback and do not append duplicate Jest flags to repository scripts.
+
 ### 2026-11-19 · Lucide `Map` icon hides the global `Map`
 
 - **Hit:** `tsc` reported TS7009 and TS2345 on `new Map(...)` in `explore-screen.tsx`.
