@@ -13,16 +13,25 @@ const photos: Record<string, number> = {
   'grapefruit-ade': require('../../assets/menu/grapefruit-ade.jpg'),
 };
 
-export function MenuThumbnail({ itemId, size = 68 }: { itemId: string; size?: number }) {
+export function MenuThumbnail({
+  itemId,
+  imageUrl,
+  size = 68,
+}: {
+  itemId: string;
+  imageUrl?: string;
+  size?: number;
+}) {
+  const source = imageUrl ? { uri: imageUrl } : photos[itemId];
   return (
     <View
       className="shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary"
       style={{ width: size, height: size }}
       accessible={false}
     >
-      {photos[itemId] ? (
+      {source ? (
         <Image
-          source={photos[itemId]}
+          source={source}
           style={{ width: size, height: size }}
           accessibilityIgnoresInvertColors
           accessible={false}
