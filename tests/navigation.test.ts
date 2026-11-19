@@ -31,7 +31,7 @@ test('Kakao directions use coordinates and walking mode', () => {
   expect(url.hostname).toBe('m.map.kakao.com');
   expect(url.pathname).toBe('/scheme/route');
   expect(url.searchParams.get('ep')).toBe('37,127');
-  expect(url.searchParams.get('by')).toBe('walk');
+  expect(url.searchParams.get('by')).toBe('foot');
   expect(new URL(placeSearchUrl('A&B')).searchParams.get('q')).toBe('A&B');
 });
 
