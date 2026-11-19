@@ -72,7 +72,7 @@ export default function StoreDetails() {
       }
       onTranscript={(text) => {
         if (!id) return false;
-        if (/메뉴.*(읽|알려)/.test(text)) {
+        if (/메뉴.*(읽|알려)|\bread (?:the )?menu\b/i.test(text)) {
           const preview = store?.menu;
           if (preview?.length) {
             app.announce(
@@ -88,11 +88,11 @@ export default function StoreDetails() {
           }
           return true;
         }
-        if (/메뉴/.test(text)) {
+        if (/메뉴|\bmenu\b/i.test(text)) {
           router.push({ pathname: '/menu', params: { storeId: id } });
           return true;
         }
-        if (/길|실내|어디/.test(text)) {
+        if (/길|실내|어디|\bdirections\b/i.test(text)) {
           router.push({ pathname: '/guide', params: { storeId: id } });
           return true;
         }

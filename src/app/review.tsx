@@ -63,14 +63,18 @@ export default function Review() {
         ? '메뉴 가격이 바뀌었어요'
         : error
           ? '주문을 보내지 못했어요'
-          : '결제하고 주문을 완료해요';
+          : app.demo
+            ? '결제하고 주문을 완료해요'
+            : '주문 내용을 확인해 주세요';
 
   return (
     <Screen
       title={title}
       subtitle={
         !locked && !error && !priceChange
-          ? '모의 결제입니다. 실제 요금은 청구되지 않아요.'
+          ? app.demo
+            ? '모의 결제입니다. 실제 요금은 청구되지 않아요.'
+            : '주문을 보내고 매장에서 결제해 주세요.'
           : undefined
       }
       voice={false}
@@ -167,50 +171,52 @@ export default function Review() {
             </CardContent>
           </Card>
 
-          <View className="gap-3">
-            <View className="flex-row items-center gap-2">
-              <Text variant="h2">결제 수단</Text>
-            </View>
-            <Text variant="muted">결제 수단을 하나 선택해 주세요.</Text>
-            <View className="gap-2" accessibilityRole="radiogroup">
-              {(
-                ['card', 'kakaopay', 'tosspay', 'naverpay', 'counter'] satisfies PaymentMethod[]
-              ).map((payment) => {
-                const selected = app.checkout.payment === payment;
-                return (
-                  <Button
-                    key={payment}
-                    variant={selected ? 'secondary' : 'outline'}
-                    className={`min-h-14 w-full justify-between px-4 py-3 ${selected ? 'border border-primary' : ''}`}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: selected }}
-                    accessibilityLabel={paymentLabels[payment]}
-                    onPress={() => app.setCheckout({ ...app.checkout, payment })}
-                  >
-                    <View className="min-w-0 flex-1 flex-row items-center gap-3">
-                      <Icon
-                        as={payment === 'counter' ? Store : CreditCard}
-                        size={21}
-                        className="text-primary"
-                        accessible={false}
-                      />
-                      <Text className="shrink font-semibold">{paymentLabels[payment]}</Text>
-                    </View>
-                    <View
-                      className={`h-6 w-6 items-center justify-center rounded-full border border-primary ${selected ? 'bg-primary' : ''}`}
+          {app.demo && (
+            <View className="gap-3">
+              <View className="flex-row items-center gap-2">
+                <Text variant="h2">결제 수단</Text>
+              </View>
+              <Text variant="muted">결제 수단을 하나 선택해 주세요.</Text>
+              <View className="gap-2" accessibilityRole="radiogroup">
+                {(
+                  ['card', 'kakaopay', 'tosspay', 'naverpay', 'counter'] satisfies PaymentMethod[]
+                ).map((payment) => {
+                  const selected = app.checkout.payment === payment;
+                  return (
+                    <Button
+                      key={payment}
+                      variant={selected ? 'secondary' : 'outline'}
+                      className={`min-h-14 w-full justify-between px-4 py-3 ${selected ? 'border border-primary' : ''}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selected }}
+                      accessibilityLabel={paymentLabels[payment]}
+                      onPress={() => app.setCheckout({ ...app.checkout, payment })}
                     >
-                      <Icon
-                        as={selected ? Check : Circle}
-                        size={selected ? 16 : 9}
-                        className={selected ? 'text-primary-foreground' : 'text-primary'}
-                        accessible={false}
-                      />
-                    </View>
-                  </Button>
-                );
-              })}
+                      <View className="min-w-0 flex-1 flex-row items-center gap-3">
+                        <Icon
+                          as={payment === 'counter' ? Store : CreditCard}
+                          size={21}
+                          className="text-primary"
+                          accessible={false}
+                        />
+                        <Text className="shrink font-semibold">{paymentLabels[payment]}</Text>
+                      </View>
+                      <View
+                        className={`h-6 w-6 items-center justify-center rounded-full border border-primary ${selected ? 'bg-primary' : ''}`}
+                      >
+                        <Icon
+                          as={selected ? Check : Circle}
+                          size={selected ? 16 : 9}
+                          className={selected ? 'text-primary-foreground' : 'text-primary'}
+                          accessible={false}
+                        />
+                      </View>
+                    </Button>
+                  );
+                })}
+              </View>
             </View>
-          </View>
+          )}
 
           <NavLink href="/cart">장바구니로 돌아가 수정</NavLink>
         </>

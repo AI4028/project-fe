@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Platform } from 'react-native';
 import * as Speech from 'expo-speech';
+import { LanguageContext } from '@/lib/i18n';
 import { VoiceControls } from '@/components/voice-controls';
 import { VoiceSearch } from '@/components/voice-search';
 
@@ -85,4 +86,14 @@ test('VoiceSearch starts synchronously on web without awaiting Speech.stop or pe
     interimResults: false,
     continuous: false,
   });
+});
+
+test('ordering listens in English when English is selected', async () => {
+  await render(
+    <LanguageContext.Provider value="en">
+      <VoiceControls />
+    </LanguageContext.Provider>,
+  );
+  await fireEvent.press(screen.getByLabelText('음성으로 주문하기'));
+  expect(mockStart).toHaveBeenCalledWith(expect.objectContaining({ lang: 'en-US' }));
 });

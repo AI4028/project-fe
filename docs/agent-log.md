@@ -23,6 +23,11 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-20 · Include checkout subtitles in screen tests
+
+The review-screen test double rendered the title and footer but omitted the subtitle.
+It now renders the subtitle so tests verify the payment instructions seen by customers.
+
 ### 2026-11-20 · Reuse the pnpm store attached to the project
 
 - **Hit:** Adding the Expo file picker stopped with `ERR_PNPM_UNEXPECTED_STORE`.

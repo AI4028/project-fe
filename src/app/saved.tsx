@@ -156,7 +156,8 @@ function SavedMenus() {
         const lookup = lookups?.get(entry.storeId);
         const store = lookup?.status === 'ready' ? lookup.store : undefined;
         const item = store?.menu?.find((item) => item.id === entry.itemId);
-        const available = store && item?.available && !store.orderingPaused;
+        const available =
+          store && item?.available && store.hasOrderTerminal !== false && !store.orderingPaused;
         const name =
           (language === 'en' ? item?.nameEn || item?.name : item?.name) || entry.itemName;
         const storeName =
@@ -217,7 +218,9 @@ function SavedMenus() {
                   <Text>
                     {store?.orderingPaused
                       ? '지금은 주문을 받지 않아요.'
-                      : '현재 판매하지 않는 메뉴예요.'}
+                      : store?.hasOrderTerminal === false
+                        ? '이 매장은 휴대폰 주문을 받을 수 없어요. 매장 직원에게 문의해 주세요.'
+                        : '현재 판매하지 않는 메뉴예요.'}
                   </Text>
                   {store ? (
                     <NavLink href={{ pathname: '/menu', params: { storeId: entry.storeId } }}>

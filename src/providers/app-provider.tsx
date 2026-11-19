@@ -270,9 +270,13 @@ function useAppState() {
         } catch (error) {
           if (
             error instanceof ApiError &&
-            ['price-changed', 'item-unavailable', 'choice-unavailable', 'session-expired'].includes(
-              error.code,
-            )
+            [
+              'bad-payment-method',
+              'price-changed',
+              'item-unavailable',
+              'choice-unavailable',
+              'session-expired',
+            ].includes(error.code)
           )
             await markPending(null);
           throw error;
@@ -499,13 +503,15 @@ function useAppState() {
       }
     });
   }
-  async function updateCart(next: CartItem[], storeId = store?.storeId) {
+  async function updateCart(next: CartItem[], storeId = store?.storeId, replaceSessionId?: string) {
     return exclusive(async () => {
       if (pendingRef.current) throw new Error('먼저 주문 전송 결과를 확인해 주세요.');
       let active = currentConnection.current;
       const id = storeId ?? active?.storeId;
       if (!id) throw new Error('먼저 매장을 선택해 주세요.');
-      if (active && active.storeId !== id)
+      if (replaceSessionId && active?.sessionId !== replaceSessionId)
+        throw new Error('장바구니가 변경되었어요. 다시 확인해 주세요.');
+      if (active && active.storeId !== id && !replaceSessionId)
         throw new Error('장바구니의 매장을 확인한 뒤 다른 매장을 선택해 주세요.');
       if (next.length > 20) throw new Error('한 번에 20개 메뉴까지 담을 수 있습니다.');
       if (!active && !next.length) return emptyCart;
@@ -517,8 +523,12 @@ function useAppState() {
         if (error) throw new Error(error);
       }
       const device = await token();
-      if (!active) {
-        const session = await api.startStoreSession(id, device);
+      const previous = active;
+      let result: Cart;
+      if (!active || (replaceSessionId && active.storeId !== id)) {
+        const session = previous
+          ? await api.prepareStoreCart(id, next, device)
+          : await api.startStoreSession(id, device);
         await AsyncStorage.setItem(`session:${api.base}`, session.sessionId);
         ++selectStoreSeq.current;
         active = session;
@@ -528,13 +538,20 @@ function useAppState() {
         setCart(session.cart);
         setItems(restoreCart(session.cart.lines, selected.menu ?? []));
         setCheckout({ payment: 'counter', note: '' });
+        setHelpState('idle');
+        result = previous ? session.cart : await api.cart(session.sessionId, next, device);
+      } else {
+        result = await api.cart(active.sessionId, next, device);
       }
-      const result = await api.cart(active.sessionId, next, device);
       setItems(next);
       setCart(result);
       if (settings.vibration !== false)
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       announce(`장바구니가 변경되었습니다. 합계 ${result.total.toLocaleString('ko-KR')}원`);
+      if (previous && previous.sessionId !== active.sessionId) {
+        // The new cart is durable. A failed kiosk release must never undo it.
+        await api.end(previous.sessionId, device).catch(report);
+      }
       return result;
     });
   }
@@ -542,6 +559,7 @@ function useAppState() {
     return exclusive(async () => {
       if (pendingRef.current)
         throw new Error('전송 결과를 먼저 확인해 주세요. 주문을 다시 보내지 않았습니다.');
+      if (!demo) payment = 'counter';
       if (!connection || !items.length) throw new Error('연결 상태와 장바구니를 확인해 주세요.');
       const device = await token();
       const latest = await api.cart(connection.sessionId, items, device);
@@ -560,7 +578,7 @@ function useAppState() {
           payment,
           note,
           quoteId: latest.quoteId,
-          simulatePayment: true,
+          simulatePayment: demo,
         }),
       );
       await markPending(connection.sessionId);
@@ -573,7 +591,7 @@ function useAppState() {
           note,
           device,
           latest.quoteId,
-          true,
+          demo,
         );
       } catch (error) {
         // A timeout/5xx or already-closed session can hide a committed order.

@@ -143,6 +143,8 @@ export class Api {
       undefined,
       device,
     );
+  prepareStoreCart = (id: string, items: CartItem[], device: string) =>
+    this.request<Session>(`/stores/${encodeURIComponent(id)}/cart`, 'PUT', { items }, device);
   session = (id: string, device: string) =>
     this.request<Session>(`/sessions/${id}`, 'GET', undefined, device);
   cart = (id: string, items: CartItem[], device: string) =>

@@ -10,16 +10,16 @@ import { Text } from './ui/text';
 import { VoiceControls } from './voice-controls';
 import { errorMessage } from '@/lib/api';
 import { estimate, money, replaceCartItem, validateItem } from '@/lib/cart';
-import { useTranslation } from '@/lib/i18n';
+import { translate, useTranslation } from '@/lib/i18n';
 import type { CartItem, MenuItem, Options, Store } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { voiceSelection } from '@/lib/voice';
+import { spokenQuantity, voiceSelection } from '@/lib/voice';
 import { useApp } from '@/providers/app-provider';
 
 export type CartEdit = { index: number; original: CartItem };
 
 function recognizeOptions(item: MenuItem, text: string, current: Options): Options {
-  const normalized = text.replace(/\s/g, '');
+  const normalized = text.toLowerCase().replace(/\s/g, '');
   const selection = voiceSelection(text, []);
   const next = { ...current };
   for (const group of item.options) {
@@ -27,7 +27,9 @@ function recognizeOptions(item: MenuItem, text: string, current: Options): Optio
       (choice) =>
         choice.available !== false &&
         (selection.options[group.id] === choice.id ||
-          normalized.includes(choice.name.replace(/\s/g, ''))),
+          [choice.name, translate(choice.name, 'en')].some((name) =>
+            normalized.includes(name.toLowerCase().replace(/\s/g, '')),
+          )),
     );
     const first = matched[0];
     if (!first) continue;
@@ -44,8 +46,6 @@ function recognizeOptions(item: MenuItem, text: string, current: Options): Optio
   }
   return next;
 }
-
-const quantitySpoken = /(\d+|한|두|세)\s*(잔|개)|^(둘|셋)$/;
 
 export function ItemOptionsSheet({
   store,
@@ -129,9 +129,11 @@ export function ItemOptionsSheet({
         : differentStore
           ? [line]
           : [...app.items, line];
-      if (differentStore) await app.disconnect();
-      if (changeStore) setConfirmStoreChange(false);
-      await app.updateCart(next, store.storeId);
+      await app.updateCart(
+        next,
+        store.storeId,
+        differentStore ? app.connection?.sessionId : undefined,
+      );
       onClose();
     } catch (reason) {
       setError(errorMessage(reason));
@@ -144,23 +146,23 @@ export function ItemOptionsSheet({
   function onTranscript(text: string) {
     if (blocked) return true;
     const next = recognizeOptions(item, text, options);
-    const includesQty = quantitySpoken.test(text.trim());
-    if (JSON.stringify(next) !== JSON.stringify(options) || includesQty) {
+    const quantity = spokenQuantity(text.trim());
+    if (JSON.stringify(next) !== JSON.stringify(options) || quantity !== undefined) {
       setOptions(next);
       if (next[missing]?.length) setMissing('');
-      if (includesQty) setQty(Math.max(1, Math.min(10, voiceSelection(text, []).qty)));
+      if (quantity !== undefined) setQty(Math.max(1, Math.min(10, quantity)));
       app.announce('옵션을 선택했어요. 확인 후 담기라고 말해 주세요.');
       return true;
     }
     if (
-      /^\s*(장바구니에\s*)?(담아\s*(줘|주세요)?|담기|넣어\s*(줘|주세요)?|변경 내용 저장|수정 완료)[.!?]?\s*$/.test(
+      /^\s*(장바구니에\s*)?(담아\s*(줘|주세요)?|담기|넣어\s*(줘|주세요)?|변경 내용 저장|수정 완료|add(?: (?:it |this )?to (?:the |my )?cart)?|save(?: changes)?)[.!?]?\s*$/i.test(
         text,
       )
     ) {
       void save();
       return true;
     }
-    if (/^\s*(뒤로|닫기|취소)\s*$/.test(text)) {
+    if (/^\s*(뒤로|닫기|취소|back|close|cancel)[.!?]?\s*$/i.test(text)) {
       onClose();
       return true;
     }
