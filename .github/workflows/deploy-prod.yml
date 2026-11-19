@@ -1,0 +1,55 @@
+name: Deploy production frontend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prod-frontend-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install and build web app
+        run: |
+          pnpm install --frozen-lockfile
+          EXPO_PUBLIC_API_URL=https://galjido.shop/api \
+          EXPO_PUBLIC_DEMO_MODE=false \
+          pnpm export:web
+
+      - uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Trust deployment host
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.EC2_HOST_KEY }}" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Upload and publish frontend
+        run: |
+          rsync -az --delete dist/ \
+            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/galjido-web-prod/"
+          ssh "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" <<'EOF'
+            set -eu
+            sudo rsync -a --delete /home/ec2-user/galjido-web-prod/ /var/www/galjido-prod/
+            sudo chmod -R a+rX /var/www/galjido-prod
+            sudo systemctl reload nginx
+          EOF
