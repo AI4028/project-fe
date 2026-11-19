@@ -89,8 +89,20 @@ export class Api {
     if (token) url.searchParams.set('token', token);
     return url.toString();
   }
-  stores = () => this.request<Store[]>('/stores');
-  searchPlaces = (
+  /** Turns a "/media/..." photo path from the backend into a full URL. */
+  mediaUrl(path?: string | null) {
+    if (!path) return undefined;
+    return path.startsWith('/media/') ? `${this.base}${path}` : path;
+  }
+  private withMedia = (store: Store): Store => ({
+    ...store,
+    imageUrl: this.mediaUrl(store.imageUrl),
+    ...(store.menu && {
+      menu: store.menu.map((item) => ({ ...item, imageUrl: this.mediaUrl(item.imageUrl) })),
+    }),
+  });
+  stores = async () => (await this.request<Store[]>('/stores')).map(this.withMedia);
+  searchPlaces = async (
     query: string,
     kind: PlaceSearchKind,
     position?: { lat: number; lng: number } | null,
@@ -100,13 +112,17 @@ export class Api {
       params.set('lat', String(position.lat));
       params.set('lng', String(position.lng));
     }
-    return this.request<PlaceSearchResult>(`/places/search?${params}`);
+    const result = await this.request<PlaceSearchResult>(`/places/search?${params}`);
+    return { ...result, places: (result.places ?? []).map(this.withMedia) };
   };
   accessibilityNearby = (lat: number, lng: number) =>
     this.request<AccessibilityRecords>(`/accessibility/nearby?lat=${lat}&lng=${lng}&radiusM=300`);
-  nearby = (lat: number, lng: number) =>
-    this.request<Store[]>(`/stores/nearby?lat=${lat}&lng=${lng}&radiusM=3000`);
-  store = (id: string) => this.request<Store>(`/stores/${encodeURIComponent(id)}`);
+  nearby = async (lat: number, lng: number) =>
+    (await this.request<Store[]>(`/stores/nearby?lat=${lat}&lng=${lng}&radiusM=3000`)).map(
+      this.withMedia,
+    );
+  store = async (id: string) =>
+    this.withMedia(await this.request<Store>(`/stores/${encodeURIComponent(id)}`));
   register = () => this.request<{ deviceId: string; token: string }>('/devices', 'POST');
   demoToken = (id: string) => this.request<Heartbeat>(`/kiosks/${encodeURIComponent(id)}/token`);
   connect = (kioskId: string, token: string, device: string) =>

@@ -14,6 +14,26 @@ test('sends device auth and unpriced lines to the backend', async () => {
   );
   expect(api.wsUrl('/ws/kiosk', 'a+b&c')).toBe('wss://example.test/ws/kiosk?token=a%2Bb%26c');
 });
+test('resolves backend photo paths against the API address', async () => {
+  const store = {
+    storeId: 'cafe',
+    name: '카페',
+    imageUrl: '/media/cafe/store.jpg',
+    menu: [
+      { id: 'tea', imageUrl: '/media/cafe/tea.jpg' },
+      { id: 'cake', imageUrl: 'https://cdn.test/cake.jpg' },
+      { id: 'water' },
+    ],
+  };
+  const transport = jest.fn().mockResolvedValue({ ok: true, json: async () => store });
+  const loaded = await new Api('https://example.test/api', transport).store('cafe');
+  expect(loaded.imageUrl).toBe('https://example.test/api/media/cafe/store.jpg');
+  expect(loaded.menu?.map((item) => item.imageUrl)).toEqual([
+    'https://example.test/api/media/cafe/tea.jpg',
+    'https://cdn.test/cake.jpg',
+    undefined,
+  ]);
+});
 test('surfaces server failures rather than creating a fake offline order', async () => {
   const transport = jest.fn().mockResolvedValue({
     ok: false,

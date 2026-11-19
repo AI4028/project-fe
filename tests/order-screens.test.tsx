@@ -126,6 +126,36 @@ test('a cancel race returns to the accepted order instead of showing cancellatio
   expect(screen.queryByText('주문 취소 요청')).toBeNull();
 });
 
+test('a ready order shows the store pickup location and hides seed placeholders', async () => {
+  mockApp.getOrder.mockResolvedValue({ ...order, status: 'ready' });
+  mockApp.api.store.mockResolvedValue({
+    storeId: 'cafe',
+    name: '카페',
+    pickupLocation: '카운터 오른쪽 낮은 선반, 높이 약 75cm',
+    indoorDirections: 'TODO: 입구 안내',
+    phone: '062-715-0000',
+  });
+  const openURL = jest.spyOn(require('react-native').Linking, 'openURL').mockResolvedValue(true);
+  await render(<OrderScreen />);
+  expect(await screen.findByText('카운터 오른쪽 낮은 선반, 높이 약 75cm')).toBeTruthy();
+  await act(async () => fireEvent.press(screen.getByText('(062-715-0000)')));
+  expect(openURL).toHaveBeenCalledWith('tel:0627150000');
+  expect(screen.queryByText('픽업 위치는 매장 직원에게 확인해 주세요.')).toBeNull();
+  expect(screen.queryByText(/TODO/)).toBeNull();
+});
+
+test('a ready order without a pickup location asks the customer to check with staff', async () => {
+  mockApp.getOrder.mockResolvedValue({ ...order, status: 'ready' });
+  mockApp.api.store.mockResolvedValue({
+    storeId: 'cafe',
+    name: '카페',
+    pickupLocation: 'TODO: e.g. 카운터 오른쪽',
+  });
+  await render(<OrderScreen />);
+  expect(await screen.findByText('픽업 위치는 매장 직원에게 확인해 주세요.')).toBeTruthy();
+  expect(screen.queryByText(/TODO/)).toBeNull();
+});
+
 test('staff help for a direct order shows sent only after confirmation and then reads acknowledgement', async () => {
   mockApp.requestOrderHelp.mockResolvedValue(undefined);
   mockApp.getOrder
