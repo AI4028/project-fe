@@ -7,14 +7,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import {
-  Accessibility,
-  Bluetooth,
-  Compass,
-  MapPin,
-  Navigation,
-  Volume2,
-} from 'lucide-react-native';
+import { Accessibility, MapPin, Navigation, Volume2 } from 'lucide-react-native';
 import { knownText } from '@/lib/location';
 import { directionsUrl } from '@/lib/navigation';
 import { useTranslation } from '@/lib/i18n';
@@ -50,8 +43,6 @@ export default function Guide() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [revision, setRevision] = useState(0);
-  const [approach, setApproach] = useState<'start' | 'direction' | 'signal'>('start');
-  useEffect(() => setApproach('start'), [storeId]);
   useEffect(() => {
     let active = true;
     setError('');
@@ -95,10 +86,6 @@ export default function Guide() {
         .filter(Boolean)
         .join('. ')
     : t('매장을 먼저 선택해 주세요.');
-  const status =
-    approach === 'signal'
-      ? '이 앱에서는 매장 신호를 확인할 수 없어요'
-      : '이 앱에서는 정밀 방향을 확인할 수 없어요';
   return (
     <Screen
       title="매장으로 길 안내"
@@ -123,44 +110,6 @@ export default function Guide() {
               {store.address || '주소 확인 필요'}
             </Text>
           </View>
-          {approach === 'start' ? (
-            <View className="flex-row flex-wrap gap-2">
-              <Button
-                variant="outline"
-                className="min-w-36 flex-1"
-                onPress={() => setApproach('direction')}
-              >
-                <Icon as={Compass} className="text-primary" accessible={false} />
-                <Text className="shrink text-center">방향 안내 시작</Text>
-              </Button>
-              <Button
-                variant="outline"
-                className="min-w-36 flex-1"
-                onPress={() => setApproach('signal')}
-              >
-                <Icon as={Bluetooth} className="text-primary" accessible={false} />
-                <Text className="shrink text-center">기본 신호로 찾기</Text>
-              </Button>
-            </View>
-          ) : (
-            <Card className="rounded-3xl bg-secondary">
-              <CardContent className="gap-3 pt-6">
-                <Icon
-                  as={approach === 'signal' ? Bluetooth : Compass}
-                  className="text-primary"
-                  size={30}
-                  accessible={false}
-                />
-                <Text variant="h3" accessibilityLiveRegion="polite">
-                  {status}
-                </Text>
-                <Text>등록된 접근 정보를 읽거나 외부 지도에서 경로를 확인할 수 있어요.</Text>
-                <Button variant="outline" onPress={() => setApproach('start')}>
-                  <Text>안내 방식 다시 선택</Text>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
           <View className="gap-2">
             <Button
               variant="default"

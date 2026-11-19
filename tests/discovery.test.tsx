@@ -464,3 +464,18 @@ test('late search responses cannot replace a newer destination', async () => {
   expect(screen.queryByLabelText('Old destination 매장 정보 보기')).toBeNull();
   expect(screen.getByLabelText('New destination 매장 정보 보기')).toBeTruthy();
 });
+
+test('deduplicates registered stores returned by both stores and place search', async () => {
+  mockApi.searchPlaces.mockResolvedValueOnce({
+    places: [stores[0]!],
+    status: 'results',
+    generalSearch: 'available',
+  });
+  await render(<Discovery />);
+  await screen.findByLabelText('첫 번째 카페 매장 정보 보기');
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '첫 번째');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
+  await waitFor(() => expect(mockApi.searchPlaces).toHaveBeenCalledWith('첫 번째', 'all', null));
+  expect(screen.getAllByLabelText('첫 번째 카페 매장 정보 보기')).toHaveLength(1);
+});

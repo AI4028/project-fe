@@ -71,13 +71,20 @@ export class Api {
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-      const data = await response.json();
+      let data: Record<string, unknown> | undefined;
+      try {
+        data = (await response.json()) as Record<string, unknown>;
+      } catch {
+        data = undefined;
+      }
       if (!response.ok)
         throw new ApiError(
-          data.error ?? 'server-error',
+          typeof data?.error === 'string' ? data.error : 'server-error',
           response.status,
-          data.message ?? '서버 요청에 실패했습니다.',
+          typeof data?.message === 'string' ? data.message : '서버 요청에 실패했습니다.',
         );
+      if (data === undefined)
+        throw new ApiError('server-error', response.status, '서버 응답을 읽을 수 없습니다.');
       return data as T;
     } finally {
       clearTimeout(timeout);
@@ -184,17 +191,26 @@ const messages: Record<string, string> = {
   'price-changed': '가격이 변경되었습니다. 장바구니를 새로고침하고 다시 확인해 주세요.',
   'idempotency-conflict': '이전 주문과 내용이 다릅니다. 주문 결과를 먼저 확인해 주세요.',
   'token-invalid': '연결 코드가 만료되었습니다. 키오스크에서 새 코드를 확인해 주세요.',
+  'kiosk-not-found': '매장 기기 코드를 찾을 수 없습니다. 4자리 코드를 다시 확인해 주세요.',
+  'store-not-found': '매장 정보를 찾을 수 없습니다.',
   'ordering-paused':
     '지금은 이 매장에서 휴대폰 주문을 받지 않아요. 카운터나 직원에게 주문해 주세요.',
   'ordering-unavailable': '이 매장은 휴대폰 주문을 받을 수 없어요. 매장 직원에게 문의해 주세요.',
   'kiosk-busy': '다른 고객이 사용 중입니다. 잠시 후 다시 연결해 주세요.',
   'session-expired': '연결이 만료되었습니다. 다시 연결해 주세요.',
   'session-not-found': '연결을 찾을 수 없습니다. 다시 연결해 주세요.',
+  'not-your-session': '다른 기기에서 시작한 연결입니다. 새로 연결해 주세요.',
+  'not-your-kiosk': '이 매장의 키오스크 권한이 없습니다.',
+  'unknown-item': '메뉴 정보를 찾을 수 없습니다. 메뉴를 새로고침해 주세요.',
   'item-unavailable': '품절된 메뉴입니다. 메뉴를 새로고침해 주세요.',
   'choice-unavailable': '선택한 옵션이 품절되었습니다.',
   'missing-option': '필수 옵션을 모두 선택해 주세요.',
   'order-not-found': '주문을 찾을 수 없습니다. 주문 번호를 직원에게 보여 주세요.',
   'too-late-to-cancel': '매장에서 이미 접수한 주문입니다. 직원에게 문의해 주세요.',
+  'bad-transition': '이미 처리되었거나 종료된 주문입니다. 상태를 새로고침해 주세요.',
+  'bad-note': '요청 사항은 200자 이내로 입력해 주세요.',
+  'bad-payment-method': '결제 수단을 다시 선택해 주세요.',
+  'bad-request': '요청 형식이 올바르지 않습니다. 입력 내용을 확인해 주세요.',
   'not-signed-in': '기기 인증이 만료되었습니다. 다시 연결해 주세요.',
   'not-kiosk': '키오스크 키를 확인해 주세요.',
   'demo-disabled': '데모 연결이 꺼져 있습니다. 키오스크의 연결 코드를 입력해 주세요.',

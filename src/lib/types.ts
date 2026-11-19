@@ -104,6 +104,7 @@ export type Session = {
   status: 'active' | 'ordered' | 'ended' | 'expired';
   cart: Cart;
   helpRequested: boolean;
+  helpState?: 'idle' | 'sent' | 'acknowledged';
   orderId?: string;
 };
 export type Connection = { sessionId: string; kioskId: string | null; storeId: string };
