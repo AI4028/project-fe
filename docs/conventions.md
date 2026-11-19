@@ -51,7 +51,7 @@ Types: `feat` `fix` `refactor` `test` `docs` `chore`
 | components        | PascalCase named export     | `export function VoiceControls` |
 | hooks             | `use-*.ts`, `useThing`      | `use-location.ts`               |
 | tests             | `tests/<module>.test.ts(x)` | `tests/cart.test.ts`            |
-| assets            | kebab-case                  | `assets/menu/cafe-latte.jpg`    |
+| assets            | kebab-case                  | `assets/fonts/pretendard-bold.otf`    |
 
 - import across folders with `@/`, within a folder with `./`
 - routes only in `src/app`; everything shared lives outside it

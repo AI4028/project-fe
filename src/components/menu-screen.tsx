@@ -251,7 +251,7 @@ export function MenuScreen({
                       .join(', ')}
                     onPress={() => setSelected({ itemId: entry.id, speech: undefined })}
                   >
-                    <MenuThumbnail itemId={entry.id} imageUrl={entry.imageUrl} />
+                    <MenuThumbnail imageUrl={entry.imageUrl} />
                     <View className="min-w-0 flex-1 gap-0.5">
                       <Text translate={false} className="text-left text-lg font-bold">
                         {name}

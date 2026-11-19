@@ -3,6 +3,7 @@ import { Bookmark, Coffee, Store as StoreIcon } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { EmptyState } from '@/components/brand';
+import { MenuThumbnail } from '@/components/menu-controls';
 import { StoreCard } from '@/components/store-card';
 import { PlacePreview } from '@/components/place-preview';
 import { useApp } from '@/providers/app-provider';
@@ -164,6 +165,7 @@ function SavedMenus() {
           <Card key={JSON.stringify([entry.storeId, entry.itemId])} className="rounded-3xl">
             <CardContent className="gap-3">
               <View className="flex-row items-start gap-3">
+                <MenuThumbnail imageUrl={item?.imageUrl} size={52} />
                 <View className="min-w-0 flex-1 gap-1">
                   <Text variant="h3" translate={false}>
                     {name}

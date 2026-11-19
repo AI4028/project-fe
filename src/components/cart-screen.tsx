@@ -195,11 +195,7 @@ export function CartScreen({
                 <Card key={`${line.itemId}:${index}`} className="rounded-2xl p-0 shadow-none">
                   <CardContent className="gap-3 p-4">
                     <View className="flex-row items-start gap-3">
-                      <MenuThumbnail
-                        itemId={line.itemId}
-                        imageUrl={photoOf(line.itemId)}
-                        size={52}
-                      />
+                      <MenuThumbnail imageUrl={menuItem?.imageUrl} size={52} />
                       <View className="min-w-0 flex-1 self-center">
                         <CartLineSummary line={localized} />
                       </View>
@@ -263,11 +259,7 @@ export function CartScreen({
           <DialogContent>
             <DialogTitle>이 메뉴를 삭제할까요?</DialogTitle>
             <View className="flex-row items-center gap-3 rounded-2xl border border-border p-3">
-              <MenuThumbnail
-                itemId={remove.line.itemId}
-                imageUrl={photoOf(remove.line.itemId)}
-                size={56}
-              />
+              <MenuThumbnail imageUrl={photoOf(remove.line.itemId)} size={56} />
               <View className="min-w-0 flex-1">
                 <CartLineSummary line={remove.line} />
               </View>
