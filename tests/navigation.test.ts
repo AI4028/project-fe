@@ -18,7 +18,7 @@ test('directory results never invent ordering or accessibility', () => {
   expect(directoryPlaces([{ id: '1', place_name: 'Bad', x: 'Infinity', y: '37' }])).toEqual([]);
   expect(directoryPlaces(null)).toEqual([]);
 });
-test('directions use coordinates and keep untrusted names out of query parameters', () => {
+test('Kakao directions use coordinates and walking mode', () => {
   const url = new URL(
     directionsUrl({
       storeId: '1',
@@ -28,7 +28,22 @@ test('directions use coordinates and keep untrusted names out of query parameter
       location: { lat: 37, lng: 127 },
     }),
   );
-  expect(url.searchParams.get('destination')).toBe('37,127');
-  expect(url.searchParams.get('travelmode')).toBe('walking');
+  expect(url.hostname).toBe('m.map.kakao.com');
+  expect(url.pathname).toBe('/scheme/route');
+  expect(url.searchParams.get('ep')).toBe('37,127');
+  expect(url.searchParams.get('by')).toBe('walk');
   expect(new URL(placeSearchUrl('A&B')).searchParams.get('q')).toBe('A&B');
+});
+
+test('directions fall back to Kakao place search without coordinates', () => {
+  const url = new URL(
+    directionsUrl({
+      storeId: '1',
+      name: 'A&B',
+      address: 'Seoul',
+      accessibility: {},
+    }),
+  );
+  expect(url.hostname).toBe('map.kakao.com');
+  expect(url.searchParams.get('q')).toBe('A&B Seoul');
 });
