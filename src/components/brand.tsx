@@ -1,38 +1,10 @@
 import type { ReactNode } from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import { Check, type LucideIcon } from 'lucide-react-native';
 import { Text } from './ui/text';
 import { Icon } from './ui/icon';
 import { cn } from '@/lib/utils';
-import { brandColors } from '@/lib/theme';
-import { useApp } from '@/providers/app-provider';
 import { useTranslation } from '@/lib/i18n';
-
-export function BrandLockup({ contrast }: { contrast?: boolean }) {
-  const { settings } = useApp();
-  return (
-    <View className="shrink flex-row items-center gap-2">
-      <Image
-        source={require('../../assets/brand/galjido-logo-654B3C.png')}
-        resizeMode="contain"
-        style={{
-          width: 25,
-          height: 32,
-          tintColor: (contrast ?? settings.contrast) ? brandColors.beige : brandColors.walnut,
-        }}
-        accessible={false}
-      />
-      <View className="min-w-0 shrink">
-        <Text className="text-left text-xl font-bold leading-6 tracking-tight text-primary">
-          갈지도
-        </Text>
-        <Text translate={false} className="text-left text-[11px] leading-4 text-muted-foreground">
-          Galjido Service
-        </Text>
-      </View>
-    </View>
-  );
-}
 
 export function IconTile({ icon, small = false }: { icon: LucideIcon; small?: boolean }) {
   return (

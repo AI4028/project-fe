@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Link, router } from 'expo-router';
-import { Bookmark, RefreshCw, ShoppingBag } from 'lucide-react-native';
+import { Link, router, useFocusEffect } from 'expo-router';
+import { Bookmark, ShoppingBag } from 'lucide-react-native';
 import { ItemOptionsSheet } from './item-options-sheet';
 import { MenuThumbnail } from './menu-controls';
 import { OrderingPaused, Problem, SubmissionRecovery } from './feedback';
@@ -40,6 +40,7 @@ export function MenuScreen({
     initialItemId ? { itemId: initialItemId, speech: initialSpeech } : null,
   );
 
+  useFocusEffect(useCallback(() => () => setSelected(null), []));
   useEffect(() => setCategory(null), [id]);
   useEffect(() => {
     let active = true;
@@ -87,7 +88,13 @@ export function MenuScreen({
 
   return (
     <Screen
-      title={loading && !store ? '메뉴를 불러오고 있어요' : '무엇을 드실까요?'}
+      title={
+        loading && !store
+          ? '메뉴를 불러오고 있어요'
+          : error && !store
+            ? '매장 정보를 불러오지 못했어요'
+            : '어떤 메뉴를 선택하시겠어요?'
+      }
       subtitle={storeName || undefined}
       reading
       voice={!item}
@@ -136,11 +143,12 @@ export function MenuScreen({
       }
       onTranscript={(transcript) => {
         if (!store) return false;
-        if (/메뉴.*(읽|알려)/.test(transcript)) {
+        if (/메뉴.*(읽|알려)|\bread (?:the )?menu\b/i.test(transcript)) {
           app.announce(
             menu
               .map(
-                (entry) => `${entry.name} ${money(entry.price)}${entry.available ? '' : ' 품절'}`,
+                (entry) =>
+                  `${language === 'en' ? entry.nameEn || entry.name : entry.name} ${t(money(entry.price))}${entry.available ? '' : ' ' + t('품절')}`,
               )
               .join(', ') || '메뉴가 아직 없어요',
           );
@@ -154,7 +162,10 @@ export function MenuScreen({
     >
       <SubmissionRecovery />
       {!!error && (
-        <Problem message={error} busy={loading} retry={() => setRevision((value) => value + 1)} />
+        <>
+          <Problem message={error} busy={loading} retry={() => setRevision((value) => value + 1)} />
+          <NavLink href="/">다른 매장 찾기</NavLink>
+        </>
       )}
       {loading && !store && (
         <View
@@ -174,6 +185,11 @@ export function MenuScreen({
       {store && (
         <>
           {store.orderingPaused && <OrderingPaused />}
+          {store.hasOrderTerminal === false && (
+            <Text variant="muted">
+              이 매장은 휴대폰 주문을 받을 수 없어요. 매장 직원에게 문의해 주세요.
+            </Text>
+          )}
           {!!categories.length && (
             <View
               className="flex-row flex-wrap gap-2"
@@ -236,7 +252,7 @@ export function MenuScreen({
                       .join(', ')}
                     onPress={() => setSelected({ itemId: entry.id, speech: undefined })}
                   >
-                    <MenuThumbnail itemId={entry.id} imageUrl={entry.imageUrl} />
+                    <MenuThumbnail imageUrl={entry.imageUrl} />
                     <View className="min-w-0 flex-1 gap-0.5">
                       <Text translate={false} className="text-left text-lg font-bold">
                         {name}
@@ -283,29 +299,6 @@ export function MenuScreen({
                 </View>
               );
             })}
-          </View>
-          <View className="flex-row flex-wrap gap-2 border-t border-border pt-3">
-            <Button
-              variant="ghost"
-              disabled={loading || app.busy}
-              onPress={() => setRevision((value) => value + 1)}
-              accessibilityLabel="메뉴와 판매 상태 새로고침"
-            >
-              <Icon as={RefreshCw} size={17} accessible={false} />
-              <Text>새로고침</Text>
-            </Button>
-            <NavLink
-              href={{ pathname: '/guide', params: { storeId: store.storeId } }}
-              variant="ghost"
-            >
-              매장 이용 안내
-            </NavLink>
-            <NavLink
-              href={{ pathname: '/help', params: { storeId: store.storeId } }}
-              variant="ghost"
-            >
-              주문 도움받기
-            </NavLink>
           </View>
           {selected && !item && !loading && <Problem message="메뉴를 찾을 수 없어요" />}
           {item && selected && (

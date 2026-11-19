@@ -3,6 +3,7 @@ import { Bookmark, Coffee, Store as StoreIcon } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { EmptyState } from '@/components/brand';
+import { MenuThumbnail } from '@/components/menu-controls';
 import { StoreCard } from '@/components/store-card';
 import { PlacePreview } from '@/components/place-preview';
 import { useApp } from '@/providers/app-provider';
@@ -24,7 +25,7 @@ export default function Saved() {
   const selected = app.savedPlaces.find((store) => store.storeId === selectedId);
   return (
     <Screen
-      title="자주가요"
+      title={section === 'menus' ? '저장된 메뉴' : '저장된 매장'}
       subtitle="저장한 매장과 메뉴를 다시 찾아요."
       voice={false}
       footer={
@@ -74,6 +75,7 @@ export default function Saved() {
               onPress={() => setSelectedId(store.storeId)}
             />
           ))}
+          <NavLink href="/">다른 매장 둘러보기</NavLink>
         </View>
       )}
     </Screen>
@@ -154,7 +156,8 @@ function SavedMenus() {
         const lookup = lookups?.get(entry.storeId);
         const store = lookup?.status === 'ready' ? lookup.store : undefined;
         const item = store?.menu?.find((item) => item.id === entry.itemId);
-        const available = store && item?.available && !store.orderingPaused;
+        const available =
+          store && item?.available && store.hasOrderTerminal !== false && !store.orderingPaused;
         const name =
           (language === 'en' ? item?.nameEn || item?.name : item?.name) || entry.itemName;
         const storeName =
@@ -163,6 +166,7 @@ function SavedMenus() {
           <Card key={JSON.stringify([entry.storeId, entry.itemId])} className="rounded-3xl">
             <CardContent className="gap-3">
               <View className="flex-row items-start gap-3">
+                <MenuThumbnail imageUrl={item?.imageUrl} size={52} />
                 <View className="min-w-0 flex-1 gap-1">
                   <Text variant="h3" translate={false}>
                     {name}
@@ -214,7 +218,9 @@ function SavedMenus() {
                   <Text>
                     {store?.orderingPaused
                       ? '지금은 주문을 받지 않아요.'
-                      : '현재 판매하지 않는 메뉴예요.'}
+                      : store?.hasOrderTerminal === false
+                        ? '이 매장은 휴대폰 주문을 받을 수 없어요. 매장 직원에게 문의해 주세요.'
+                        : '현재 판매하지 않는 메뉴예요.'}
                   </Text>
                   {store ? (
                     <NavLink href={{ pathname: '/menu', params: { storeId: entry.storeId } }}>

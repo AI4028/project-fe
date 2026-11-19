@@ -15,15 +15,18 @@ jest.mock('@/components/screen', () => {
   return {
     Screen: ({
       title,
+      subtitle,
       children,
       footer,
     }: {
       title: string;
+      subtitle?: string;
       children: React.ReactNode;
       footer?: React.ReactNode;
     }) => (
       <View>
         <Text>{title}</Text>
+        {subtitle && <Text>{subtitle}</Text>}
         {children}
         {footer}
       </View>
@@ -67,7 +70,7 @@ beforeEach(() => {
 test('opens the recovered order once the app learns it after a lost response', async () => {
   const view = await render(<Review />);
   await act(async () => {
-    fireEvent.press(screen.getByText('이 내용으로 주문 제출'));
+    fireEvent.press(screen.getByText('주문 완료'));
   });
   expect(screen.getByText(/서버에 연결할 수 없습니다/)).toBeTruthy();
   expect(router.replace).not.toHaveBeenCalled();
@@ -90,7 +93,7 @@ test('does not jump to an older order from a different connection', async () => 
   mockApp.order = { orderId: 'old', orderNumber: 3, sessionId: 'earlier', status: 'cancelled' };
   const view = await render(<Review />);
   await act(async () => {
-    fireEvent.press(screen.getByText('이 내용으로 주문 제출'));
+    fireEvent.press(screen.getByText('주문 완료'));
   });
   await view.rerender(<Review />);
   expect(router.replace).not.toHaveBeenCalled();
@@ -109,7 +112,7 @@ test('requires confirmation of the new server price before restarting submission
     .mockResolvedValueOnce({ orderId: 'price-confirmed', sessionId: 's1' });
   mockApp.submit = submit;
   await render(<Review />);
-  await act(async () => fireEvent.press(screen.getByText('이 내용으로 주문 제출')));
+  await act(async () => fireEvent.press(screen.getByText('주문 완료')));
   expect(screen.getByText('변경 전 3,000원')).toBeTruthy();
   expect(screen.getByText('변경 후 3,600원')).toBeTruthy();
   expect(submit).toHaveBeenCalledTimes(1);
@@ -127,6 +130,16 @@ test('offers recovery instead of a new submission when the original result is un
   await render(<Review />);
   expect(screen.getByText('주문 결과를 확인해 주세요')).toBeTruthy();
   expect(screen.queryByText('전송 실패')).toBeNull();
-  expect(screen.queryByText('이 내용으로 주문 제출')).toBeNull();
+  expect(screen.queryByText('주문 완료')).toBeNull();
   expect(mockApp.submit).not.toHaveBeenCalled();
+});
+
+test('offers simulated wallets only in demo checkout', async () => {
+  const view = await render(<Review />);
+  expect(screen.getByText('주문을 보내고 매장에서 결제해 주세요.')).toBeTruthy();
+  expect(screen.queryByText('카카오페이')).toBeNull();
+  mockApp.demo = true;
+  await view.rerender(<Review />);
+  expect(screen.getByText('카카오페이')).toBeTruthy();
+  expect(screen.getByText(/모의 결제입니다/)).toBeTruthy();
 });

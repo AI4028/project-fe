@@ -137,3 +137,29 @@ test('handles non-JSON error responses and translates backend error codes to Kor
     '종료된 주문',
   );
 });
+
+test('uploads image bytes with kiosk auth and resolves the saved kiosk thumbnail', async () => {
+  const photo = new Uint8Array([255, 216, 255]).buffer;
+  const imageUrl = '/media/menu/uploads/photo.jpg';
+  const store = { menu: [{ id: 'a b', imageUrl }] };
+  const transport = jest
+    .fn()
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ itemId: 'a b', imageUrl }) })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ store, photoUploadsEnabled: true }) });
+  const api = new Api('https://example.test/api', transport);
+  await api.uploadMenuPhoto('a b', photo, 'ksk_test');
+  expect(transport).toHaveBeenCalledWith(
+    'https://example.test/api/kiosk/menu/a%20b/photo',
+    expect.objectContaining({
+      method: 'PUT',
+      body: photo,
+      headers: {
+        Authorization: 'Bearer ksk_test',
+        'Content-Type': 'application/octet-stream',
+      },
+    }),
+  );
+  const state = await api.kioskState('ksk_test');
+  expect(state.photoUploadsEnabled).toBe(true);
+  expect(state.store.menu?.[0]?.imageUrl).toBe('https://example.test/api' + imageUrl);
+});

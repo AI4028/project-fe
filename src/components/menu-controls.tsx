@@ -6,32 +6,16 @@ import { Text } from './ui/text';
 import { useTranslation } from '@/lib/i18n';
 import type { PricedLine } from '@/lib/types';
 
-const photos: Record<string, number> = {
-  americano: require('../../assets/menu/americano.jpg'),
-  'cafe-latte': require('../../assets/menu/cafe-latte.jpg'),
-  'vanilla-latte': require('../../assets/menu/vanilla-latte.jpg'),
-  'grapefruit-ade': require('../../assets/menu/grapefruit-ade.jpg'),
-};
-
-export function MenuThumbnail({
-  itemId,
-  imageUrl,
-  size = 68,
-}: {
-  itemId: string;
-  imageUrl?: string;
-  size?: number;
-}) {
-  const source = imageUrl ? { uri: imageUrl } : photos[itemId];
+export function MenuThumbnail({ imageUrl, size = 68 }: { imageUrl?: string; size?: number }) {
   return (
     <View
       className="shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary"
       style={{ width: size, height: size }}
       accessible={false}
     >
-      {source ? (
+      {imageUrl ? (
         <Image
-          source={source}
+          source={{ uri: imageUrl }}
           style={{ width: size, height: size }}
           accessibilityIgnoresInvertColors
           accessible={false}

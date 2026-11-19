@@ -4,6 +4,12 @@ import { LimitTextScale, Text, TextScaleContext } from '@/components/ui/text';
 import { resolveTextSize, textScale } from '@/lib/text-size';
 import Settings from '@/app/settings';
 
+jest.mock('@/components/ui/dialog', () => ({
+  Dialog: () => null,
+  DialogContent: () => null,
+  DialogTitle: () => null,
+  DialogDescription: () => null,
+}));
 jest.mock('@rn-primitives/slot', () => ({ Slot: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View }));
 jest.mock('expo-router', () => ({
@@ -58,13 +64,12 @@ test('fixed bars grow only part of the way while content uses the full scale', a
   expect(StyleSheet.flatten(screen.getByText('본문').props.style).fontSize).toBe(32);
 });
 
-test('settings offers three text sizes and saves the choice', async () => {
+test('settings saves the 200% large-text switch', async () => {
   await render(<Settings />);
-  const largest = screen.getByLabelText('아주 크게 200%');
+  expect(screen.getByRole('radio', { name: 'Switch to English' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: '언어 선택' })).toBeTruthy();
+  const largest = screen.getByRole('switch', { name: '큰 글씨' });
   expect(largest.props.accessibilityState).toMatchObject({ checked: false });
-  expect(screen.getByLabelText('기본 100%').props.accessibilityState).toMatchObject({
-    checked: true,
-  });
   await fireEvent.press(largest);
   expect(mockSaveSettings).toHaveBeenCalledWith(
     expect.objectContaining({ textSize: 'xlarge', largeText: true }),

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect, usePathname } from 'expo-router';
 import { ArrowRight, ShoppingBag, Trash2 } from 'lucide-react-native';
 import { EmptyState } from './brand';
 import { OrderingPaused, Problem, SubmissionRecovery } from './feedback';
@@ -36,6 +36,16 @@ export function CartScreen({
   const [removeError, setRemoveError] = useState('');
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
+  const isCart = usePathname() === '/cart';
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        setEdit(null);
+        setRemove(null);
+      },
+      [],
+    ),
+  );
   const didOpenInitial = useRef(false);
   const storeId = app.connection?.storeId ?? app.store?.storeId;
   const storeName =
@@ -49,7 +59,8 @@ export function CartScreen({
     : ('/menu' as const);
 
   useEffect(() => {
-    if (initialEdit === undefined || didOpenInitial.current || !app.ready || app.busy) return;
+    if (!isCart || initialEdit === undefined || didOpenInitial.current || !app.ready || app.busy)
+      return;
     didOpenInitial.current = true;
     const index = Number(initialEdit);
     const original = app.items[index];
@@ -68,6 +79,7 @@ export function CartScreen({
     }
     setError('수정할 메뉴를 장바구니에서 다시 선택해 주세요.');
   }, [
+    isCart,
     initialEdit,
     initialItemId,
     initialStoreId,
@@ -141,7 +153,7 @@ export function CartScreen({
               onPress={() => void review()}
             >
               <Text className="shrink text-left">
-                {checking ? '가격과 재고 확인 중' : '결제 수단 선택'}
+                {checking ? '가격과 재고 확인 중' : app.demo ? '결제 수단 선택' : '주문 확인하기'}
               </Text>
               <Icon
                 as={ArrowRight}
@@ -183,11 +195,7 @@ export function CartScreen({
                 <Card key={`${line.itemId}:${index}`} className="rounded-2xl p-0 shadow-none">
                   <CardContent className="gap-3 p-4">
                     <View className="flex-row items-start gap-3">
-                      <MenuThumbnail
-                        itemId={line.itemId}
-                        imageUrl={photoOf(line.itemId)}
-                        size={52}
-                      />
+                      <MenuThumbnail imageUrl={menuItem?.imageUrl} size={52} />
                       <View className="min-w-0 flex-1 self-center">
                         <CartLineSummary line={localized} />
                       </View>
@@ -229,12 +237,11 @@ export function CartScreen({
             })}
           </View>
           <View className="flex-row flex-wrap gap-2">
-            <NavLink href={menuHref}>다른 메뉴 추가</NavLink>
-            <NavLink href="/leave">주문 중단 · 장바구니 관리</NavLink>
+            <NavLink href={menuHref}>메뉴 더 고르기</NavLink>
           </View>
         </>
       )}
-      {app.store && itemToEdit && edit && (
+      {isCart && app.store && itemToEdit && edit && (
         <ItemOptionsSheet
           store={app.store}
           item={itemToEdit}
@@ -242,7 +249,7 @@ export function CartScreen({
           onClose={() => setEdit(null)}
         />
       )}
-      {remove && (
+      {isCart && remove && (
         <Dialog
           open
           onOpenChange={(open) => {
@@ -252,11 +259,7 @@ export function CartScreen({
           <DialogContent>
             <DialogTitle>이 메뉴를 삭제할까요?</DialogTitle>
             <View className="flex-row items-center gap-3 rounded-2xl border border-border p-3">
-              <MenuThumbnail
-                itemId={remove.line.itemId}
-                imageUrl={photoOf(remove.line.itemId)}
-                size={56}
-              />
+              <MenuThumbnail imageUrl={photoOf(remove.line.itemId)} size={56} />
               <View className="min-w-0 flex-1">
                 <CartLineSummary line={remove.line} />
               </View>

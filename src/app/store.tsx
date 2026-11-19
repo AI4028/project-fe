@@ -3,7 +3,6 @@ import { Image, View, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Accessibility, Navigation, ShoppingBag } from 'lucide-react-native';
@@ -65,13 +64,15 @@ export default function StoreDetails() {
             variant="default"
             icon={ShoppingBag}
           >
-            {store.orderingPaused ? '메뉴 둘러보기' : '바로 주문하기'}
+            {store.orderingPaused || store.hasOrderTerminal === false
+              ? '메뉴 둘러보기'
+              : '바로 주문하기'}
           </NavLink>
         ) : undefined
       }
       onTranscript={(text) => {
         if (!id) return false;
-        if (/메뉴.*(읽|알려)/.test(text)) {
+        if (/메뉴.*(읽|알려)|\bread (?:the )?menu\b/i.test(text)) {
           const preview = store?.menu;
           if (preview?.length) {
             app.announce(
@@ -87,11 +88,11 @@ export default function StoreDetails() {
           }
           return true;
         }
-        if (/메뉴/.test(text)) {
+        if (/메뉴|\bmenu\b/i.test(text)) {
           router.push({ pathname: '/menu', params: { storeId: id } });
           return true;
         }
-        if (/길|실내|어디/.test(text)) {
+        if (/길|실내|어디|\bdirections\b/i.test(text)) {
           router.push({ pathname: '/guide', params: { storeId: id } });
           return true;
         }
@@ -131,20 +132,6 @@ export default function StoreDetails() {
             </CardContent>
           </Card>
           {store.orderingPaused && <OrderingPaused />}
-          {!app.connection && !store.orderingPaused && (
-            <View className="flex-row flex-wrap items-center justify-between gap-3 rounded-2xl bg-secondary p-4">
-              <View className="min-w-0 flex-1 gap-1">
-                <Text className="font-semibold">지금 매장에 계신가요?</Text>
-                <Text variant="muted">매장 코드로 내 휴대폰에서 주문하세요.</Text>
-              </View>
-              <NavLink
-                href={{ pathname: '/connect', params: { storeId: store.storeId } }}
-                variant="outline"
-              >
-                주문 연결
-              </NavLink>
-            </View>
-          )}
           <View className="flex-row flex-wrap gap-4">
             <Card
               className="min-w-0 rounded-3xl"
@@ -215,7 +202,12 @@ export default function StoreDetails() {
                 <Text variant="muted">
                   안내가 없거나 현장과 다르면 직원에게 이동 경로를 확인해 주세요.
                 </Text>
-                <NavLink href={{ pathname: '/guide', params: { storeId: store.storeId } }}>
+                <NavLink
+                  href={{
+                    pathname: '/guide',
+                    params: { storeId: store.storeId, stage: 'details' },
+                  }}
+                >
                   안내 자세히 보기
                 </NavLink>
               </CardContent>
@@ -249,9 +241,6 @@ export default function StoreDetails() {
           <NavLink href={{ pathname: '/help', params: { storeId: store.storeId } }}>
             다른 주문 방법 · 직원에게 문의
           </NavLink>
-          <Button variant="outline" onPress={() => setRevision((value) => value + 1)}>
-            <Text>매장 정보 새로고침</Text>
-          </Button>
         </>
       )}
       <NavLink href="/">다른 매장 찾기</NavLink>

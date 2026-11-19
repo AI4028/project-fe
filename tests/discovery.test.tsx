@@ -53,7 +53,6 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View }));
 jest.mock('@/components/language-switch', () => ({ LanguageSwitch: () => null }));
-jest.mock('@/components/app-header', () => ({ AppHeader: () => null }));
 const mockSpeechEvents = new Map<string, (event?: unknown) => void>();
 const mockRequestMic = jest.fn();
 jest.mock('expo-speech', () => ({ stop: jest.fn().mockResolvedValue(undefined) }));
@@ -131,7 +130,6 @@ beforeEach(() => {
 test('voice recognition waits for the user to edit and confirm the search', async () => {
   await render(<Discovery />);
   await fireEvent.press(screen.getByLabelText('말로 검색'));
-  await fireEvent.press(screen.getByText('마이크 켜고 말하기'));
   await screen.findByText('듣고 있어요');
   await act(async () => {
     mockSpeechEvents.get('result')?.({ isFinal: true, results: [{ transcript: '카패' }] });
@@ -148,7 +146,6 @@ test('denied microphone keeps a typed query available', async () => {
   await fireEvent.press(screen.getByLabelText('검색 열기'));
   await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '성수');
   await fireEvent.press(screen.getByLabelText('말로 검색'));
-  await fireEvent.press(screen.getByText('마이크 켜고 말하기'));
   await screen.findByText('마이크 권한이 꺼져 있어요');
   await fireEvent.press(screen.getByText('글자로 입력하기'));
   expect(screen.getByDisplayValue('성수')).toBeTruthy();
@@ -227,12 +224,13 @@ test('failed search shows one recovery state without a misleading zero count', a
   mockApi.stores.mockRejectedValueOnce(new TypeError('offline'));
   mockApi.searchPlaces.mockRejectedValueOnce(new TypeError('offline'));
   await render(<Discovery />);
-  await fireEvent.press(screen.getByLabelText('장소 필터'));
-  await fireEvent.press(screen.getByRole('radio', { name: '지하철역' }));
+  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '성수');
+  await fireEvent.press(screen.getByLabelText('검색 실행'));
   await screen.findByText('장소를 불러오지 못했어요');
   expect(screen.queryByText('주문 연결 불가')).toBeNull();
   expect(screen.queryByText('0 개의 장소')).toBeNull();
-  expect(screen.getByText('서버 연결 설정')).toBeTruthy();
+  expect(screen.queryByText('서버 연결 설정')).toBeNull();
   await fireEvent.press(screen.getByText('장소 검색 다시 시도'));
   await waitFor(() => expect(screen.queryByText('장소를 불러오지 못했어요')).toBeNull());
 });
@@ -249,7 +247,7 @@ test('home keeps four labelled destinations and search expands only when request
   expect(screen.getByLabelText('매장 이름 또는 주소 검색')).toBeTruthy();
   await fireEvent.press(screen.getByLabelText('검색 닫기'));
   expect(screen.queryByLabelText('매장 이름 또는 주소 검색')).toBeNull();
-  await fireEvent.press(screen.getByRole('tab', { name: '주문내용' }));
+  await fireEvent.press(screen.getByRole('tab', { name: '주문내역' }));
   expect(router.navigate).toHaveBeenCalledWith('/orders');
 });
 
@@ -264,8 +262,9 @@ test('a listed restroom never hides a known entrance barrier', async () => {
       showDistance={false}
     />,
   );
-  expect(screen.getByText('입구에 턱 있음 · 상세 확인')).toBeTruthy();
-  expect(screen.getByText('장애인 화장실')).toBeTruthy();
+  const details = screen.getByRole('button', { name: '두 번째 카페 매장 정보 보기' });
+  expect(details.props.accessibilityHint).toContain('입구에 턱 있음');
+  expect(details.props.accessibilityHint).toContain('장애인 화장실');
 });
 
 test('accessibility filters exclude false, null and unknown facts without changing the source', () => {
@@ -276,34 +275,32 @@ test('accessibility filters exclude false, null and unknown facts without changi
   expect(stores).toHaveLength(3);
 });
 
-test('switching views keeps the selected place and accessibility filters', async () => {
+test('switching views keeps the selected place and search query', async () => {
   await render(<Discovery />);
   await screen.findByLabelText('첫 번째 카페 매장 정보 보기');
   await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '서울');
+  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '성수');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
-  await fireEvent.press(screen.getByLabelText('장소 필터'));
-  await fireEvent.press(screen.getByRole('radio', { name: '턱 없는 입구' }));
-  expect(screen.queryByLabelText('두 번째 카페 매장 정보 보기')).toBeNull();
   await fireEvent.press(screen.getByLabelText('검색 열기'));
-  expect(screen.getByDisplayValue('서울')).toBeTruthy();
+  expect(screen.queryByLabelText('두 번째 카페 매장 정보 보기')).toBeNull();
+  expect(screen.getByDisplayValue('성수')).toBeTruthy();
   expect(screen.getByLabelText('첫 번째 카페 매장 정보 보기')).toBeTruthy();
   expect(screen.queryByLabelText('두 번째 카페 매장 정보 보기')).toBeNull();
   expect(screen.queryByTestId('store-map')).toBeNull();
   await fireEvent.press(screen.getByLabelText('검색 닫기'));
   await fireEvent.press(screen.getByLabelText('첫 번째 카페 매장 정보 보기'));
-  await fireEvent.press(screen.getByRole('radio', { name: '지도로 주문' }));
+  await fireEvent.press(screen.getByRole('radio', { name: '그림 지도' }));
   expect(mockUpdateSettings).toHaveBeenCalledWith({ exploreMode: 'map' });
   expect(screen.getByTestId('store-map')).toBeTruthy();
   expect(screen.getByText('매장 정보 · 메뉴')).toBeTruthy();
   expect(screen.getByLabelText('첫 번째 카페 지도 핀')).toBeTruthy();
   expect(screen.queryByLabelText('두 번째 카페 지도 핀')).toBeNull();
-  await fireEvent.press(screen.getByRole('radio', { name: '리스트로 주문' }));
+  await fireEvent.press(screen.getByRole('radio', { name: '글 지도' }));
   expect(screen.queryByTestId('store-map')).toBeNull();
   expect(screen.getByText('매장 정보 · 메뉴')).toBeTruthy();
 });
 
-test('map search and nearby stay on the visual map with working filters', async () => {
+test('map search and nearby stay on the visual map for the submitted query', async () => {
   mockApi.searchPlaces.mockResolvedValue({
     places: [
       {
@@ -319,14 +316,10 @@ test('map search and nearby stay on the visual map with working filters', async 
     generalSearch: 'available',
   });
   await render(<MapExplore />);
-  expect(screen.getByRole('radio', { name: '지도로 주문' }).props.accessibilityState.checked).toBe(
+  expect(screen.getByRole('radio', { name: '그림 지도' }).props.accessibilityState.checked).toBe(
     true,
   );
   expect(screen.queryByLabelText('접근성 조건')).toBeNull();
-  await fireEvent.press(screen.getByLabelText('장소 필터'));
-  await fireEvent.press(screen.getByRole('radio', { name: '턱 없는 입구' }));
-  expect(screen.queryByLabelText('두 번째 카페 지도 핀')).toBeNull();
-  await fireEvent.press(screen.getByLabelText('장소 필터'));
   await fireEvent.press(screen.getByLabelText('검색 열기'));
   await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'Nearby');
   await fireEvent.press(screen.getByLabelText('검색 실행'));

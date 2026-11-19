@@ -31,3 +31,13 @@ test('matches disability choices and menu names before generic order commands', 
     qty: 2,
   });
 });
+
+test('matches English item names, temperature, size and quantity', () => {
+  const latte = { id: 'latte', name: '라떼', nameEn: 'Latte' } as MenuItem;
+  const vanilla = { id: 'vanilla', name: '바닐라라떼', nameEn: 'Vanilla Latte' } as MenuItem;
+  expect(voiceSelection('Two large iced vanilla lattes', [latte, vanilla])).toEqual({
+    item: vanilla,
+    options: { size: 'large', temp: 'ice' },
+    qty: 2,
+  });
+});

@@ -24,6 +24,7 @@ import {
   type CartItem,
   type Connection,
   type Order,
+  type PaymentMethod,
   type Store,
 } from '@/lib/types';
 
@@ -37,6 +38,10 @@ type Settings = {
   textSize?: import('@/lib/text-size').TextSize;
   speech: boolean;
   voiceInput?: boolean;
+  vibration?: boolean;
+  orderAlerts?: boolean;
+  locateOnStart?: boolean;
+  recentSearches?: string[];
 };
 const initialSettings: Settings = {
   language: 'ko',
@@ -80,7 +85,7 @@ function useAppState() {
   const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
   const pendingRef = useRef<string | null>(null);
   const [helpState, setHelpState] = useState<'idle' | 'sent' | 'acknowledged'>('idle');
-  const [checkout, setCheckout] = useState<{ payment: 'counter' | 'kiosk'; note: string }>({
+  const [checkout, setCheckout] = useState<{ payment: PaymentMethod; note: string }>({
     payment: 'counter',
     note: '',
   });
@@ -244,7 +249,8 @@ function useAppState() {
         const saved = JSON.parse(raw) as {
           sessionId: string;
           items: CartItem[];
-          payment: 'counter' | 'kiosk';
+          simulatePayment?: boolean;
+          payment: PaymentMethod;
           note: string;
           quoteId: string;
         };
@@ -258,14 +264,19 @@ function useAppState() {
             saved.note,
             await token(),
             saved.quoteId,
+            saved.simulatePayment,
           );
           return rememberOrder(placed);
         } catch (error) {
           if (
             error instanceof ApiError &&
-            ['price-changed', 'item-unavailable', 'choice-unavailable', 'session-expired'].includes(
-              error.code,
-            )
+            [
+              'bad-payment-method',
+              'price-changed',
+              'item-unavailable',
+              'choice-unavailable',
+              'session-expired',
+            ].includes(error.code)
           )
             await markPending(null);
           throw error;
@@ -304,7 +315,7 @@ function useAppState() {
     if (order) {
       const latest = await api.order(order.orderId, device);
       if (currentApi.current !== api) return;
-      if (latest.status !== order.status)
+      if (latest.status !== order.status && settingsRef.current.orderAlerts !== false)
         announce(`주문 ${latest.orderNumber}번, ${statusLabels[latest.status]}`);
       setOrder((current) => (current?.orderId === latest.orderId ? latest : current));
     }
@@ -492,13 +503,15 @@ function useAppState() {
       }
     });
   }
-  async function updateCart(next: CartItem[], storeId = store?.storeId) {
+  async function updateCart(next: CartItem[], storeId = store?.storeId, replaceSessionId?: string) {
     return exclusive(async () => {
       if (pendingRef.current) throw new Error('먼저 주문 전송 결과를 확인해 주세요.');
       let active = currentConnection.current;
       const id = storeId ?? active?.storeId;
       if (!id) throw new Error('먼저 매장을 선택해 주세요.');
-      if (active && active.storeId !== id)
+      if (replaceSessionId && active?.sessionId !== replaceSessionId)
+        throw new Error('장바구니가 변경되었어요. 다시 확인해 주세요.');
+      if (active && active.storeId !== id && !replaceSessionId)
         throw new Error('장바구니의 매장을 확인한 뒤 다른 매장을 선택해 주세요.');
       if (next.length > 20) throw new Error('한 번에 20개 메뉴까지 담을 수 있습니다.');
       if (!active && !next.length) return emptyCart;
@@ -510,8 +523,12 @@ function useAppState() {
         if (error) throw new Error(error);
       }
       const device = await token();
-      if (!active) {
-        const session = await api.startStoreSession(id, device);
+      const previous = active;
+      let result: Cart;
+      if (!active || (replaceSessionId && active.storeId !== id)) {
+        const session = previous
+          ? await api.prepareStoreCart(id, next, device)
+          : await api.startStoreSession(id, device);
         await AsyncStorage.setItem(`session:${api.base}`, session.sessionId);
         ++selectStoreSeq.current;
         active = session;
@@ -521,19 +538,28 @@ function useAppState() {
         setCart(session.cart);
         setItems(restoreCart(session.cart.lines, selected.menu ?? []));
         setCheckout({ payment: 'counter', note: '' });
+        setHelpState('idle');
+        result = previous ? session.cart : await api.cart(session.sessionId, next, device);
+      } else {
+        result = await api.cart(active.sessionId, next, device);
       }
-      const result = await api.cart(active.sessionId, next, device);
       setItems(next);
       setCart(result);
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      if (settings.vibration !== false)
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       announce(`장바구니가 변경되었습니다. 합계 ${result.total.toLocaleString('ko-KR')}원`);
+      if (previous && previous.sessionId !== active.sessionId) {
+        // The new cart is durable. A failed kiosk release must never undo it.
+        await api.end(previous.sessionId, device).catch(report);
+      }
       return result;
     });
   }
-  async function submit(payment: 'counter' | 'kiosk', note: string) {
+  async function submit(payment: PaymentMethod, note: string) {
     return exclusive(async () => {
       if (pendingRef.current)
         throw new Error('전송 결과를 먼저 확인해 주세요. 주문을 다시 보내지 않았습니다.');
+      if (!demo) payment = 'counter';
       if (!connection || !items.length) throw new Error('연결 상태와 장바구니를 확인해 주세요.');
       const device = await token();
       const latest = await api.cart(connection.sessionId, items, device);
@@ -552,6 +578,7 @@ function useAppState() {
           payment,
           note,
           quoteId: latest.quoteId,
+          simulatePayment: demo,
         }),
       );
       await markPending(connection.sessionId);
@@ -564,6 +591,7 @@ function useAppState() {
           note,
           device,
           latest.quoteId,
+          demo,
         );
       } catch (error) {
         // A timeout/5xx or already-closed session can hide a committed order.

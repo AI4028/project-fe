@@ -1,237 +1,184 @@
-import { useRef, useState } from 'react';
-import { View } from 'react-native';
-import { Contrast, Type, Volume2, Mic, ChevronDown, ChevronUp, Server } from 'lucide-react-native';
-import { Screen, NavLink } from '@/components/screen';
-import { IconTile } from '@/components/brand';
+import { useState } from 'react';
+import { Linking } from 'react-native';
+import * as Location from 'expo-location';
+import { Screen } from '@/components/screen';
+import { LanguageSwitch } from '@/components/language-switch';
 import { PreferenceSwitch } from '@/components/preference-switch';
-import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useApp } from '@/providers/app-provider';
-import { LanguageSwitch } from '@/components/language-switch';
-import { AssistancePicker } from '@/components/assistance-picker';
-import { resolveTextSize, textSizes } from '@/lib/text-size';
 import { resolveExploreMode, type ExploreMode } from '@/lib/location';
+import { resolveTextSize } from '@/lib/text-size';
 import { useTranslation } from '@/lib/i18n';
-
-const preferences = [
-  {
-    key: 'contrast',
-    icon: Contrast,
-    title: '고대비 화면',
-    description: '검은 배경과 밝은 글자, 선명한 테두리로 구분해요.',
-  },
-  {
-    key: 'voiceInput',
-    icon: Mic,
-    title: '음성 명령',
-    description: '메뉴 이름이나 원하는 동작을 말해서 선택해요.',
-  },
-  {
-    key: 'speech',
-    icon: Volume2,
-    title: '추가 음성 안내',
-    description: '선택한 내용과 진행 상태를 소리로 안내해요.',
-  },
-] as const;
 
 export default function Settings() {
   const app = useApp();
-  const { t } = useTranslation();
   const { settings } = app;
-  const [base, setBase] = useState(settings.apiBase);
-  const [showServer, setShowServer] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const pending = useRef(false);
-  const disabled = app.busy || saving;
-
-  async function save(patch: Parameters<typeof app.updateSettings>[0], confirmation?: string) {
-    if (pending.current) return;
-    pending.current = true;
-    setSaving(true);
+  const { t } = useTranslation();
+  const [permissions, setPermissions] = useState(false);
+  const [location, setLocation] = useState('');
+  const [confirm, setConfirm] = useState(false);
+  const registrationUrl = process.env.EXPO_PUBLIC_STORE_REGISTRATION_URL;
+  const save = (patch: Parameters<typeof app.updateSettings>[0]) =>
+    app.updateSettings(patch).catch(app.report);
+  const checkLocation = async (request: boolean) => {
     try {
-      await app.updateSettings(patch);
-      if (confirmation) app.announce(confirmation);
-    } catch (reason) {
-      app.report(reason);
-    } finally {
-      pending.current = false;
-      setSaving(false);
+      const result = request
+        ? await Location.requestForegroundPermissionsAsync()
+        : await Location.getForegroundPermissionsAsync();
+      setLocation(result.granted ? '위치 · 허용됨' : '위치 · 허용 안 됨');
+    } catch {
+      setLocation('위치를 확인하지 못했어요');
     }
-  }
-
+  };
+  if (permissions)
+    return (
+      <Screen
+        onBack={() => setPermissions(false)}
+        title="기기 권한"
+        subtitle="필요한 기능을 사용할 때만 권한을 요청해요."
+        voice={false}
+      >
+        <Card>
+          <CardContent>
+            <Text variant="h3">{location || '위치'}</Text>
+            <Button onPress={() => void checkLocation(true)}>
+              <Text>위치 권한 다시 확인</Text>
+            </Button>
+          </CardContent>
+        </Card>
+        <Text>마이크 · 음성 검색을 시작할 때 요청해요.</Text>
+        <Text>Bluetooth · 매장 검색과 주문에는 필요하지 않아요.</Text>
+      </Screen>
+    );
   return (
-    <Screen
-      title="환경설정"
-      subtitle="필요한 기능만 골라 켜 주세요. 언제든 다시 바꿀 수 있어요."
-      voice={false}
-      reading
-      roomy
-    >
+    <Screen title="이용 설정" subtitle="변경 내용은 이 기기에 저장돼요." voice={false} reading>
       <Card>
-        <CardContent>
-          <LanguageSwitch disabled={disabled} />
+        <CardContent className="gap-3">
+          <LanguageSwitch />
         </CardContent>
       </Card>
-
-      <View className="gap-3">
-        <Text variant="h2">화면과 음성</Text>
-        {preferences.map(({ key, icon, title, description }) => (
+      <Card>
+        <CardContent className="gap-3">
+          <Text variant="h2">접근성</Text>
           <PreferenceSwitch
-            key={key}
-            title={title}
-            description={description}
-            icon={icon}
-            value={!!settings[key]}
-            disabled={disabled}
-            onChange={(value) => void save({ [key]: value })}
+            title="고대비"
+            description="글자와 버튼 경계를 선명하게"
+            value={settings.contrast}
+            onChange={(contrast) => void save({ contrast })}
           />
-        ))}
-        <Card>
-          <CardContent className="gap-3">
-            <View className="flex-row items-center gap-3">
-              <IconTile icon={Type} small />
-              <View className="min-w-0 flex-1 gap-0.5">
-                <Text className="font-bold">글자 크기</Text>
-                <Text variant="muted">화면의 글자와 입력 내용을 최대 200%까지 키워요.</Text>
-              </View>
-            </View>
-            <View
-              className="flex-row flex-wrap gap-2"
-              accessibilityRole="radiogroup"
-              accessibilityLabel={t('글자 크기')}
-            >
-              {textSizes.map((size) => {
-                const selected = resolveTextSize(settings) === size.key;
-                return (
-                  <Button
-                    key={size.key}
-                    variant={selected ? 'default' : 'outline'}
-                    className="min-h-12 flex-1 flex-wrap gap-1 px-2"
-                    style={{ flexBasis: 112 }}
-                    accessibilityRole="radio"
-                    accessibilityLabel={`${size.label} ${size.percent}%`}
-                    accessibilityState={{ checked: selected }}
-                    disabled={disabled}
-                    onPress={() =>
-                      void save({ textSize: size.key, largeText: size.key !== 'base' })
-                    }
-                  >
-                    <Text className="font-bold">{size.label}</Text>
-                    <Text variant="small">{size.percent}%</Text>
-                  </Button>
-                );
-              })}
-            </View>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="gap-2">
-            <Text variant="h3">지금, 편하게 보이시나요?</Text>
-            <Text variant="muted">
-              변경한 설정이 이 화면에도 바로 적용돼요. 휴대폰의 글자 크기와 화면 읽기 설정도 함께
-              사용할 수 있어요.
-            </Text>
-            <Text variant="muted">화면 읽기가 켜져 있으면 추가 음성 안내는 재생하지 않아요.</Text>
-          </CardContent>
-        </Card>
-      </View>
-
-      <Card>
-        <CardContent className="gap-4">
-          <Text variant="h2">위치 및 지도 기본 설정</Text>
-          <View className="gap-2">
-            <Text className="font-bold">시작 화면 기본 모드</Text>
-            <SegmentedControl<ExploreMode>
-              value={resolveExploreMode(settings.assistance, settings.exploreMode) ?? 'list'}
-              onChange={(exploreMode) => void save({ exploreMode })}
-              label={t('시작 화면 기본 모드')}
-              disabled={disabled}
-              options={[
-                { value: 'list', label: '글 지도' },
-                { value: 'map', label: '그림 지도' },
-              ]}
-            />
-          </View>
-          <View className="gap-3 border-t border-border pt-4">
-            <Text variant="h3">장애 유형</Text>
-            <Text variant="muted">선택한 유형에 맞는 접근성 정보를 매장 화면에 먼저 보여줘요.</Text>
-            <AssistancePicker
-              value={settings.assistance}
-              disabled={disabled}
-              onSelect={(assistance) => void save({ assistance })}
-            />
-            {settings.assistance && (
-              <Button
-                variant="ghost"
-                disabled={disabled}
-                className="self-start"
-                onPress={() =>
-                  void save({
-                    assistance: undefined,
-                    exploreMode: resolveExploreMode(settings.assistance, settings.exploreMode),
-                  })
-                }
-              >
-                <Text>선택 지우기</Text>
-              </Button>
-            )}
-          </View>
+          <PreferenceSwitch
+            title="큰 글씨"
+            description="기본 글자의 2배로 확대"
+            value={resolveTextSize(settings) === 'xlarge'}
+            onChange={(largeText) =>
+              void save({ largeText, textSize: largeText ? 'xlarge' : 'base' })
+            }
+          />
         </CardContent>
       </Card>
-
       <Card>
-        <CardContent className="gap-4">
+        <CardContent className="gap-3">
+          <Text variant="h2">위치와 지도</Text>
+          <PreferenceSwitch
+            title="시작 시 현재 위치 감지"
+            description="GPS로 가까운 매장을 찾아요."
+            value={!!settings.locateOnStart}
+            onChange={(locateOnStart) => void save({ locateOnStart })}
+          />
           <Button
-            variant="ghost"
-            className="justify-between px-0"
-            onPress={() => setShowServer(!showServer)}
-            accessibilityLabel="서버 연결 설정"
-            accessibilityState={{ expanded: showServer }}
+            variant="outline"
+            onPress={() => {
+              setPermissions(true);
+              void checkLocation(false);
+            }}
           >
-            <View className="flex-row items-center gap-3">
-              <Icon as={Server} size={20} accessible={false} />
-              <Text className="shrink text-left font-bold">서버 연결 설정</Text>
-            </View>
-            <Icon as={showServer ? ChevronUp : ChevronDown} size={20} accessible={false} />
+            <Text>기기 권한 확인</Text>
           </Button>
-          {showServer && (
-            <>
-              <Text variant="muted">
-                휴대폰과 매장 기기는 같은 서버에 연결해야 해요. 휴대폰에서는 컴퓨터의 LAN IP 또는
-                HTTPS 주소를 입력해 주세요.
-              </Text>
-              <Text className="font-bold">서버 주소</Text>
-              <Input
-                value={base}
-                onChangeText={setBase}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-                accessibilityLabel="백엔드 서버 주소"
-              />
-              <Button
-                className="self-start"
-                disabled={disabled}
-                onPress={() => void save({ apiBase: base }, '설정을 저장했습니다.')}
-              >
-                <Text>서버 주소 저장</Text>
-              </Button>
-            </>
+          <Text>시작 화면 지도 방식</Text>
+          <SegmentedControl<ExploreMode>
+            value={resolveExploreMode(settings.assistance, settings.exploreMode) ?? 'list'}
+            onChange={(exploreMode) => void save({ exploreMode })}
+            label={t('지도 방식')}
+            options={[
+              { value: 'list', label: '글 지도' },
+              { value: 'map', label: '그림 지도' },
+            ]}
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="gap-3">
+          <Text variant="h2">기기 설정</Text>
+          <PreferenceSwitch
+            title="음성 명령"
+            description="말로 매장과 메뉴 검색"
+            value={!!settings.voiceInput}
+            onChange={(voiceInput) => void save({ voiceInput })}
+          />
+          <PreferenceSwitch
+            title="주문 상태 알림"
+            description="앱을 사용하는 동안 주문 상태가 바뀌면 알려요."
+            value={settings.orderAlerts !== false}
+            onChange={(orderAlerts) => void save({ orderAlerts })}
+          />
+          <PreferenceSwitch
+            title="음성 안내"
+            description="화면 안내를 소리로 읽어요."
+            value={settings.speech}
+            onChange={(speech) => void save({ speech })}
+          />
+          <PreferenceSwitch
+            title="주문 진동"
+            description="장바구니가 변경되면 진동으로 알려요."
+            value={settings.vibration !== false}
+            onChange={(vibration) => void save({ vibration })}
+          />
+          <Button variant="outline" onPress={() => setConfirm(true)}>
+            <Text>최근 검색어 지우기</Text>
+          </Button>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="gap-3">
+          <Text variant="h2">매장 등록</Text>
+          <Button
+            variant="outline"
+            disabled={!registrationUrl?.startsWith('https://')}
+            onPress={() => {
+              if (registrationUrl) void Linking.openURL(registrationUrl).catch(app.report);
+            }}
+          >
+            <Text>매장 등록 신청</Text>
+          </Button>
+          {!registrationUrl?.startsWith('https://') && (
+            <Text variant="muted">매장 등록 링크가 준비되면 신청할 수 있어요.</Text>
           )}
         </CardContent>
       </Card>
-      {app.connection && (
-        <NavLink href="/leave" className="self-start">
-          주문 중단 · 매장 연결 종료
-        </NavLink>
-      )}
-      <NavLink href="/kiosk" className="self-start">
-        매장 직원 화면
-      </NavLink>
+      <Dialog open={confirm} onOpenChange={setConfirm}>
+        <DialogContent>
+          <DialogTitle>최근 검색어를 지울까요?</DialogTitle>
+          <DialogDescription>북마크와 주문내역은 유지돼요.</DialogDescription>
+          <Button
+            variant="destructive"
+            onPress={() =>
+              void app
+                .updateSettings({ recentSearches: [] })
+                .then(() => setConfirm(false))
+                .catch(app.report)
+            }
+          >
+            <Text>검색어 지우기</Text>
+          </Button>
+          <Button variant="outline" onPress={() => setConfirm(false)}>
+            <Text>취소</Text>
+          </Button>
+        </DialogContent>
+      </Dialog>
     </Screen>
   );
 }

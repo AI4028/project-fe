@@ -26,6 +26,8 @@ jobs:
           cache: pnpm
 
       - name: Install and build web app
+        env:
+          EXPO_PUBLIC_STORE_REGISTRATION_URL: ${{ vars.STORE_REGISTRATION_URL }}
         run: |
           pnpm install --frozen-lockfile
           EXPO_PUBLIC_API_URL=https://dev.galjido.shop/api \

@@ -1,6 +1,6 @@
 # Languages
 
-Select **English** in the header, or use **Language / 언어** in settings. The
+Select **English** under **Language / 언어** in Usage Settings. The
 preference is saved on this device with the existing settings. Korean remains
 the default for existing installations and invalid saved language values.
 
@@ -22,9 +22,9 @@ fallback. Addresses, store names, categories, options, indoor directions and
 customer notes remain as supplied by the backend. Map-provider labels follow the
 provider's available languages. Amounts remain Korean won.
 
-Spoken guidance uses `en-US` for English and `ko-KR` for Korean. Recognition and
-voice-command parsing remain Korean; the English interface explicitly explains
-this and offers touch controls. Do not claim English speech recognition support.
+Spoken guidance and ordering recognition use `en-US` for English and `ko-KR`
+for Korean. Customers can speak catalog names, quantities and options, say
+“add to cart” after reviewing the selection, or use the touch controls.
 
 Tests cover messages, dynamic totals, untouched content/input, switching language,
 saved preferences and older settings without a language. Native speech, screen

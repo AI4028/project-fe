@@ -44,13 +44,16 @@ export function PreferenceSwitch({
       <View
         accessible={false}
         className={cn(
-          'h-7 w-12 shrink-0 flex-row items-center rounded-full border border-primary px-0.5',
-          value ? 'justify-end bg-primary' : 'justify-start bg-secondary',
+          'min-h-8 shrink-0 items-center justify-center rounded-xl border border-primary px-2',
+          value ? 'bg-primary' : 'bg-card',
         )}
       >
-        <View
-          className={cn('h-5 w-5 rounded-full', value ? 'bg-primary-foreground' : 'bg-primary')}
-        />
+        <Text
+          variant="small"
+          className={value ? 'font-bold text-primary-foreground' : 'font-bold text-primary'}
+        >
+          {value ? '켜짐' : '꺼짐'}
+        </Text>
       </View>
     </Button>
   );

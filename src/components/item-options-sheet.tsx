@@ -1,9 +1,8 @@
 import { useRef, useState, type ComponentRef } from 'react';
 import { AccessibilityInfo, Platform, ScrollView, View } from 'react-native';
-import { router } from 'expo-router';
 import { Check, Circle, Square } from 'lucide-react-native';
 import { Problem } from './feedback';
-import { CartLineSummary, QuantityStepper } from './menu-controls';
+import { QuantityStepper } from './menu-controls';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog';
 import { Icon } from './ui/icon';
@@ -11,16 +10,16 @@ import { Text } from './ui/text';
 import { VoiceControls } from './voice-controls';
 import { errorMessage } from '@/lib/api';
 import { estimate, money, replaceCartItem, validateItem } from '@/lib/cart';
-import { useTranslation } from '@/lib/i18n';
-import type { CartItem, MenuItem, Options, PricedLine, Store } from '@/lib/types';
+import { translate, useTranslation } from '@/lib/i18n';
+import type { CartItem, MenuItem, Options, Store } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { voiceSelection } from '@/lib/voice';
+import { spokenQuantity, voiceSelection } from '@/lib/voice';
 import { useApp } from '@/providers/app-provider';
 
 export type CartEdit = { index: number; original: CartItem };
 
 function recognizeOptions(item: MenuItem, text: string, current: Options): Options {
-  const normalized = text.replace(/\s/g, '');
+  const normalized = text.toLowerCase().replace(/\s/g, '');
   const selection = voiceSelection(text, []);
   const next = { ...current };
   for (const group of item.options) {
@@ -28,7 +27,9 @@ function recognizeOptions(item: MenuItem, text: string, current: Options): Optio
       (choice) =>
         choice.available !== false &&
         (selection.options[group.id] === choice.id ||
-          normalized.includes(choice.name.replace(/\s/g, ''))),
+          [choice.name, translate(choice.name, 'en')].some((name) =>
+            normalized.includes(name.toLowerCase().replace(/\s/g, '')),
+          )),
     );
     const first = matched[0];
     if (!first) continue;
@@ -45,8 +46,6 @@ function recognizeOptions(item: MenuItem, text: string, current: Options): Optio
   }
   return next;
 }
-
-const quantitySpoken = /(\d+|한|두|세)\s*(잔|개)|^(둘|셋)$/;
 
 export function ItemOptionsSheet({
   store,
@@ -73,7 +72,6 @@ export function ItemOptionsSheet({
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmStoreChange, setConfirmStoreChange] = useState(false);
-  const [saved, setSaved] = useState<PricedLine | null>(null);
   const savingRef = useRef(false);
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   const groupHeaders = useRef<Record<string, ComponentRef<typeof View> | null>>({});
@@ -81,7 +79,11 @@ export function ItemOptionsSheet({
   const name = language === 'en' ? item.nameEn || item.name : item.name;
   const previousStoreName =
     app.store && (language === 'en' ? app.store.nameEn || app.store.name : app.store.name);
-  const orderReady = item.available && !store.orderingPaused && !app.pendingSubmission;
+  const orderReady =
+    item.available &&
+    !store.orderingPaused &&
+    store.hasOrderTerminal !== false &&
+    !app.pendingSubmission;
   const blocked = app.busy || saving;
   const estimated = money(estimate(item, qty, options));
 
@@ -127,15 +129,12 @@ export function ItemOptionsSheet({
         : differentStore
           ? [line]
           : [...app.items, line];
-      if (differentStore) await app.disconnect();
-      if (changeStore) setConfirmStoreChange(false);
-      const quote = await app.updateCart(next, store.storeId);
-      if (edit) onClose();
-      else {
-        const added = quote.lines[next.length - 1];
-        if (added) setSaved(added);
-        else onClose();
-      }
+      await app.updateCart(
+        next,
+        store.storeId,
+        differentStore ? app.connection?.sessionId : undefined,
+      );
+      onClose();
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -147,23 +146,23 @@ export function ItemOptionsSheet({
   function onTranscript(text: string) {
     if (blocked) return true;
     const next = recognizeOptions(item, text, options);
-    const includesQty = quantitySpoken.test(text.trim());
-    if (JSON.stringify(next) !== JSON.stringify(options) || includesQty) {
+    const quantity = spokenQuantity(text.trim());
+    if (JSON.stringify(next) !== JSON.stringify(options) || quantity !== undefined) {
       setOptions(next);
       if (next[missing]?.length) setMissing('');
-      if (includesQty) setQty(Math.max(1, Math.min(10, voiceSelection(text, []).qty)));
+      if (quantity !== undefined) setQty(Math.max(1, Math.min(10, quantity)));
       app.announce('옵션을 선택했어요. 확인 후 담기라고 말해 주세요.');
       return true;
     }
     if (
-      /^\s*(장바구니에\s*)?(담아\s*(줘|주세요)?|담기|넣어\s*(줘|주세요)?|변경 내용 저장|수정 완료)[.!?]?\s*$/.test(
+      /^\s*(장바구니에\s*)?(담아\s*(줘|주세요)?|담기|넣어\s*(줘|주세요)?|변경 내용 저장|수정 완료|add(?: (?:it |this )?to (?:the |my )?cart)?|save(?: changes)?)[.!?]?\s*$/i.test(
         text,
       )
     ) {
       void save();
       return true;
     }
-    if (/^\s*(뒤로|닫기|취소)\s*$/.test(text)) {
+    if (/^\s*(뒤로|닫기|취소|back|close|cancel)[.!?]?\s*$/i.test(text)) {
       onClose();
       return true;
     }
@@ -203,20 +202,6 @@ export function ItemOptionsSheet({
               <Text>비우고 새 매장에서 주문하기</Text>
             </Button>
           </>
-        ) : saved ? (
-          <>
-            <DialogTitle>장바구니에 담았어요</DialogTitle>
-            <View className="gap-2 rounded-xl bg-secondary p-4">
-              <CartLineSummary line={saved} />
-              <Text className="font-bold">{money(saved.lineTotal)}</Text>
-            </View>
-            <Button onPress={() => router.replace('/cart')}>
-              <Text>장바구니 확인</Text>
-            </Button>
-            <Button variant="outline" onPress={close}>
-              <Text>메뉴 더 고르기</Text>
-            </Button>
-          </>
         ) : (
           <>
             <DialogTitle>{edit ? '담긴 메뉴 수정' : <>{name}</>}</DialogTitle>
@@ -235,6 +220,9 @@ export function ItemOptionsSheet({
                   {!!item.description && <DialogDescription>{item.description}</DialogDescription>}
                   <Text className="text-lg font-bold">{money(item.price)}</Text>
                 </View>
+              )}
+              {store.hasOrderTerminal === false && (
+                <Problem message="이 매장은 휴대폰 주문을 받을 수 없어요. 매장 직원에게 문의해 주세요." />
               )}
               {!item.available && <Problem message="지금은 품절이에요" />}
               {store.orderingPaused && <Problem message="지금은 주문을 받지 않고 있어요" />}

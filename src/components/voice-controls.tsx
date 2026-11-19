@@ -7,6 +7,7 @@ import { Icon } from './ui/icon';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
 import { useApp } from '@/providers/app-provider';
+import { useTranslation } from '@/lib/i18n';
 import { voiceSelection } from '@/lib/voice';
 import { recognition, type SpeechRecognition } from '@/lib/speech-recognition';
 type VoiceControlsProps = { onTranscript?: (text: string) => boolean };
@@ -22,6 +23,7 @@ function RecognitionVoiceControls({
   recognition: { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent },
 }: VoiceControlsProps & { recognition: SpeechRecognition }) {
   const app = useApp();
+  const { language, t } = useTranslation();
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const active = useRef(false);
@@ -49,21 +51,24 @@ function RecognitionVoiceControls({
         pathname: '/menu/[itemId]',
         params: { itemId: selected.item.id, speech: text },
       });
-    } else if (/연결.*(종료|해제|끊)/.test(text)) router.push('/leave');
-    else if (/직원|도움|도와/.test(text)) router.push('/help');
-    else if (/다시|반복/.test(text)) app.repeat();
-    else if (/장바구니|주문|결제/.test(text)) router.push('/cart');
-    else if (/고대비|글자|설정/.test(text)) router.push('/settings');
-    else if (/길|실내|어디/.test(text)) router.push('/guide');
-    else if (/연결/.test(text)) router.push('/connect');
-    else if (/메뉴.*(읽|알려)/.test(text))
+    } else if (/연결.*(종료|해제|끊)|\b(?:disconnect)\b/i.test(text)) router.push('/leave');
+    else if (/직원|도움|도와|\b(?:help|staff)\b/i.test(text)) router.push('/help');
+    else if (/다시|반복|\b(?:repeat)\b/i.test(text)) app.repeat();
+    else if (/장바구니|주문|결제|\b(?:cart|checkout|order)\b/i.test(text)) router.push('/cart');
+    else if (/고대비|글자|설정|\b(?:settings)\b/i.test(text)) router.push('/settings');
+    else if (/길|실내|어디|\b(?:directions)\b/i.test(text)) router.push('/guide');
+    else if (/연결|\b(?:connect)\b/i.test(text)) router.push('/connect');
+    else if (/메뉴.*(읽|알려)|\b(?:read (?:the )?menu)\b/i.test(text))
       app.announce(
         app.store?.menu
-          ?.map((item) => `${item.name} ${item.price}원${item.available ? '' : ' 품절'}`)
+          ?.map(
+            (item) =>
+              `${language === 'en' ? item.nameEn || item.name : item.name} ${t(`${item.price}원`)}${item.available ? '' : ' ' + t('품절')}`,
+          )
           .join(', ') || '먼저 매장을 선택해 주세요.',
       );
-    else if (/메뉴/.test(text)) router.push('/menu');
-    else if (/뒤로|닫|취소/.test(text)) {
+    else if (/메뉴|\b(?:menu)\b/i.test(text)) router.push('/menu');
+    else if (/뒤로|닫|취소|\b(?:back|close|cancel)\b/i.test(text)) {
       if (router.canGoBack()) router.back();
     } else app.announce('메뉴 이름, 장바구니, 직원 호출, 다시 듣기라고 말해 주세요.');
   });
@@ -83,7 +88,7 @@ function RecognitionVoiceControls({
       active.current = true;
       try {
         ExpoSpeechRecognitionModule.start({
-          lang: 'ko-KR',
+          lang: language === 'en' ? 'en-US' : 'ko-KR',
           interimResults: false,
           continuous: false,
         });

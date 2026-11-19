@@ -1,15 +1,7 @@
 ﻿import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { View } from 'react-native';
-import {
-  ArrowRight,
-  Check,
-  Circle,
-  CreditCard,
-  MapPin,
-  MessageSquareText,
-  Store,
-} from 'lucide-react-native';
+import { ArrowRight, Check, Circle, CreditCard, MapPin, Store } from 'lucide-react-native';
 import { Screen, NavLink } from '@/components/screen';
 import { OrderLines } from '@/components/order-lines';
 import { OrderProgress } from '@/components/order-progress';
@@ -17,7 +9,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { Input } from '@/components/ui/input';
+import { paymentLabels, type PaymentMethod } from '@/lib/types';
 import { OrderingPaused, Problem, SubmissionRecovery } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { money } from '@/lib/cart';
@@ -68,31 +60,37 @@ export default function Review() {
     : app.pendingSubmission
       ? '주문 결과를 확인해 주세요'
       : priceChange
-        ? '주문 정보가 달라졌어요'
+        ? '메뉴 가격이 바뀌었어요'
         : error
           ? '주문을 보내지 못했어요'
-          : '메뉴와 총금액을 확인해 주세요';
+          : app.demo
+            ? '결제하고 주문을 완료해요'
+            : '주문 내용을 확인해 주세요';
 
   return (
     <Screen
       title={title}
       subtitle={
-        !locked && !error && !priceChange ? '주문을 보낸 뒤 매장에서 결제해 주세요.' : undefined
+        !locked && !error && !priceChange
+          ? app.demo
+            ? '모의 결제입니다. 실제 요금은 청구되지 않아요.'
+            : '주문을 보내고 매장에서 결제해 주세요.'
+          : undefined
       }
       voice={false}
       reading
       footer={
         app.items.length > 0 && app.connection && !locked ? (
           <>
-            <Text variant="muted">{money(checkedCart.total)} · 결제는 매장에서 진행해요</Text>
             <Button
               size="lg"
               className="w-full justify-between"
               disabled={app.busy || !!app.store?.orderingPaused}
               onPress={() => void submit()}
             >
+              <Text>{money(checkedCart.total)}</Text>
               <Text className="shrink">
-                {priceChange ? '변경된 금액으로 주문 보내기' : '이 내용으로 주문 제출'}
+                {priceChange ? '변경된 금액으로 주문 보내기' : '주문 완료'}
               </Text>
               <Icon
                 as={ArrowRight}
@@ -173,74 +171,52 @@ export default function Review() {
             </CardContent>
           </Card>
 
-          <View className="gap-3">
-            <View className="flex-row items-center gap-2">
-              <Text variant="h2">결제 장소</Text>
-            </View>
-            <Text variant="muted">앱에서는 결제하지 않아요. 직원 안내에 따라 결제해 주세요.</Text>
-            <View className="gap-2" accessibilityRole="radiogroup">
-              {(['counter', 'kiosk'] as const).map((payment) => {
-                const selected = app.checkout.payment === payment;
-                return (
-                  <Button
-                    key={payment}
-                    variant={selected ? 'secondary' : 'outline'}
-                    className={`min-h-14 w-full justify-between px-4 py-3 ${selected ? 'border border-primary' : ''}`}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: selected }}
-                    accessibilityLabel={
-                      payment === 'counter' ? '카운터에서 결제' : '키오스크에서 결제'
-                    }
-                    onPress={() => app.setCheckout({ ...app.checkout, payment })}
-                  >
-                    <View className="min-w-0 flex-1 flex-row items-center gap-3">
-                      <Icon
-                        as={payment === 'counter' ? Store : CreditCard}
-                        size={21}
-                        className="text-primary"
-                        accessible={false}
-                      />
-                      <Text className="shrink font-semibold">
-                        {payment === 'counter' ? '카운터에서 결제' : '키오스크에서 결제'}
-                      </Text>
-                    </View>
-                    <View
-                      className={`h-6 w-6 items-center justify-center rounded-full border border-primary ${selected ? 'bg-primary' : ''}`}
-                    >
-                      <Icon
-                        as={selected ? Check : Circle}
-                        size={selected ? 16 : 9}
-                        className={selected ? 'text-primary-foreground' : 'text-primary'}
-                        accessible={false}
-                      />
-                    </View>
-                  </Button>
-                );
-              })}
-            </View>
-          </View>
-
-          <Card className="shadow-none">
-            <CardContent className="gap-3 pt-6">
+          {app.demo && (
+            <View className="gap-3">
               <View className="flex-row items-center gap-2">
-                <Icon
-                  as={MessageSquareText}
-                  size={20}
-                  className="text-primary"
-                  accessible={false}
-                />
-                <Text variant="h2">요청 사항</Text>
+                <Text variant="h2">결제 수단</Text>
               </View>
-              <Text variant="muted">필요한 내용만 적어 주세요. 선택 사항 · 최대 200자</Text>
-              <Input
-                accessibilityLabel="주문 요청 사항"
-                placeholder="예: 컵 홀더가 필요해요"
-                value={app.checkout.note}
-                maxLength={200}
-                onChangeText={(note) => app.setCheckout({ ...app.checkout, note })}
-              />
-            </CardContent>
-          </Card>
+              <Text variant="muted">결제 수단을 하나 선택해 주세요.</Text>
+              <View className="gap-2" accessibilityRole="radiogroup">
+                {(
+                  ['card', 'kakaopay', 'tosspay', 'naverpay', 'counter'] satisfies PaymentMethod[]
+                ).map((payment) => {
+                  const selected = app.checkout.payment === payment;
+                  return (
+                    <Button
+                      key={payment}
+                      variant={selected ? 'secondary' : 'outline'}
+                      className={`min-h-14 w-full justify-between px-4 py-3 ${selected ? 'border border-primary' : ''}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selected }}
+                      accessibilityLabel={paymentLabels[payment]}
+                      onPress={() => app.setCheckout({ ...app.checkout, payment })}
+                    >
+                      <View className="min-w-0 flex-1 flex-row items-center gap-3">
+                        <Icon
+                          as={payment === 'counter' ? Store : CreditCard}
+                          size={21}
+                          className="text-primary"
+                          accessible={false}
+                        />
+                        <Text className="shrink font-semibold">{paymentLabels[payment]}</Text>
+                      </View>
+                      <View
+                        className={`h-6 w-6 items-center justify-center rounded-full border border-primary ${selected ? 'bg-primary' : ''}`}
+                      >
+                        <Icon
+                          as={selected ? Check : Circle}
+                          size={selected ? 16 : 9}
+                          className={selected ? 'text-primary-foreground' : 'text-primary'}
+                          accessible={false}
+                        />
+                      </View>
+                    </Button>
+                  );
+                })}
+              </View>
+            </View>
+          )}
 
           <NavLink href="/cart">장바구니로 돌아가 수정</NavLink>
         </>
