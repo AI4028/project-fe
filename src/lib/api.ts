@@ -151,15 +151,16 @@ export class Api {
   submit = (
     id: string,
     items: CartItem[],
-    paymentMethod: 'counter' | 'kiosk',
+    paymentMethod: import('./types').PaymentMethod,
     note: string,
     device: string,
     quoteId?: string,
+    simulatePayment?: boolean,
   ) =>
     this.request<Order>(
       `/sessions/${id}/order`,
       'POST',
-      { items, paymentMethod, note, quoteId },
+      { items, paymentMethod, note, quoteId, simulatePayment },
       device,
       { 'Idempotency-Key': `order:${id}` },
     );

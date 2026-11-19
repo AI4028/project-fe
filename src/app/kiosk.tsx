@@ -1,3 +1,4 @@
+import { paymentLabels } from '@/lib/types';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import {
@@ -351,8 +352,8 @@ export default function Kiosk() {
                   </Text>
                   <Text>{order.summary}</Text>
                   <Text>
-                    {money(order.total)} ·{' '}
-                    {order.paymentMethod === 'counter' ? '카운터 결제' : '키오스크 결제'}
+                    {money(order.total)} · {paymentLabels[order.paymentMethod]}
+                    {order.simulatedApprovedAmount != null && <Text> · 모의 결제</Text>}
                   </Text>
                   {!!order.note && <Text>요청 사항: {order.note}</Text>}
                   {nextStatus[order.status] && (

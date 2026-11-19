@@ -129,20 +129,19 @@ test('onboarding previews independent accessibility settings and saves before op
     voiceInput: true,
   });
   expect(router.replace).not.toHaveBeenCalled();
-  expect(screen.getByLabelText('한국어로 전환').props.accessibilityState.disabled).toBe(true);
+  expect(screen.queryByLabelText('한국어로 전환')).toBeNull();
   await act(async () => saved());
   expect(router.replace).toHaveBeenCalledWith('/explore/map');
 });
 
-test('quick start opens the list with default accessibility preferences', async () => {
-  mockSettings.assistance = 'wheelchair';
+test('the single start action saves the displayed defaults', async () => {
   await render(
     <LanguageContext.Provider value="ko">
       <Onboarding />
     </LanguageContext.Provider>,
   );
-  await fireEvent.press(screen.getByRole('switch', { name: '고대비' }));
-  await fireEvent.press(screen.getByRole('button', { name: '기본 설정으로 바로 시작' }));
+  expect(screen.queryByRole('button', { name: '기본 설정으로 바로 시작' })).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: '설정 완료하고 시작하기' }));
   expect(mockUpdateSettings).toHaveBeenCalledWith({
     exploreMode: 'list',
     textSize: 'base',

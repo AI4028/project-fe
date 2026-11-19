@@ -1,12 +1,11 @@
 import { Image, View } from 'react-native';
-import { ArrowUpRight, Store as StoreIcon, DoorOpen, Accessibility } from 'lucide-react-native';
+import { Store as StoreIcon, Clock, MapPin } from 'lucide-react-native';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
 import { Icon } from './ui/icon';
 import type { Store } from '@/lib/types';
 import { useTranslation } from '@/lib/i18n';
-import { accessibilitySummary, assistanceSummary } from '@/lib/location';
-import { useApp } from '@/providers/app-provider';
+import { accessibilitySummary } from '@/lib/location';
 import { PlaceActions, PlaceBookmark } from './place-actions';
 
 export function StoreCard({
@@ -20,9 +19,8 @@ export function StoreCard({
   showDistance: boolean;
   actions?: boolean;
 }) {
-  const access = store.accessibility;
   const { t, language } = useTranslation();
-  const { settings } = useApp();
+  const hours = (language === 'en' && store.hoursEn) || store.hours;
   const name = language === 'en' ? store.nameEn || store.name : store.name;
   return (
     <View className="gap-2 rounded-3xl border border-border bg-card p-3">
@@ -38,7 +36,7 @@ export function StoreCard({
             {store.imageUrl ? (
               <Image
                 source={{ uri: store.imageUrl }}
-                className="h-16 w-16 rounded-xl bg-secondary"
+                className="h-20 w-20 rounded-xl bg-secondary"
                 accessible={false}
               />
             ) : (
@@ -50,57 +48,29 @@ export function StoreCard({
               <Text translate={false} className="text-left text-lg font-semibold text-foreground">
                 {name}
               </Text>
-              {!!(language === 'en' ? store.hoursEn || store.hours : store.hours) && (
-                <Text variant="muted" translate={false} className="text-left">
-                  {language === 'en' ? store.hoursEn || store.hours : store.hours}
-                </Text>
-              )}
               <Text variant="muted" className="text-left font-normal text-muted-foreground">
                 {store.address || '주소 확인 필요'}
               </Text>
             </View>
-            <Icon
-              as={ArrowUpRight}
-              size={20}
-              className="text-muted-foreground"
-              accessible={false}
-            />
           </View>
-          <View className="flex-row flex-wrap items-center gap-2">
-            {access.stepFreeEntrance === true && (
-              <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
-                <Icon as={DoorOpen} size={15} className="text-primary" accessible={false} />
-                <Text variant="small" className="font-medium text-foreground">
-                  턱 없는 입구
-                </Text>
-              </View>
-            )}
-            {access.accessibleRestroom === true && (
-              <View className="flex-row items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5">
-                <Icon as={Accessibility} size={15} className="text-primary" accessible={false} />
-                <Text variant="small" className="font-medium text-foreground">
-                  장애인 화장실
-                </Text>
-              </View>
-            )}
-            {access.stepFreeEntrance !== true && (
-              <Text variant="small" className="text-left font-normal text-muted-foreground">
-                {access.stepFreeEntrance === false
-                  ? '입구에 턱 있음 · 상세 확인'
-                  : '입구 정보 확인 필요'}
-              </Text>
-            )}
-          </View>
-          <Text className="text-left font-normal" translate={false}>
-            {assistanceSummary(store, settings.assistance).split(' · ').map(t).join(' · ')}
-          </Text>
           {showDistance && store.distanceM != null && (
-            <Text variant="small" className="text-left font-medium text-primary">
-              {store.distanceM >= 1000
-                ? `${(store.distanceM / 1000).toFixed(1)}km`
-                : `${Math.round(store.distanceM)}m`}{' '}
-              · 직선거리
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Icon as={MapPin} size={16} className="text-primary" accessible={false} />
+              <Text variant="small">
+                {store.distanceM >= 1000
+                  ? `${(store.distanceM / 1000).toFixed(1)} km`
+                  : `${Math.round(store.distanceM)} m`}{' '}
+                · {t('직선거리')}
+              </Text>
+            </View>
+          )}
+          {hours && (
+            <View className="flex-row items-center gap-2">
+              <Icon as={Clock} size={16} className="text-primary" accessible={false} />
+              <Text variant="small">
+                {t('영업시간')} · {hours}
+              </Text>
+            </View>
           )}
         </Button>
         {actions && <PlaceBookmark store={store} />}

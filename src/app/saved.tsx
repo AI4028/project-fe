@@ -24,7 +24,7 @@ export default function Saved() {
   const selected = app.savedPlaces.find((store) => store.storeId === selectedId);
   return (
     <Screen
-      title="자주가요"
+      title={section === 'menus' ? '저장된 메뉴' : '저장된 매장'}
       subtitle="저장한 매장과 메뉴를 다시 찾아요."
       voice={false}
       footer={
@@ -74,6 +74,7 @@ export default function Saved() {
               onPress={() => setSelectedId(store.storeId)}
             />
           ))}
+          <NavLink href="/">다른 매장 둘러보기</NavLink>
         </View>
       )}
     </Screen>

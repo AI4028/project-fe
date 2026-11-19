@@ -3,11 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Linking, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { List, LocateFixed, Map, Mic, Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { List, LocateFixed, Map, Mic, Search, X } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import StoreMap from '@/components/store-map';
-import { AppHeader } from '@/components/app-header';
-import { NavLink } from '@/components/screen';
+
 import { PlacePreview } from '@/components/place-preview';
 import { StoreCard } from '@/components/store-card';
 import { Button } from '@/components/ui/button';
@@ -18,11 +17,11 @@ import { SegmentedControl } from '@/components/ui/segmented-control';
 import { VoiceSearch } from '@/components/voice-search';
 import { SubmissionRecovery } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
-import { filterStores, type AccessFilter } from '@/lib/discovery';
+import { filterStores } from '@/lib/discovery';
 import { distanceM, type Position } from '@/lib/location';
 import { placeSearchUrl } from '@/lib/navigation';
-import type { Store, PlaceSearchKind, PlaceSearchResult } from '@/lib/types';
-import { displayPlace, featureLabels } from '@/lib/place-search';
+import type { Store, PlaceSearchResult } from '@/lib/types';
+import { displayPlace } from '@/lib/place-search';
 import { useTranslation } from '@/lib/i18n';
 import { errorMessage } from '@/lib/api';
 import { layout } from '@/lib/theme';
@@ -35,11 +34,10 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
   const [view, setView] = useState(app.settings.exploreMode ?? initialView);
   const [savingView, setSavingView] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const mic = useRef<{ start: () => void }>(null);
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [submitted, setSubmitted] = useState('');
-  const [searchKind, setSearchKind] = useState<PlaceSearchKind>('all');
   const [placeStatus, setPlaceStatus] = useState<PlaceSearchResult | null>(null);
   const [placeLoading, setPlaceLoading] = useState(false);
   const [placeError, setPlaceError] = useState('');
@@ -54,7 +52,6 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState('');
   const [revision, setRevision] = useState(0);
-  const [access, setAccess] = useState<AccessFilter>('all');
   const request = useRef(0);
   useEffect(() => {
     if (app.settings.exploreMode) setView(app.settings.exploreMode);
@@ -65,13 +62,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
     setPlaces([]);
     setPlaceStatus(null);
     setPlaceError('');
-    if (!submitted && !position && searchKind === 'all') {
+    if (!submitted && !position) {
       setPlaceLoading(false);
       return;
     }
     setPlaceLoading(true);
     void app.api
-      .searchPlaces(submitted, searchKind, position)
+      .searchPlaces(submitted, 'all', position)
       .then((result) => {
         if (!active) return;
         setPlaceStatus(result);
@@ -93,7 +90,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
     return () => {
       active = false;
     };
-  }, [app.api, submitted, position, searchKind, language, placeRevision]);
+  }, [app.api, submitted, position, language, placeRevision]);
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -131,10 +128,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
             (store) => store.location && distanceM(position, store.location) <= 5000,
           )
         : registered;
-    const merged = [
-      ...(searchKind === 'all' ? filterStores(nearbyRegistered, submitted, access) : []),
-      ...filterStores(places, '', access),
-    ];
+    const merged = [...filterStores(nearbyRegistered, submitted, 'all'), ...places];
     const seen = new Set<string>();
     const filtered = merged.filter((store) => {
       if (seen.has(store.storeId)) return false;
@@ -149,7 +143,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
           }))
           .sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity))
       : filtered;
-  }, [registered, places, access, position, searchKind, submitted]);
+  }, [registered, places, position, submitted]);
   const selected = stores.find((store) => store.storeId === selectedId);
   const mapStores = stores;
   async function locate() {
@@ -158,7 +152,6 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
     setSelectedId(null);
     setQuery('');
     setSubmitted('');
-    setAccess('all');
     setPosition(null);
     setLocationMessage('');
     setNoticeDismissed(false);
@@ -191,8 +184,19 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
       if (id === request.current) setLocating(false);
     }
   }
+  useEffect(() => {
+    if (app.settings.locateOnStart) void locate();
+  }, [app.settings.locateOnStart]);
   function search(value = query) {
     const next = value.trim();
+    if (next) {
+      const previous = app.settings.recentSearches ?? [];
+      void app
+        .updateSettings({
+          recentSearches: [next, ...previous.filter((item) => item !== next)].slice(0, 8),
+        })
+        .catch(app.report);
+    }
     setQuery(value);
     if (submitted === next) setPlaceRevision((revision) => revision + 1);
     setSubmitted(next);
@@ -202,8 +206,6 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
     Keyboard.dismiss();
   }
   function resetSearch() {
-    setSearchKind('all');
-    setAccess('all');
     setPosition(null);
     setNoticeDismissed(true);
     search('');
@@ -271,32 +273,6 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
         </Button>
       </View>
     ) : null;
-  const categories = (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerClassName="gap-2 pb-2"
-      accessibilityRole="radiogroup"
-      accessibilityLabel="장소 검색 종류"
-    >
-      {(['all', 'stations', 'audio_signals', 'voice_guides', 'tactile', 'crossings'] as const).map(
-        (kind) => (
-          <Button
-            key={kind}
-            variant={searchKind === kind ? 'secondary' : 'outline'}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: searchKind === kind }}
-            onPress={() => {
-              setSearchKind(kind);
-              setAccess('all');
-            }}
-          >
-            <Text>{featureLabels[kind]}</Text>
-          </Button>
-        ),
-      )}
-    </ScrollView>
-  );
   const searchFeedback = (
     <>
       {!!placeError && (
@@ -312,9 +288,6 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
           >
             <Text>장소 검색 다시 시도</Text>
           </Button>
-          <NavLink href="/settings" variant="ghost">
-            서버 연결 설정
-          </NavLink>
         </View>
       )}
       {placeStatus?.generalSearch === 'not-configured' && (
@@ -336,35 +309,6 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
       )}
     </>
   );
-  const accessFilters = (
-    <>
-      {searchKind === 'all' && (
-        <View
-          className="flex-row flex-wrap gap-2"
-          accessibilityRole="radiogroup"
-          accessibilityLabel="접근성 조건"
-        >
-          {(
-            [
-              { value: 'all', label: '전체' },
-              { value: 'step-free', label: '턱 없는 입구' },
-              { value: 'restroom', label: '장애인 화장실' },
-            ] as const
-          ).map((option) => (
-            <Button
-              key={option.value}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: access === option.value }}
-              variant={access === option.value ? 'default' : 'outline'}
-              onPress={() => setAccess(option.value)}
-            >
-              <Text>{option.label}</Text>
-            </Button>
-          ))}
-        </View>
-      )}
-    </>
-  );
   const resultCount = (
     <>
       {!placeError && (!failed || stores.length > 0) && (
@@ -373,7 +317,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
             ? '장소를 검색하고 있어요.'
             : loading
               ? '매장을 찾고 있어요…'
-              : `${stores.length} ${t('개의 장소')}`}
+              : t(`${stores.length} 개의 장소`)}
         </Text>
       )}
     </>
@@ -399,29 +343,59 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
       </View>
     </View>
   );
+  const terms = new Set<string>(app.settings.recentSearches ?? []);
+  const storeNames = registered.map((store) => (language === 'en' && store.nameEn) || store.name);
+  const menuNames = registered.flatMap((store) =>
+    (store.menuSuggestions ?? []).map((item) => (language === 'en' && item.nameEn) || item.name),
+  );
+  for (const name of [...storeNames.slice(0, 3), ...menuNames, ...storeNames.slice(3)])
+    terms.add(name);
+  const suggestions = Array.from(terms)
+    .filter((term) => term.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+    .slice(0, 6);
+  const searchOptions = searchOpen && (
+    <View className="gap-2">
+      {!!suggestions.length && (
+        <>
+          <Text variant="h3">추천 가게 및 검색어</Text>
+          {suggestions.map((term) => (
+            <Button
+              key={term}
+              variant="ghost"
+              className="justify-start"
+              onPress={() => search(term)}
+            >
+              <Text translate={false}>{term}</Text>
+            </Button>
+          ))}
+        </>
+      )}
+    </View>
+  );
   function openVoice() {
     Keyboard.dismiss();
+    mic.current?.start();
     setVoiceOpen(true);
   }
   return (
     <SafeAreaView className="flex-1 bg-card" edges={['top', 'left', 'right']}>
-      <AppHeader />
       <View className="min-h-0 flex-1 bg-background">
-        {voiceOpen ? (
-          <VoiceSearch
-            query={query}
-            onSearch={search}
-            onEdit={(value) => {
-              setQuery(value);
-              setVoiceOpen(false);
-              setSearchOpen(true);
-            }}
-            onClose={() => setVoiceOpen(false)}
-          />
-        ) : (
+        <VoiceSearch
+          open={voiceOpen}
+          mic={mic}
+          query={query}
+          onSearch={search}
+          onEdit={(value) => {
+            setQuery(value);
+            setVoiceOpen(false);
+            setSearchOpen(true);
+          }}
+          onClose={() => setVoiceOpen(false)}
+        />
+        {!voiceOpen && (
           <View
             className="min-h-0 w-full flex-1 self-center"
-            style={{ maxWidth: layout.shellWidth }}
+            style={{ maxWidth: view === 'list' ? layout.readingWidth : layout.shellWidth }}
           >
             <View className="gap-2 px-3 py-2">
               {searchOpen ? (
@@ -439,7 +413,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                       autoFocus
                       className="min-w-0 flex-1 border-0 bg-transparent"
                       accessibilityLabel="매장 이름 또는 주소 검색"
-                      placeholder={t('매장 또는 메뉴를 검색해보세요')}
+                      placeholder={t('매장 또는 메뉴 검색')}
                       value={query}
                       onChangeText={setQuery}
                       returnKeyType="search"
@@ -476,9 +450,9 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                   </Button>
                 </View>
               ) : (
-                <View className="flex-row items-center gap-2">
+                <View className="flex-row items-center rounded-2xl border border-input bg-card px-1">
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     size="icon"
                     accessibilityLabel="말로 검색"
                     onPress={openVoice}
@@ -486,40 +460,22 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                     <Icon as={Mic} size={21} className="text-primary" accessible={false} />
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     className="min-w-0 flex-1 justify-start"
                     accessibilityLabel="검색 열기"
                     accessibilityState={{ expanded: false }}
                     onPress={() => setSearchOpen(true)}
                   >
-                    <Icon as={Search} size={22} className="text-primary" accessible={false} />
                     {submitted ? (
                       <Text translate={false} className="flex-1 font-normal" numberOfLines={1}>
                         {submitted}
                       </Text>
                     ) : (
                       <Text variant="muted" className="flex-1" numberOfLines={1}>
-                        매장 또는 메뉴를 검색해보세요
+                        매장 또는 메뉴 검색
                       </Text>
                     )}
-                  </Button>
-                  <Button
-                    variant={
-                      filtersOpen || searchKind !== 'all' || access !== 'all'
-                        ? 'secondary'
-                        : 'ghost'
-                    }
-                    size="icon"
-                    accessibilityLabel="장소 필터"
-                    accessibilityState={{ expanded: filtersOpen }}
-                    onPress={() => setFiltersOpen((value) => !value)}
-                  >
-                    <Icon
-                      as={SlidersHorizontal}
-                      size={22}
-                      className="text-primary"
-                      accessible={false}
-                    />
+                    <Icon as={Search} size={20} className="text-primary" accessible={false} />
                   </Button>
                 </View>
               )}
@@ -527,24 +483,12 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                 value={view}
                 onChange={(next) => void changeView(next)}
                 disabled={savingView}
-                label="매장 보기 방식"
+                label={t('매장 보기 방식')}
                 options={[
-                  { value: 'list', label: '리스트로 주문', icon: List },
-                  { value: 'map', label: '지도로 주문', icon: Map },
+                  { value: 'list', label: '글 지도', icon: List },
+                  { value: 'map', label: '그림 지도', icon: Map },
                 ]}
               />
-              {(app.connection || app.order) && (
-                <NavLink
-                  variant="secondary"
-                  href={
-                    app.order
-                      ? { pathname: '/orders/[orderId]', params: { orderId: app.order.orderId } }
-                      : '/cart'
-                  }
-                >
-                  진행 중인 주문 확인
-                </NavLink>
-              )}
             </View>
             <View className="min-h-0 flex-1">
               {view === 'map' && (
@@ -573,33 +517,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                   keyboardShouldPersistTaps="handled"
                 >
                   {notice}
-                  {searchOpen && !query.trim() && registered.length > 0 && (
-                    <View className="gap-2">
-                      <Text variant="h3">추천 가게 및 검색어</Text>
-                      <View className="flex-row flex-wrap gap-2">
-                        {registered.slice(0, 5).map((store) => {
-                          const name = language === 'en' ? store.nameEn || store.name : store.name;
-                          return (
-                            <Button
-                              variant="outline"
-                              key={store.storeId}
-                              onPress={() => search(name)}
-                            >
-                              <Text translate={false} className="shrink">
-                                {name}
-                              </Text>
-                            </Button>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  )}
-                  {(filtersOpen || searchOpen) && (
-                    <>
-                      {categories}
-                      {accessFilters}
-                    </>
-                  )}
+                  {searchOptions}
                   {searchFeedback}
                   <View className="flex-row flex-wrap items-center justify-between gap-2">
                     {resultCount}
@@ -624,25 +542,18 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                       key={store.storeId}
                       store={store}
                       actions
-                      showDistance={
-                        !!position || (searchKind !== 'all' && searchKind !== 'stations')
-                      }
+                      showDistance={!!position}
                       onPress={() => setSelectedId(store.storeId)}
                     />
                   ))}
                   {emptyResults}
-                  <Button
-                    variant="outline"
-                    onPress={() => void Linking.openURL(placeSearchUrl(query)).catch(app.report)}
-                  >
-                    <Text>지도 앱에서 검색</Text>
-                  </Button>
+
                   <SubmissionRecovery />
                 </ScrollView>
               )}
               {view === 'map' &&
                 (notice ||
-                  filtersOpen ||
+                  searchOpen ||
                   placeError ||
                   placeStatus ||
                   placeLoading ||
@@ -654,12 +565,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                     >
                       {notice}
                       {searchFeedback}
-                      {filtersOpen && (
-                        <>
-                          {categories}
-                          {accessFilters}
-                        </>
-                      )}
+                      {searchOptions}
                       {(submitted || position || placeLoading) && resultCount}
                       {emptyResults}
                       {!!placeError && (

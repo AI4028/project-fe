@@ -11,11 +11,11 @@ import { cn } from '@/lib/utils';
 
 const tabs = [
   { href: '/', label: '홈', icon: House },
-  { href: '/orders', label: '주문내용', icon: ReceiptText },
-  { href: '/saved', label: '자주가요', icon: Bookmark },
-  { href: '/settings', label: '환경설정', icon: SlidersHorizontal },
+  { href: '/orders', label: '주문내역', icon: ReceiptText },
+  { href: '/saved', label: '북마크', icon: Bookmark },
+  { href: '/settings', label: '이용설정', icon: SlidersHorizontal },
 ] as const;
-export function AppNavigation({ vertical = false }: { vertical?: boolean }) {
+export function AppNavigation() {
   const path = usePathname();
   const { settings } = useApp();
   const { t } = useTranslation();
@@ -33,7 +33,7 @@ export function AppNavigation({ vertical = false }: { vertical?: boolean }) {
       <View
         accessibilityRole="tablist"
         accessibilityLabel={t('주요 탐색')}
-        className={vertical ? 'gap-2' : 'flex-row gap-1 border-t border-border bg-card px-2 py-1'}
+        className="flex-row gap-1 border-t border-border bg-card px-2 py-1"
       >
         {tabs.map(({ href, label, icon }) => (
           <Button
@@ -43,9 +43,7 @@ export function AppNavigation({ vertical = false }: { vertical?: boolean }) {
             accessibilityLabel={label}
             accessibilityState={{ selected: active === href }}
             className={cn(
-              vertical
-                ? 'justify-start gap-3 px-4'
-                : 'min-w-0 flex-1 flex-col gap-0.5 rounded-xl px-0.5 py-1.5',
+              'min-w-0 flex-1 flex-col gap-0.5 rounded-xl px-0.5 py-1.5',
               active === href && 'border-primary',
             )}
             onPress={() => {
@@ -63,7 +61,7 @@ export function AppNavigation({ vertical = false }: { vertical?: boolean }) {
               variant="small"
               className={cn(
                 'text-center leading-4',
-                !vertical && 'text-[11px]',
+                'text-[11px]',
                 active === href ? 'font-bold text-primary' : 'font-medium text-foreground',
               )}
             >

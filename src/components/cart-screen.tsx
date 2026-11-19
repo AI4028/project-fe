@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect, usePathname } from 'expo-router';
 import { ArrowRight, ShoppingBag, Trash2 } from 'lucide-react-native';
 import { EmptyState } from './brand';
 import { OrderingPaused, Problem, SubmissionRecovery } from './feedback';
@@ -36,6 +36,16 @@ export function CartScreen({
   const [removeError, setRemoveError] = useState('');
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
+  const isCart = usePathname() === '/cart';
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        setEdit(null);
+        setRemove(null);
+      },
+      [],
+    ),
+  );
   const didOpenInitial = useRef(false);
   const storeId = app.connection?.storeId ?? app.store?.storeId;
   const storeName =
@@ -49,7 +59,8 @@ export function CartScreen({
     : ('/menu' as const);
 
   useEffect(() => {
-    if (initialEdit === undefined || didOpenInitial.current || !app.ready || app.busy) return;
+    if (!isCart || initialEdit === undefined || didOpenInitial.current || !app.ready || app.busy)
+      return;
     didOpenInitial.current = true;
     const index = Number(initialEdit);
     const original = app.items[index];
@@ -68,6 +79,7 @@ export function CartScreen({
     }
     setError('수정할 메뉴를 장바구니에서 다시 선택해 주세요.');
   }, [
+    isCart,
     initialEdit,
     initialItemId,
     initialStoreId,
@@ -229,12 +241,11 @@ export function CartScreen({
             })}
           </View>
           <View className="flex-row flex-wrap gap-2">
-            <NavLink href={menuHref}>다른 메뉴 추가</NavLink>
-            <NavLink href="/leave">주문 중단 · 장바구니 관리</NavLink>
+            <NavLink href={menuHref}>메뉴 더 고르기</NavLink>
           </View>
         </>
       )}
-      {app.store && itemToEdit && edit && (
+      {isCart && app.store && itemToEdit && edit && (
         <ItemOptionsSheet
           store={app.store}
           item={itemToEdit}
@@ -242,7 +253,7 @@ export function CartScreen({
           onClose={() => setEdit(null)}
         />
       )}
-      {remove && (
+      {isCart && remove && (
         <Dialog
           open
           onOpenChange={(open) => {

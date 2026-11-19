@@ -29,22 +29,21 @@ export default function Onboarding() {
   const [error, setError] = useState('');
   const pending = useRef(false);
 
-  async function start(defaults = false) {
+  async function start() {
     if (pending.current) return;
     pending.current = true;
     setSaving(true);
     setError('');
-    const exploreMode = defaults ? 'list' : mode;
-    const textSize = defaults ? 'base' : size;
+
     try {
       await app.updateSettings({
-        exploreMode,
-        textSize,
-        largeText: textSize !== 'base',
-        contrast: !defaults && contrast,
-        voiceInput: !defaults && voiceInput,
+        exploreMode: mode,
+        textSize: size,
+        largeText: size !== 'base',
+        contrast,
+        voiceInput,
       });
-      router.replace(exploreRoute(undefined, exploreMode));
+      router.replace(exploreRoute(undefined, mode));
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -57,11 +56,25 @@ export default function Onboarding() {
     <TextScaleContext.Provider value={textScale(size)}>
       <View style={[{ flex: 1 }, vars(themeVariables(contrast))]}>
         <Screen
-          title="나에게 편한 이용 설정"
+          title={size === 'xlarge' ? '크게 확인해요' : '나에게 편한 이용 설정'}
           subtitle="필요한 기능만 골라 켜 주세요."
           chrome="onboarding"
-          headerDisabled={saving}
-          contrast={contrast}
+          footer={
+            <Button
+              size="lg"
+              disabled={saving}
+              accessibilityState={{ busy: saving }}
+              onPress={() => void start()}
+            >
+              <Text>{saving ? '저장 중…' : '설정 완료하고 시작하기'}</Text>
+              <Icon
+                as={ArrowRight}
+                size={20}
+                className="text-primary-foreground"
+                accessible={false}
+              />
+            </Button>
+          }
           voice={false}
         >
           <View className="gap-3">
@@ -100,26 +113,7 @@ export default function Onboarding() {
               ]}
             />
           </View>
-          <View className="gap-2">
-            {!!error && <Text accessibilityRole="alert">{error}</Text>}
-            <Button variant="outline" disabled={saving} onPress={() => void start(true)}>
-              <Text>기본 설정으로 바로 시작</Text>
-            </Button>
-            <Button
-              size="lg"
-              disabled={saving}
-              accessibilityState={{ busy: saving }}
-              onPress={() => void start()}
-            >
-              <Text>{saving ? '저장 중…' : '설정 완료하고 시작하기'}</Text>
-              <Icon
-                as={ArrowRight}
-                size={20}
-                className="text-primary-foreground"
-                accessible={false}
-              />
-            </Button>
-          </View>
+          {!!error && <Text accessibilityRole="alert">{error}</Text>}
         </Screen>
       </View>
     </TextScaleContext.Provider>

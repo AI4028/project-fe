@@ -43,11 +43,13 @@ export type Store = {
   distanceM?: number;
   insideGeofence?: boolean;
   orderingMethods?: string[];
+  hasOrderTerminal?: boolean;
   orderingPaused?: boolean;
   indoorDirections?: string;
   pickupLocation?: string;
   phone?: string | null;
   menu?: MenuItem[];
+  menuSuggestions?: Pick<MenuItem, 'name' | 'nameEn'>[];
 };
 export type DataSource = {
   name: string;
@@ -118,6 +120,16 @@ export type OrderStatus =
   | 'ready'
   | 'picked_up'
   | 'cancelled';
+export const paymentLabels = {
+  card: '신용·체크카드',
+  kakaopay: '카카오페이',
+  tosspay: '토스페이',
+  naverpay: '네이버페이',
+  counter: '만나서 현장 결제',
+  kiosk: '키오스크에서 결제',
+} as const;
+export type PaymentMethod = keyof typeof paymentLabels;
+
 export type Order = {
   orderId: string;
   kioskId?: string | null;
@@ -132,7 +144,8 @@ export type Order = {
   total: number;
   summary: string;
   lines?: PricedLine[];
-  paymentMethod: 'counter' | 'kiosk';
+  paymentMethod: PaymentMethod;
+  simulatedApprovedAmount?: number | null;
   note: string;
 };
 export type StaffHelpRequest = { sessionId: string; orderNumber: number | null };

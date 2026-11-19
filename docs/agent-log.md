@@ -309,3 +309,7 @@ Newest first, four lines, no stories:
 - **Why:** the shell's pipe encoding could not represent the new text.
 - **Fix:** rewrote the affected messages with the Unicode-safe patch tool and checked for question-mark runs.
 - **Rule:** use direct patches for Korean text; UTF-8 file reads alone do not fix lossy stdin encoding.
+
+### 2026-11-19 · Open voice search from the first microphone tap
+
+The web speech recognizer needs to start during the tap. Keep the listener mounted while discovery is visible, start it in the microphone handler, and abort on leaving the voice screen. Discovery tests cover the first tap and denied permissions. The web gesture test leaves speech playback shutdown pending.

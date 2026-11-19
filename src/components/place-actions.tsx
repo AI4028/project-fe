@@ -42,7 +42,7 @@ export function PlaceActions({ store }: { store: Store }) {
         lng: String(store.location?.lng ?? ''),
       }
     : params;
-  const preview = store.orderingPaused;
+  const preview = store.orderingPaused || store.hasOrderTerminal === false;
   return (
     <View className="flex-row flex-wrap gap-2">
       <Button

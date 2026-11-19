@@ -18,7 +18,8 @@ export default function Guide() {
   const app = useApp();
   const { t, language } = useTranslation();
   const { width } = useWindowDimensions();
-  const { storeId, name, address, lat, lng } = useLocalSearchParams<{
+  const { storeId, name, address, lat, lng, stage } = useLocalSearchParams<{
+    stage?: string;
     storeId?: string;
     name?: string;
     address?: string;
@@ -86,6 +87,50 @@ export default function Guide() {
         .filter(Boolean)
         .join('. ')
     : t('매장을 먼저 선택해 주세요.');
+  if (store && !store.directoryOnly && stage !== 'details') {
+    const guide = (next: string) => ({
+      pathname: '/guide' as const,
+      params: { storeId: store.storeId, stage: next },
+    });
+    const unsupported = stage === 'signal';
+    return (
+      <Screen
+        title={
+          unsupported ? '이 기기에서는 방향 안내를 지원하지 않아요' : '매장으로 접근해 볼까요?'
+        }
+        subtitle={displayName || undefined}
+        voice={false}
+        reading
+      >
+        <Card>
+          <CardContent className="gap-2 pt-5">
+            <Text variant="h3">
+              {unsupported ? '등록된 안내로 이동할 수 있어요' : '매장 이동 정보'}
+            </Text>
+            <Text>
+              {unsupported
+                ? '현재 앱에서 실내 방향 신호를 받을 수 없어요. 매장 정보와 직원 안내를 이용해 주세요.'
+                : '입구·층수·실내 안내를 먼저 확인해 주세요.'}
+            </Text>
+          </CardContent>
+        </Card>
+        {!unsupported && (
+          <NavLink variant="default" href={guide('signal')}>
+            방향 안내 시작
+          </NavLink>
+        )}
+        <NavLink href={guide('details')}>등록된 접근 정보 보기</NavLink>
+        {unsupported && (
+          <NavLink href={{ pathname: '/help', params: { storeId: store.storeId } }}>
+            직원에게 문의
+          </NavLink>
+        )}
+        <NavLink href={{ pathname: '/menu', params: { storeId: store.storeId } }}>
+          {store.hasOrderTerminal === false || store.orderingPaused ? '메뉴 보기' : '먼저 주문하기'}
+        </NavLink>
+      </Screen>
+    );
+  }
   return (
     <Screen
       title="매장으로 길 안내"
