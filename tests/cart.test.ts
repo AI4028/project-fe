@@ -1,4 +1,12 @@
-import { estimate, restoreCart, validateItem, replaceCartItem, removeCartItem } from '@/lib/cart';
+import { translate } from '@/lib/i18n';
+import {
+  estimate,
+  optionSummary,
+  restoreCart,
+  validateItem,
+  replaceCartItem,
+  removeCartItem,
+} from '@/lib/cart';
 import type { MenuItem, PricedLine } from '@/lib/types';
 const item: MenuItem = {
   id: 'coffee',
@@ -69,4 +77,25 @@ test('removing a line keeps other options for the same menu item and rejects a s
   const hot = { itemId: 'coffee', qty: 2, options: { temp: 'hot' } };
   expect(removeCartItem([iced, hot], 1, hot)).toEqual([iced]);
   expect(() => removeCartItem([hot, iced], 1, hot)).toThrow('장바구니가 변경');
+});
+
+test('option summaries show the quoted unit adjustment in either language', () => {
+  const line: PricedLine = {
+    itemId: 'latte',
+    name: '라떼',
+    qty: 2,
+    lineTotal: 12400,
+    options: [
+      { optionId: 'temp', choiceId: 'ice', choiceName: '아이스', priceDelta: 0 },
+      { optionId: 'milk', choiceId: 'oat', choiceName: '오트 우유', priceDelta: 600 },
+      { optionId: 'discount', choiceId: 'cup', choiceName: 'Cup', priceDelta: -100 },
+      { optionId: 'legacy', choiceId: 'other', choiceName: 'Other' },
+    ],
+  };
+  expect(optionSummary(line, (text) => text)).toBe(
+    '아이스 · 오트 우유 (+600원) · Cup (−100원) · Other',
+  );
+  expect(optionSummary(line, (text) => translate(text, 'en'))).toBe(
+    'Iced · Oat milk (+₩600) · Cup (−₩100) · Other',
+  );
 });

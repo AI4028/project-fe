@@ -357,3 +357,7 @@ The web speech recognizer needs to start during the tap. Keep the listener mount
 ### 2026-11-21 · Check bookmarks at normal text size
 
 The onboarding button reads “Save settings and start” at normal text size and “Get started” in the compact layout. Browser checks that start with onboarding should allow both labels before testing bookmarks.
+
+### 2026-11-21 · Check quoted prices across checkout screens
+
+Expo Router can retain the cart in the web DOM while the final review is visible. Scope browser assertions to the visible screen when checking the same option summary on both routes.

@@ -102,45 +102,32 @@ export function MenuScreen({
       voice={!item}
       footer={
         store && (
-          <Link href="/cart" asChild>
-            <Button
-              variant={qty ? 'default' : 'secondary'}
-              size="lg"
-              className="justify-between gap-3"
-            >
-              <View className="min-w-0 flex-1 flex-row items-center gap-2">
-                {!!qty && (
-                  <Icon
-                    as={ShoppingBag}
-                    className="text-primary-foreground"
-                    size={20}
-                    accessible={false}
-                  />
-                )}
-                <View
-                  className={
-                    qty
-                      ? 'min-h-6 min-w-6 items-center justify-center rounded-full bg-primary-foreground px-1'
-                      : 'min-h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1'
-                  }
-                >
-                  <Text
-                    className={qty ? 'font-bold text-primary' : 'font-bold text-primary-foreground'}
-                  >
-                    {qty}
+          <View className="py-2">
+            <Link href="/cart" asChild>
+              <Button
+                variant="secondary"
+                size="lg"
+                className="min-h-16 flex-wrap justify-between gap-3"
+              >
+                <View className="min-w-0 flex-1 flex-row items-center gap-2">
+                  <Icon as={ShoppingBag} className="text-primary" size={24} accessible={false} />
+                  <View className="min-h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1">
+                    <Text className="font-bold text-primary-foreground">{qty}</Text>
+                  </View>
+                  <Text translate={false} className="shrink text-left">
+                    {qty
+                      ? differentCartStore && cartStoreName
+                        ? `${cartStoreName} · ${t('장바구니 보기')}`
+                        : t('장바구니 보기')
+                      : t('장바구니 비어 있음')}
                   </Text>
                 </View>
-                <Text translate={false} className="shrink text-left">
-                  {qty
-                    ? differentCartStore && cartStoreName
-                      ? `${cartStoreName} · ${t('장바구니 보기')}`
-                      : t('장바구니 보기')
-                    : t('장바구니 비어 있음')}
+                <Text className="text-lg font-extrabold text-foreground">
+                  {money(app.cart.total)}
                 </Text>
-              </View>
-              <Text>{money(app.cart.total)}</Text>
-            </Button>
-          </Link>
+              </Button>
+            </Link>
+          </View>
         )
       }
       onTranscript={(transcript) => {

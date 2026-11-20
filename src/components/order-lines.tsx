@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
-import { money } from '@/lib/cart';
+import { money, optionSummary } from '@/lib/cart';
 import { useTranslation } from '@/lib/i18n';
 import type { PricedLine } from '@/lib/types';
 
@@ -16,7 +16,7 @@ export function OrderLines({ lines }: { lines: PricedLine[] }) {
       </View>
       {line.options.length > 0 && (
         <Text variant="muted" translate={false}>
-          {line.options.map((choice) => t(choice.choiceName)).join(' · ')}
+          {optionSummary(line, t)}
         </Text>
       )}
     </View>

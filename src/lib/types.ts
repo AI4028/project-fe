@@ -103,7 +103,7 @@ export type PricedLine = {
   nameEn?: string | null;
   qty: number;
   lineTotal: number;
-  options: { optionId: string; choiceId: string; choiceName: string }[];
+  options: { optionId: string; choiceId: string; choiceName: string; priceDelta?: number }[];
 };
 export type Cart = { quoteId?: string; total: number; summary: string; lines: PricedLine[] };
 export type Session = {

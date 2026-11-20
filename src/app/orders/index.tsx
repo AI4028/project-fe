@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { View } from 'react-native';
-import { ChevronRight, ReceiptText, ShoppingCart } from 'lucide-react-native';
+import { ChevronRight, ReceiptText } from 'lucide-react-native';
 import { Screen, NavLink } from '@/components/screen';
 import { EmptyState, StatusBadge } from '@/components/brand';
 import { Text } from '@/components/ui/text';
@@ -72,7 +72,7 @@ function HistoryCard({
           icon={ChevronRight}
           className="flex-row-reverse justify-between"
         >
-          주문 상세 보기
+          {isOpenOrder(order) ? '주문 상태 보기' : '주문 상세 보기'}
         </NavLink>
       </CardContent>
     </Card>
@@ -140,21 +140,8 @@ export default function Orders() {
       : orders;
 
   return (
-    <Screen title="주문내용" subtitle="장바구니 메뉴와 보낸 주문 상태를 확인하세요." voice={false}>
+    <Screen title="주문내역" voice={false}>
       <SubmissionRecovery />
-      {app.connection && !app.pendingSubmission && (
-        <Card className="py-4 shadow-none">
-          <CardContent className="gap-3 px-4">
-            <Text variant="h3">장바구니</Text>
-            {app.store && <Text translate={false}>{app.store.name}</Text>}
-            {app.items.length > 0 && <Text className="font-semibold">{money(app.cart.total)}</Text>}
-            <NavLink href="/cart" icon={ShoppingCart}>
-              장바구니 확인
-            </NavLink>
-          </CardContent>
-        </Card>
-      )}
-      <Text variant="h2">보낸 주문 내역</Text>
       {!!error && (
         <Problem message={error} retry={() => setRevision((value) => value + 1)} busy={loading} />
       )}
@@ -168,9 +155,17 @@ export default function Orders() {
         <EmptyState
           icon={ReceiptText}
           title="아직 보낸 주문이 없어요"
-          description="홈에서 매장을 고르거나 큐알주문을 통해 첫 주문을 시작해 보세요."
+          description={
+            app.connection && app.items.length > 0
+              ? '장바구니의 메뉴는 주문을 보내면 여기에 표시돼요.'
+              : '홈에서 매장을 고르거나 큐알주문을 통해 첫 주문을 시작해 보세요.'
+          }
         >
-          <NavLink href="/">매장 찾으러 가기</NavLink>
+          {app.connection && app.items.length > 0 ? (
+            <NavLink href="/cart">장바구니 확인</NavLink>
+          ) : (
+            <NavLink href="/">매장 찾으러 가기</NavLink>
+          )}
         </EmptyState>
       )}
     </Screen>
