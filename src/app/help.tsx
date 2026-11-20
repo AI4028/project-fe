@@ -120,7 +120,7 @@ export default function Help() {
   return (
     <Screen
       title="직원 도움이 필요하신가요?"
-      subtitle="방문·주문·픽업에 필요한 도움을 요청할 수 있어요."
+      subtitle="이 매장의 직원에게 도움을 요청해요."
       voice={false}
       reading
     >
@@ -156,6 +156,25 @@ export default function Help() {
         />
       )}
       {!!actionError && <Problem message={actionError} />}
+      {!orderId && app.pendingSubmission && <Text>먼저 주문 전송 결과를 확인해 주세요.</Text>}
+      {!orderId &&
+        !app.connection &&
+        !app.pendingSubmission &&
+        store &&
+        store.storeId === linkedStore &&
+        !store.orderingPaused && (
+          <>
+            <Text variant="muted">
+              이 매장의 장바구니를 열거나 키오스크에 연결하면 앱으로 직원에게 도움을 요청할 수
+              있어요.
+            </Text>
+            <NavLink
+              href={{ pathname: '/connect', params: { storeId: store.storeId, next: 'help' } }}
+            >
+              키오스크 코드로 연결해 도움 요청하기
+            </NavLink>
+          </>
+        )}
       {(waiting || acknowledged) && (
         <Card className="border-0 bg-secondary py-4 shadow-none">
           <CardContent className="gap-2 px-4">

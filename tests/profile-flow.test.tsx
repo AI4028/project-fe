@@ -129,9 +129,15 @@ test('onboarding previews independent accessibility settings and saves before op
     voiceInput: true,
   });
   expect(router.replace).not.toHaveBeenCalled();
-  expect(screen.queryByLabelText('한국어로 전환')).toBeNull();
   await act(async () => saved());
   expect(router.replace).toHaveBeenCalledWith('/explore/map');
+});
+
+test('a first-time user can select English before completing setup', async () => {
+  await render(<Onboarding />);
+  await fireEvent.press(screen.getByRole('radio', { name: 'Switch to English' }));
+  expect(mockUpdateSettings).toHaveBeenCalledWith({ language: 'en' });
+  expect(router.replace).not.toHaveBeenCalled();
 });
 
 test('the single start action saves the displayed defaults', async () => {

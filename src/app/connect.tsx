@@ -14,7 +14,12 @@ import { ApiError, errorMessage } from '@/lib/api';
 import type { Store } from '@/lib/types';
 export default function Connect() {
   const app = useApp();
-  const params = useLocalSearchParams<{ kioskId?: string; token?: string; storeId?: string }>();
+  const params = useLocalSearchParams<{
+    kioskId?: string;
+    token?: string;
+    storeId?: string;
+    next?: string;
+  }>();
   const [kioskId, setKioskId] = useState(params.kioskId ?? '');
   const [code, setCode] = useState(params.token ?? '');
   const [candidate, setCandidate] = useState<{
@@ -53,7 +58,11 @@ export default function Connect() {
     setWaiting(false);
     try {
       await app.connect(candidate.kioskId, code, candidate.store.storeId);
-      router.replace('/menu');
+      router.replace(
+        params.next === 'help'
+          ? { pathname: '/help', params: { storeId: candidate.store.storeId } }
+          : '/menu',
+      );
     } catch (reason) {
       setWaiting(reason instanceof ApiError && reason.code === 'kiosk-busy');
       if (reason instanceof ApiError && reason.code === 'ordering-paused') {

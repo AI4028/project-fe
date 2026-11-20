@@ -5,7 +5,7 @@ import OrderScreen from '@/app/orders/[orderId]';
 import { ApiError } from '@/lib/api';
 import type { Order } from '@/lib/types';
 
-let mockParams: { orderId?: string };
+let mockParams: { orderId?: string; storeId?: string };
 let mockApp: ReturnType<typeof makeApp>;
 
 jest.mock('@rn-primitives/slot', () => ({ Slot: jest.fn() }));
@@ -169,4 +169,13 @@ test('staff help for a direct order shows sent only after confirmation and then 
   await waitFor(() => expect(mockApp.requestOrderHelp).toHaveBeenCalledWith('owned-order'));
   expect(await screen.findByText('직원이 도움 요청을 확인했어요')).toBeTruthy();
   expect(mockApp.api.kioskInfo).not.toHaveBeenCalled();
+});
+
+test('before ordering, help offers kiosk pairing without claiming a request was sent', async () => {
+  mockParams = { storeId: 'cafe' };
+  await render(<Help />);
+  expect(await screen.findByText('키오스크 코드로 연결해 도움 요청하기')).toBeTruthy();
+  expect(screen.queryByText('앱으로 직원 도움 요청하기')).toBeNull();
+  expect(screen.queryByText('도움 요청을 보냈어요')).toBeNull();
+  expect(mockApp.requestOrderHelp).not.toHaveBeenCalled();
 });

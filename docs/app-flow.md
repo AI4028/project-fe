@@ -16,8 +16,8 @@
    before and after ordering.
 5. **Track.** Follow the live status and cancel before staff accepts.
 
-See [design direction](design-direction.md) for references, visual decisions,
-the revised discovery/connection flow, and the remaining device review.
+The [Block 1 release reference](design-direction.md#block-1-release-reference)
+covers checkout, guidance, staff help, language and their acceptance checks.
 
 ## Kiosk
 

@@ -153,7 +153,7 @@ export default function Guide() {
                 <View className="h-11 w-11 items-center justify-center rounded-2xl bg-secondary">
                   <Icon as={Navigation} size={22} className="text-primary" />
                 </View>
-                <Text variant="h3">실내 이동 경로</Text>
+                <Text variant="h3">매장에 등록된 실내 이동 안내</Text>
                 <Text>{knownText(store.indoorDirections)}</Text>
               </CardContent>
             </Card>
