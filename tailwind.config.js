@@ -8,6 +8,7 @@ module.exports = {
       colors: Object.fromEntries(
         [
           'border',
+          'search-border',
           'input',
           'ring',
           'background',

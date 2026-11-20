@@ -42,6 +42,7 @@ type Settings = {
   vibration?: boolean;
   orderAlerts?: boolean;
   locateOnStart?: boolean;
+  saveRecentSearches?: boolean;
   recentSearches?: string[];
 };
 const initialSettings: Settings = {
@@ -635,11 +636,13 @@ function useAppState(path: string) {
       announce('연결을 종료했습니다.');
     });
   }
-  function updateSettings(patch: Partial<Settings>) {
+  function queueSettings(change: (current: Settings) => Partial<Settings> | null) {
     const task = settingsQueue.current
       .catch(() => {})
       .then(async () => {
         const previous = settingsRef.current;
+        const patch = change(previous);
+        if (!patch) return;
         const base = patch.apiBase === undefined ? previous.apiBase : normalizeBase(patch.apiBase);
         if (base !== previous.apiBase) {
           if (lock.current) throw new Error('요청이 완료된 후 서버를 변경해 주세요.');
@@ -661,7 +664,23 @@ function useAppState(path: string) {
     settingsQueue.current = task;
     return task;
   }
+  function updateSettings(patch: Partial<Settings>) {
+    return queueSettings(() => patch);
+  }
+  function rememberSearch(term: string) {
+    return queueSettings(({ saveRecentSearches, recentSearches = [] }) =>
+      saveRecentSearches === false
+        ? null
+        : {
+            recentSearches: [
+              term,
+              ...recentSearches.filter((item) => item.toLowerCase() !== term.toLowerCase()),
+            ].slice(0, 8),
+          },
+    );
+  }
   return {
+    rememberSearch,
     api,
     savedPlaces: saved.base === api.base ? saved.places : [],
     savedPlacesReady: saved.base === api.base && saved.ready,

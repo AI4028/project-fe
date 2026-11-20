@@ -103,6 +103,7 @@ export default function Onboarding() {
           <View className="gap-2">
             <Text variant="h3">지도 방식</Text>
             <SegmentedControl<ExploreMode>
+              mapChoice
               value={mode}
               onChange={setMode}
               label={t('지도 방식')}

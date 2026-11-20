@@ -211,6 +211,32 @@ test('keeps independently saved preferences when changes overlap', async () => {
   });
 });
 
+test('recent search consent, queued writes and clearing persist separately', async () => {
+  const { result, unmount } = await mount();
+  await act(async () => {
+    await Promise.all([
+      result.current.rememberSearch('Latte'),
+      result.current.rememberSearch('Mocha'),
+    ]);
+    await result.current.rememberSearch('latte');
+    await Promise.all([
+      result.current.updateSettings({ saveRecentSearches: false }),
+      result.current.rememberSearch('Private'),
+    ]);
+  });
+  expect(result.current.settings.recentSearches).toEqual(['latte', 'Mocha']);
+  await act(() => result.current.updateSettings({ recentSearches: [] }));
+  await unmount();
+  const restored = await mount();
+  expect(restored.result.current.settings).toMatchObject({
+    saveRecentSearches: false,
+    recentSearches: [],
+  });
+  await act(() => restored.result.current.updateSettings({ saveRecentSearches: true }));
+  await act(() => restored.result.current.rememberSearch('Tea'));
+  expect(restored.result.current.settings.recentSearches).toEqual(['Tea']);
+});
+
 test('does not invent an offline session when the kiosk is busy', async () => {
   const previous = route;
   route = (path, method) =>

@@ -1,7 +1,11 @@
 # Accessible place search
 
 Search uses the backend on both Expo and web; the map only displays the same
-results. Submitting a query opens the text list. Categories include stations,
+results. Submitting a query keeps the selected text or map view. Registered
+venue cards in the text list open venue details directly. Map pins open previews.
+Recent searches and catalog suggestions appear separately while editing.
+Usage Settings controls saving future searches and clearing stored history.
+Categories include stations,
 audible traffic signals, station voice guides, tactile paving and crossings.
 Infrastructure search uses the current position or a matched station name as
 its reference point, without inventing a user position.

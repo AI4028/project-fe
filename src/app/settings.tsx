@@ -106,6 +106,7 @@ export default function Settings() {
           </Button>
           <Text>시작 화면 지도 방식</Text>
           <SegmentedControl<ExploreMode>
+            mapChoice
             value={resolveExploreMode(settings.assistance, settings.exploreMode) ?? 'list'}
             onChange={(exploreMode) => void save({ exploreMode })}
             label={t('지도 방식')}
@@ -142,6 +143,12 @@ export default function Settings() {
             description="장바구니가 변경되면 진동으로 알려요."
             value={settings.vibration !== false}
             onChange={(vibration) => void save({ vibration })}
+          />
+          <PreferenceSwitch
+            title="최근 검색어 저장"
+            description="이 기기에 검색어를 저장해요."
+            value={settings.saveRecentSearches !== false}
+            onChange={(saveRecentSearches) => void save({ saveRecentSearches })}
           />
           <Button variant="outline" onPress={() => setConfirm(true)}>
             <Text>최근 검색어 지우기</Text>

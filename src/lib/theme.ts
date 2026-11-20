@@ -82,6 +82,7 @@ export const palettes = {
     'destructive-foreground': '0 0% 100%',
     border: hsl('#E5DED7'),
     input: hsl('#88786C'),
+    'search-border': hsl('#B7A99D'),
     ring: hsl(brandColors.walnut),
   },
   contrast: {
@@ -103,6 +104,7 @@ export const palettes = {
     'destructive-foreground': '0 0% 0%',
     border: '0 0% 100%',
     input: '0 0% 100%',
+    'search-border': '0 0% 100%',
     ring: hsl(brandColors.beige),
   },
 } as const;

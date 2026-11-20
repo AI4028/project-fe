@@ -35,6 +35,13 @@ It now renders the subtitle so tests verify the payment instructions seen by cus
 - **Fix:** Isolated the badge’s text styles and verified the rendered colors in Chrome.
 - **Rule:** Inspect the label and its background with the switch focused or hovered.
 
+### 2026-11-21 · Measure the search field at the focus boundary
+
+- **Hit:** Chrome reported no focus ring on the outer layout container.
+- **Why:** The search field groups the microphone, input and actions inside that container.
+- **Fix:** Measured the element enclosing those controls while the input had focus.
+- **Rule:** At 390 px, check the ring on the 342 × 56 px field and verify opening suggestions preserves the first venue card’s position.
+
 ### 2026-11-20 · Reuse the pnpm store attached to the project
 
 - **Hit:** Adding the Expo file picker stopped with `ERR_PNPM_UNEXPECTED_STORE`.

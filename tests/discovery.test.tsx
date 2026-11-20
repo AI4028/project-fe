@@ -36,6 +36,7 @@ const stores: Store[] = [
   { storeId: 'unknown', name: '정보 없는 카페', address: '광주', accessibility: {} },
 ];
 const mockApi = { stores: jest.fn(), nearby: jest.fn(), searchPlaces: jest.fn() };
+const mockRememberSearch = jest.fn().mockResolvedValue(undefined);
 const mockUpdateSettings = jest.fn().mockResolvedValue(undefined);
 jest.mock('@/providers/app-provider', () => ({
   useApp: () => ({
@@ -44,6 +45,7 @@ jest.mock('@/providers/app-provider', () => ({
     settings: {},
     report: jest.fn(),
     updateSettings: mockUpdateSettings,
+    rememberSearch: mockRememberSearch,
   }),
 }));
 jest.mock('expo-router', () => ({
@@ -143,8 +145,8 @@ test('voice recognition waits for the user to edit and confirm the search', asyn
 test('denied microphone keeps a typed query available', async () => {
   mockRequestMic.mockResolvedValueOnce({ granted: false });
   await render(<Discovery />);
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '성수');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), '성수');
   await fireEvent.press(screen.getByLabelText('말로 검색'));
   await screen.findByText('마이크 권한이 꺼져 있어요');
   await fireEvent.press(screen.getByText('글자로 입력하기'));
@@ -155,8 +157,8 @@ test('denied microphone keeps a typed query available', async () => {
 test('find nearby clears the old query and exposes nearby results in the list', async () => {
   mockApi.stores.mockResolvedValue([{ ...stores[0], location: { lat: 35.1, lng: 129.1 } }]);
   await render(<Discovery />);
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'old destination');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), 'old destination');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
   mockApi.searchPlaces.mockResolvedValue({
     places: [
@@ -175,8 +177,8 @@ test('find nearby clears the old query and exposes nearby results in the list', 
   await screen.findByLabelText('Nearby cafe 매장 정보 보기');
   expect(mockApi.searchPlaces).toHaveBeenLastCalledWith('', 'all', { lat: 37.5445, lng: 127.056 });
   expect(screen.queryByLabelText('첫 번째 카페 매장 정보 보기')).toBeNull();
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  expect(screen.getByLabelText('매장 이름 또는 주소 검색').props.value).toBe('');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  expect(screen.getByPlaceholderText('매장 또는 메뉴 검색').props.value).toBe('');
 });
 
 test('location denial stays visible even when ordering is offline', async () => {
@@ -224,8 +226,8 @@ test('failed search shows one recovery state without a misleading zero count', a
   mockApi.stores.mockRejectedValueOnce(new TypeError('offline'));
   mockApi.searchPlaces.mockRejectedValueOnce(new TypeError('offline'));
   await render(<Discovery />);
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '성수');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), '성수');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
   await screen.findByText('장소를 불러오지 못했어요');
   expect(screen.queryByText('주문 연결 불가')).toBeNull();
@@ -242,11 +244,11 @@ test('home keeps four labelled destinations and search expands only when request
   expect(screen.getByLabelText('매장 보기 방식')).toBeTruthy();
   expect(screen.getByRole('tab', { name: '홈' }).props.accessibilityState.selected).toBe(true);
   expect(screen.queryByLabelText('접근성 조건')).toBeNull();
-  expect(screen.queryByLabelText('매장 이름 또는 주소 검색')).toBeNull();
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  expect(screen.getByLabelText('매장 이름 또는 주소 검색')).toBeTruthy();
+  expect(screen.queryByPlaceholderText('매장 또는 메뉴 검색')).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  expect(screen.getByPlaceholderText('매장 또는 메뉴 검색')).toBeTruthy();
   await fireEvent.press(screen.getByLabelText('검색 닫기'));
-  expect(screen.queryByLabelText('매장 이름 또는 주소 검색')).toBeNull();
+  expect(screen.queryByPlaceholderText('매장 또는 메뉴 검색')).toBeNull();
   await fireEvent.press(screen.getByRole('tab', { name: '주문내역' }));
   expect(router.navigate).toHaveBeenCalledWith('/orders');
 });
@@ -275,13 +277,13 @@ test('accessibility filters exclude false, null and unknown facts without changi
   expect(stores).toHaveLength(3);
 });
 
-test('switching views keeps the selected place and search query', async () => {
+test('text map opens a registered venue directly and switching views keeps the search', async () => {
   await render(<Discovery />);
   await screen.findByLabelText('첫 번째 카페 매장 정보 보기');
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '성수');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), '성수');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
   expect(screen.queryByLabelText('두 번째 카페 매장 정보 보기')).toBeNull();
   expect(screen.getByDisplayValue('성수')).toBeTruthy();
   expect(screen.getByLabelText('첫 번째 카페 매장 정보 보기')).toBeTruthy();
@@ -289,15 +291,16 @@ test('switching views keeps the selected place and search query', async () => {
   expect(screen.queryByTestId('store-map')).toBeNull();
   await fireEvent.press(screen.getByLabelText('검색 닫기'));
   await fireEvent.press(screen.getByLabelText('첫 번째 카페 매장 정보 보기'));
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/store', params: { storeId: 'one' } });
   await fireEvent.press(screen.getByRole('radio', { name: '그림 지도' }));
   expect(mockUpdateSettings).toHaveBeenCalledWith({ exploreMode: 'map' });
   expect(screen.getByTestId('store-map')).toBeTruthy();
-  expect(screen.getByText('매장 정보 · 메뉴')).toBeTruthy();
+  expect(screen.queryByText('매장 정보 · 메뉴')).toBeNull();
   expect(screen.getByLabelText('첫 번째 카페 지도 핀')).toBeTruthy();
   expect(screen.queryByLabelText('두 번째 카페 지도 핀')).toBeNull();
   await fireEvent.press(screen.getByRole('radio', { name: '글 지도' }));
   expect(screen.queryByTestId('store-map')).toBeNull();
-  expect(screen.getByText('매장 정보 · 메뉴')).toBeTruthy();
+  expect(screen.queryByText('매장 정보 · 메뉴')).toBeNull();
 });
 
 test('map search and nearby stay on the visual map for the submitted query', async () => {
@@ -320,8 +323,8 @@ test('map search and nearby stay on the visual map for the submitted query', asy
     true,
   );
   expect(screen.queryByLabelText('접근성 조건')).toBeNull();
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'Nearby');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), 'Nearby');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
   await screen.findByLabelText('Nearby cafe 지도 핀');
   expect(screen.getByTestId('store-map')).toBeTruthy();
@@ -339,8 +342,8 @@ test('map search and nearby stay on the visual map for the submitted query', asy
 test('map search failures stay visible and recover without switching to a list', async () => {
   mockApi.searchPlaces.mockRejectedValueOnce(new TypeError('offline'));
   await render(<MapExplore />);
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'Seoul');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), 'Seoul');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
   await screen.findByText('장소를 불러오지 못했어요');
   expect(screen.getByTestId('store-map')).toBeTruthy();
@@ -400,8 +403,8 @@ test('station search is available in the text list without relying on map SDK re
     generalSearch: 'not-configured',
   });
   await render(<Discovery />);
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '성수역');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), '성수역');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
   await screen.findByLabelText('성수역 매장 정보 보기');
   expect(mockApi.searchPlaces).toHaveBeenCalledWith('성수역', 'all', null);
@@ -410,20 +413,23 @@ test('station search is available in the text list without relying on map SDK re
   expect(screen.queryByText('매장 정보 · 메뉴')).toBeNull();
 });
 
-test('unconfigured general search is not presented as an empty successful search', async () => {
+test('an older backend with an unconfigured directory still offers catalog search recovery', async () => {
   mockApi.searchPlaces.mockResolvedValueOnce({
     places: [],
     status: 'unavailable',
     generalSearch: 'not-configured',
   });
   await render(<Discovery />);
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'Unknown venue');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), 'Unknown venue');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
-  await screen.findByText(
-    '일반 장소 검색은 준비 중이에요. 등록 매장과 공공 접근성 자료는 검색할 수 있어요.',
-  );
-  expect(screen.queryByText('검색 결과가 없어요')).toBeNull();
+  await screen.findByText('등록 매장과 공공 자료에서 찾은 결과예요.');
+  expect(screen.getByText('검색 결과가 없어요')).toBeTruthy();
+  await fireEvent.press(screen.getByText('검색어 수정'));
+  expect(screen.getByDisplayValue('Unknown venue')).toBeTruthy();
+  await fireEvent.press(screen.getByLabelText('검색 닫기'));
+  await fireEvent.press(screen.getByText('전체 매장 보기'));
+  await screen.findByLabelText('첫 번째 카페 매장 정보 보기');
 });
 
 test('a registered search result remains orderable and appears once during a provider failure', async () => {
@@ -433,8 +439,8 @@ test('a registered search result remains orderable and appears once during a pro
     generalSearch: 'unavailable',
   });
   await render(<Discovery />);
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '첫 번째');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), '첫 번째');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
   await screen.findByText(
     '일반 장소 검색에 연결하지 못했어요. 찾은 등록 매장과 공공 자료를 표시합니다.',
@@ -457,11 +463,11 @@ test('late search responses cannot replace a newer destination', async () => {
     generalSearch: 'available',
   });
   await render(<Discovery />);
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'old');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), 'old');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), 'new');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), 'new');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
   await screen.findByLabelText('New destination 매장 정보 보기');
   await act(async () => {
@@ -483,9 +489,29 @@ test('deduplicates registered stores returned by both stores and place search', 
   });
   await render(<Discovery />);
   await screen.findByLabelText('첫 번째 카페 매장 정보 보기');
-  await fireEvent.press(screen.getByLabelText('검색 열기'));
-  await fireEvent.changeText(screen.getByLabelText('매장 이름 또는 주소 검색'), '첫 번째');
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), '첫 번째');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
   await waitFor(() => expect(mockApi.searchPlaces).toHaveBeenCalledWith('첫 번째', 'all', null));
   expect(screen.getAllByLabelText('첫 번째 카페 매장 정보 보기')).toHaveLength(1);
+});
+
+test('choosing a menu suggestion searches for its venue and can restore the full list', async () => {
+  mockApi.stores.mockResolvedValue([
+    { ...stores[0], menuSuggestions: [{ name: '라떼' }] },
+    stores[1],
+  ]);
+  await render(<Discovery />);
+  await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
+  await screen.findByLabelText('라떼, 메뉴');
+  expect(screen.getByLabelText('첫 번째 카페, 매장')).toBeTruthy();
+  expect(screen.getByLabelText('두 번째 카페 매장 정보 보기')).toBeTruthy();
+  expect(mockApi.searchPlaces).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByLabelText('라떼, 메뉴'));
+  await screen.findByText('장소 1곳을 찾았어요');
+  expect(screen.getByText('“라떼” 검색 결과')).toBeTruthy();
+  expect(mockRememberSearch).toHaveBeenCalledWith('라떼');
+  expect(screen.queryByLabelText('두 번째 카페 매장 정보 보기')).toBeNull();
+  await fireEvent.press(screen.getByText('전체 매장 보기'));
+  await screen.findByLabelText('두 번째 카페 매장 정보 보기');
 });
