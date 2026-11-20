@@ -1,3 +1,4 @@
+import { menuDescription } from '@/lib/catalog';
 import { useRef, useState, type ComponentRef } from 'react';
 import { AccessibilityInfo, Platform, ScrollView, View } from 'react-native';
 import { Check, Circle, Square } from 'lucide-react-native';
@@ -62,6 +63,7 @@ export function ItemOptionsSheet({
 }) {
   const app = useApp();
   const { language, t } = useTranslation();
+  const description = menuDescription(item, language);
   const [options, setOptions] = useState<Options>(
     () => edit?.original.options ?? recognizeOptions(item, speech, {}),
   );
@@ -217,7 +219,7 @@ export function ItemOptionsSheet({
                 </DialogDescription>
               ) : (
                 <View className="gap-1">
-                  {!!item.description && <DialogDescription>{item.description}</DialogDescription>}
+                  {!!description && <DialogDescription>{description}</DialogDescription>}
                   <Text className="text-lg font-bold">{money(item.price)}</Text>
                 </View>
               )}

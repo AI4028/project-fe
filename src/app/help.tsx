@@ -1,3 +1,4 @@
+import { venueAddress } from '@/lib/catalog';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Check, Clock, HandHelping, MessageCircle } from 'lucide-react-native';
@@ -132,9 +133,9 @@ export default function Help() {
                 <Text translate={false} className="font-bold">
                   {(language === 'en' && store.nameEn) || store.name}
                 </Text>
-                {!!store.address && (
+                {!!venueAddress(store, language) && (
                   <Text translate={false} variant="muted">
-                    {store.address}
+                    {venueAddress(store, language)}
                   </Text>
                 )}
               </>

@@ -1,31 +1,10 @@
-import { Image, View } from 'react-native';
-import { Coffee, Minus, Plus } from 'lucide-react-native';
+import { View } from 'react-native';
+import { Minus, Plus } from 'lucide-react-native';
 import { Button } from './ui/button';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 import { useTranslation } from '@/lib/i18n';
 import type { PricedLine } from '@/lib/types';
-
-export function MenuThumbnail({ imageUrl, size = 68 }: { imageUrl?: string; size?: number }) {
-  return (
-    <View
-      className="shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary"
-      style={{ width: size, height: size }}
-      accessible={false}
-    >
-      {imageUrl ? (
-        <Image
-          source={{ uri: imageUrl }}
-          style={{ width: size, height: size }}
-          accessibilityIgnoresInvertColors
-          accessible={false}
-        />
-      ) : (
-        <Icon as={Coffee} size={22} className="text-primary" accessible={false} />
-      )}
-    </View>
-  );
-}
 
 export function QuantityStepper({
   qty,

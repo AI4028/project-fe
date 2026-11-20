@@ -1,3 +1,5 @@
+import { VenueHours } from '@/components/venue-hours';
+import { venueAddress } from '@/lib/catalog';
 import { useEffect, useState } from 'react';
 import { Image, View, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -56,7 +58,7 @@ export default function StoreDetails() {
   return (
     <Screen
       title={(language === 'en' ? store?.nameEn || store?.name : store?.name) ?? '매장 정보'}
-      subtitle={store?.address || '방문에 필요한 정보를 한눈에 확인하세요.'}
+      subtitle={venueAddress(store, language) || '방문에 필요한 정보를 한눈에 확인하세요.'}
       footer={
         store && !store.directoryOnly ? (
           <NavLink
@@ -118,11 +120,7 @@ export default function StoreDetails() {
                 <Text variant="h3">매장 이용 정보</Text>
                 <PlaceBookmark store={store} />
               </View>
-              {!!(language === 'en' ? store.hoursEn || store.hours : store.hours) && (
-                <Text translate={false}>
-                  {language === 'en' ? store.hoursEn || store.hours : store.hours}
-                </Text>
-              )}
+              <VenueHours store={store} />
               <NavLink
                 href={{ pathname: '/guide', params: { storeId: store.storeId } }}
                 icon={Navigation}
@@ -182,10 +180,16 @@ export default function StoreDetails() {
                 </Text>
                 <View className="h-px bg-border" />
                 <Text className="font-semibold">추가 안내</Text>
+                {store.accessibility.staffAssistance != null && (
+                  <Text>
+                    {store.accessibility.staffAssistance ? '직원 도움 가능' : '직원 도움 불가'}
+                  </Text>
+                )}
                 <Text>{knownText(store.accessibility.notes)}</Text>
                 <Text variant="muted">
-                  정보 출처와 확인 날짜는 아직 제공되지 않았습니다. 이용 가능 여부는 직원에게 확인해
-                  주세요.
+                  {store.accessibility.demo
+                    ? '이 데모 매장의 접근성 정보는 예시입니다.'
+                    : '정보 출처와 확인 날짜는 아직 제공되지 않았습니다. 이용 가능 여부는 직원에게 확인해 주세요.'}
                 </Text>
               </CardContent>
             </Card>

@@ -1,3 +1,4 @@
+import { venueAddress } from '@/lib/catalog';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, View, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -76,7 +77,7 @@ export default function Guide() {
   const description = store
     ? [
         displayName,
-        store.address,
+        venueAddress(store, language),
         store.accessibility.floor != null
           ? t(`${store.accessibility.floor}층`)
           : t('층수 확인 필요'),
@@ -107,7 +108,7 @@ export default function Guide() {
               {displayName}
             </Text>
             <Text className="mt-2 text-primary-foreground">
-              {store.address || '주소 확인 필요'}
+              {venueAddress(store, language) || '주소 확인 필요'}
             </Text>
           </View>
           <View className="gap-2">

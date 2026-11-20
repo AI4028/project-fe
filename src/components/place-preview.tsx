@@ -1,3 +1,4 @@
+import { venueAddress } from '@/lib/catalog';
 import { View } from 'react-native';
 import { X } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -21,7 +22,7 @@ export function PlacePreview({ store, onClose }: { store: Store; onClose: () => 
             {language === 'en' ? store.nameEn || store.name : store.name}
           </Text>
           <Text variant="muted" translate={false}>
-            {store.address}
+            {venueAddress(store, language)}
           </Text>
         </View>
         <PlaceBookmark store={store} />

@@ -353,3 +353,7 @@ It now renders the subtitle so tests verify the payment instructions seen by cus
 ### 2026-11-19 · Open voice search from the first microphone tap
 
 The web speech recognizer needs to start during the tap. Keep the listener mounted while discovery is visible, start it in the microphone handler, and abort on leaving the voice screen. Discovery tests cover the first tap and denied permissions. The web gesture test leaves speech playback shutdown pending.
+
+### 2026-11-21 · Check bookmarks at normal text size
+
+The onboarding button reads “Save settings and start” at normal text size and “Get started” in the compact layout. Browser checks that start with onboarding should allow both labels before testing bookmarks.

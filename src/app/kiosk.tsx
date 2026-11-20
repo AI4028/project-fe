@@ -1,5 +1,5 @@
 import { pickMenuPhoto } from '@/lib/pick-menu-photo';
-import { MenuThumbnail } from '@/components/menu-controls';
+import { CatalogThumbnail } from '@/components/catalog-thumbnail';
 import { useTranslation } from '@/lib/i18n';
 import { paymentLabels } from '@/lib/types';
 import { useEffect, useRef, useState } from 'react';
@@ -410,7 +410,7 @@ export default function Kiosk() {
                   key={item.id}
                   className="flex-row flex-wrap items-center justify-between gap-3 border-b border-border pb-4"
                 >
-                  {photoUploadsEnabled && <MenuThumbnail imageUrl={item.imageUrl} size={48} />}
+                  {photoUploadsEnabled && <CatalogThumbnail imageUrl={item.imageUrl} size={48} />}
                   <View className="gap-1">
                     <Text translate={false} className="font-bold">
                       {item.name}

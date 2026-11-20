@@ -1,3 +1,5 @@
+import { useTranslation } from '@/lib/i18n';
+import { venueAddress } from '@/lib/catalog';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -14,6 +16,7 @@ import { ApiError, errorMessage } from '@/lib/api';
 import type { Store } from '@/lib/types';
 export default function Connect() {
   const app = useApp();
+  const { language } = useTranslation();
   const params = useLocalSearchParams<{
     kioskId?: string;
     token?: string;
@@ -193,7 +196,7 @@ export default function Connect() {
                     <Text translate={false} variant="h4">
                       {candidate.store.name}
                     </Text>
-                    <Text>{candidate.store.address || '주소 확인 필요'}</Text>
+                    <Text>{venueAddress(candidate.store, language) || '주소 확인 필요'}</Text>
                     <Text variant="muted">매장 기기: {candidate.name}</Text>
                   </View>
                   {mismatch ? (

@@ -3,7 +3,7 @@ import { Bookmark, Coffee, Store as StoreIcon } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { EmptyState } from '@/components/brand';
-import { MenuThumbnail } from '@/components/menu-controls';
+import { CatalogThumbnail } from '@/components/catalog-thumbnail';
 import { StoreCard } from '@/components/store-card';
 import { PlacePreview } from '@/components/place-preview';
 import { useApp } from '@/providers/app-provider';
@@ -22,11 +22,46 @@ export default function Saved() {
   const app = useApp();
   const [section, setSection] = useState<'places' | 'menus'>('places');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = app.savedPlaces.find((store) => store.storeId === selectedId);
+  const [catalog, setCatalog] = useState<{ base: string; stores: Map<string, Store> }>();
+  const refreshPlaces =
+    section === 'places' && app.savedPlaces.some((place) => !place.directoryOnly);
+  useFocusEffect(
+    useCallback(() => {
+      if (!refreshPlaces) return;
+      let active = true;
+      void app.api
+        .stores()
+        .then((stores) => {
+          if (active)
+            setCatalog({
+              base: app.api.base,
+              stores: new Map(stores.map((store) => [store.storeId, store])),
+            });
+        })
+        .catch(() => {
+          /* Saved snapshots remain usable offline. */
+        });
+      return () => {
+        active = false;
+      };
+    }, [app.api, refreshPlaces]),
+  );
+  const places = app.savedPlaces.map(
+    (place) =>
+      (!place.directoryOnly &&
+        catalog?.base === app.api.base &&
+        catalog.stores.get(place.storeId)) ||
+      place,
+  );
+  const selected = places.find((store) => store.storeId === selectedId);
   return (
     <Screen
       title={section === 'menus' ? '저장된 메뉴' : '저장된 매장'}
-      subtitle="저장한 매장과 메뉴를 다시 찾아요."
+      subtitle={
+        section === 'menus'
+          ? '저장한 메뉴의 현재 가격과 판매 여부를 확인하세요.'
+          : '저장한 매장의 정보와 길 안내를 확인하세요.'
+      }
       voice={false}
       footer={
         selected && section === 'places' ? (
@@ -59,14 +94,14 @@ export default function Saved() {
       ) : !app.savedPlaces.length ? (
         <EmptyState
           icon={Bookmark}
-          title="아직 저장한 장소가 없어요"
-          description="장소 정보를 열고 저장 버튼을 눌러보세요."
+          title="아직 저장한 매장이 없어요"
+          description="다시 방문할 매장의 북마크를 눌러보세요."
         >
-          <NavLink href="/">둘러보기</NavLink>
+          <NavLink href="/">매장 둘러보기</NavLink>
         </EmptyState>
       ) : (
         <View className="gap-3">
-          {app.savedPlaces.map((store) => (
+          {places.map((store) => (
             <StoreCard
               key={store.storeId}
               store={store}
@@ -166,7 +201,7 @@ function SavedMenus() {
           <Card key={JSON.stringify([entry.storeId, entry.itemId])} className="rounded-3xl">
             <CardContent className="gap-3">
               <View className="flex-row items-start gap-3">
-                <MenuThumbnail imageUrl={item?.imageUrl} size={52} />
+                <CatalogThumbnail imageUrl={item?.imageUrl} size={52} />
                 <View className="min-w-0 flex-1 gap-1">
                   <Text variant="h3" translate={false}>
                     {name}

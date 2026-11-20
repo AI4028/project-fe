@@ -37,7 +37,7 @@ export function PlaceActions({ store }: { store: Store }) {
     ? {
         ...params,
         name: store.name,
-        address: store.address,
+        address: store.address ?? '',
         lat: String(store.location?.lat ?? ''),
         lng: String(store.location?.lng ?? ''),
       }

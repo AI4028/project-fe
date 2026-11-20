@@ -1,9 +1,10 @@
+import { menuDescription } from '@/lib/catalog';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { Link, router, useFocusEffect } from 'expo-router';
 import { Bookmark, ShoppingBag } from 'lucide-react-native';
 import { ItemOptionsSheet } from './item-options-sheet';
-import { MenuThumbnail } from './menu-controls';
+import { CatalogThumbnail } from './catalog-thumbnail';
 import { OrderingPaused, Problem, SubmissionRecovery } from './feedback';
 import { NavLink, Screen } from './screen';
 import { Button } from './ui/button';
@@ -231,19 +232,19 @@ export function MenuScreen({
               <Text variant="muted">매장 직원에게 주문 방법을 확인해 주세요.</Text>
             </View>
           )}
-          {!!activeCategory && <Text variant="h2">{activeCategory}</Text>}
           <View className="gap-3">
             {shown.map((entry) => {
               const name = language === 'en' ? entry.nameEn || entry.name : entry.name;
+              const description = menuDescription(entry, language);
               const saved = savedMenus.isSaved(store.storeId, entry.id);
               return (
                 <View
                   key={entry.id}
-                  className="flex-row items-center gap-1 rounded-2xl border border-border bg-card pr-2"
+                  className="items-stretch gap-3 rounded-[20px] border border-search-border bg-card p-4"
                 >
                   <Button
                     variant="ghost"
-                    className="min-w-0 flex-1 justify-start rounded-2xl p-3"
+                    className="min-w-0 justify-start gap-3 rounded-xl p-0"
                     accessibilityLabel={[
                       t(`${name} 옵션 선택`),
                       t(money(entry.price)),
@@ -253,14 +254,14 @@ export function MenuScreen({
                       .join(', ')}
                     onPress={() => setSelected({ itemId: entry.id, speech: undefined })}
                   >
-                    <MenuThumbnail imageUrl={entry.imageUrl} />
+                    <CatalogThumbnail imageUrl={entry.imageUrl} size={72} height={80} />
                     <View className="min-w-0 flex-1 gap-0.5">
                       <Text translate={false} className="text-left text-lg font-bold">
                         {name}
                       </Text>
-                      {!!entry.description && (
+                      {!!description && (
                         <Text variant="muted" className="text-left">
-                          {entry.description}
+                          {description}
                         </Text>
                       )}
                       <Text className="text-left font-bold">{money(entry.price)}</Text>
@@ -273,7 +274,8 @@ export function MenuScreen({
                   </Button>
                   <Button
                     variant={saved ? 'secondary' : 'ghost'}
-                    size="icon"
+                    size="sm"
+                    className="self-start"
                     disabled={!savedMenus.ready}
                     {...(Platform.OS === 'web'
                       ? { role: 'button' as const, 'aria-pressed': saved }
@@ -300,6 +302,7 @@ export function MenuScreen({
                       fill={saved ? 'currentColor' : 'none'}
                       accessible={false}
                     />
+                    <Text>{saved ? '메뉴 저장 해제' : '메뉴 저장'}</Text>
                   </Button>
                 </View>
               );
