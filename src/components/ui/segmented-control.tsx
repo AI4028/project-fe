@@ -48,7 +48,7 @@ export function SegmentedControl<T extends string>({
           {option.icon && (
             <Icon
               as={option.icon}
-              size={18}
+              size={24}
               className={value === option.value ? 'text-primary-foreground' : 'text-primary'}
               accessible={false}
             />

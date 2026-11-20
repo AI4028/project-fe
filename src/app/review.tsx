@@ -69,6 +69,7 @@ export default function Review() {
 
   return (
     <Screen
+      brandedHeader
       title={title}
       subtitle={
         !locked && !error && !priceChange

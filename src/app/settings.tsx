@@ -55,7 +55,13 @@ export default function Settings() {
       </Screen>
     );
   return (
-    <Screen title="이용 설정" subtitle="변경 내용은 이 기기에 저장돼요." voice={false} reading>
+    <Screen
+      title="이용 설정"
+      subtitle="변경 내용은 이 기기에 저장돼요."
+      voice={false}
+      reading
+      brandedHeader
+    >
       <Card>
         <CardContent className="gap-3">
           <LanguageSwitch />

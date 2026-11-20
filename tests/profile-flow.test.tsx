@@ -117,7 +117,7 @@ test('onboarding previews independent accessibility settings and saves before op
   expect(contrast.props.accessibilityState.checked).toBe(true);
   expect(voice.props.accessibilityState.checked).toBe(false);
   await fireEvent.press(largeText);
-  expect(StyleSheet.flatten(heading.props.style).fontSize).toBe(64);
+  expect(StyleSheet.flatten(heading.props.style).fontSize).toBe(52);
   await fireEvent.press(voice);
   await fireEvent.press(screen.getByRole('radio', { name: '그림 지도' }));
   await fireEvent.press(screen.getByRole('button', { name: '설정 완료하고 시작하기' }));

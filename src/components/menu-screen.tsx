@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Link, router, useFocusEffect } from 'expo-router';
 import { Bookmark, ShoppingBag } from 'lucide-react-native';
 import { ItemOptionsSheet } from './item-options-sheet';
@@ -88,6 +88,7 @@ export function MenuScreen({
 
   return (
     <Screen
+      brandedHeader
       title={
         loading && !store
           ? '메뉴를 불러오고 있어요'
@@ -274,9 +275,13 @@ export function MenuScreen({
                     variant={saved ? 'secondary' : 'ghost'}
                     size="icon"
                     disabled={!savedMenus.ready}
-                    accessibilityRole="togglebutton"
-                    accessibilityState={{ checked: saved }}
-                    accessibilityLabel={`${name}, ${t(saved ? '메뉴 저장 해제' : '메뉴 저장')}`}
+                    {...(Platform.OS === 'web'
+                      ? { role: 'button' as const, 'aria-pressed': saved }
+                      : {
+                          accessibilityRole: 'togglebutton' as const,
+                          accessibilityState: { checked: saved },
+                        })}
+                    accessibilityLabel={`${name}, ${t('메뉴 저장')}`}
                     onPress={() =>
                       void savedMenus
                         .toggle({

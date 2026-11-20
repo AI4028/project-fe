@@ -1,7 +1,7 @@
 import '../global.css';
 import { useEffect } from 'react';
 import { View, ActivityIndicator, Image, Platform } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { PortalHost } from '@rn-primitives/portal';
@@ -15,9 +15,9 @@ import { LanguageContext, translate } from '@/lib/i18n';
 function Layout() {
   const { ready, settings } = useApp();
   const [fontsLoaded, fontError] = useFonts({
-    PretendardRegular: require('../../assets/fonts/pretendard-regular.otf'),
-    PretendardSemiBold: require('../../assets/fonts/pretendard-semibold.otf'),
-    PretendardBold: require('../../assets/fonts/pretendard-bold.otf'),
+    KoddiRegular: require('../../assets/fonts/KoddiUDOnGothic-Regular.ttf'),
+    KoddiExtraBold: require('../../assets/fonts/KoddiUDOnGothic-ExtraBold.ttf'),
+    KoddiBold: require('../../assets/fonts/KoddiUDOnGothic-Bold.ttf'),
   });
   useEffect(() => {
     if (Platform.OS === 'web') document.documentElement.lang = settings.language ?? 'ko';
@@ -74,9 +74,10 @@ function Layout() {
   );
 }
 export default function RootLayout() {
+  const path = usePathname();
   return (
     <SafeAreaProvider>
-      <AppProvider>
+      <AppProvider path={path}>
         <Layout />
       </AppProvider>
     </SafeAreaProvider>

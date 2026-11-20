@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -70,7 +71,7 @@ async function readSavedPlaces(base: string): Promise<Store[]> {
   );
 }
 
-function useAppState() {
+function useAppState(path: string) {
   const [settings, setSettings] = useState(initialSettings);
   const settingsRef = useRef(initialSettings);
   const settingsQueue = useRef<Promise<void>>(Promise.resolve());
@@ -81,7 +82,17 @@ function useAppState() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [cart, setCart] = useState<Cart>(emptyCart);
   const [order, setOrder] = useState<Order | null>(null);
-  const [notice, setNotice] = useState('');
+  const cartScope = useMemo(
+    () => ({ path, language: settings.language }),
+    [path, settings.language],
+  );
+  const activeScope = useRef(cartScope);
+  useLayoutEffect(() => {
+    activeScope.current = cartScope;
+  }, [cartScope]);
+  const [feedback, setFeedback] = useState<{ message: string; scope?: typeof cartScope }>();
+  const notice =
+    feedback && (!feedback.scope || feedback.scope === cartScope) ? feedback.message : '';
   const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
   const pendingRef = useRef<string | null>(null);
   const [helpState, setHelpState] = useState<'idle' | 'sent' | 'acknowledged'>('idle');
@@ -102,7 +113,6 @@ function useAppState() {
 
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
-  const lastSpoken = useRef('갈지도에 오신 것을 환영합니다. 매장을 선택하고 메뉴를 살펴보세요.');
   const api = useMemo(() => new Api(settings.apiBase), [settings.apiBase]);
   const [saved, setSaved] = useState<{
     base: string;
@@ -156,10 +166,10 @@ function useAppState() {
   const pendingToken = useRef<{ base: string; promise: Promise<string> } | null>(null);
   const demo = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
   const announce = useCallback(
-    (message: string) => {
+    (message: string, scope?: typeof cartScope) => {
+      if (scope && scope !== activeScope.current) return;
+      setFeedback({ message, scope });
       message = translate(message, settings.language ?? 'ko');
-      lastSpoken.current = message;
-      setNotice(message);
       if (Platform.OS !== 'web') AccessibilityInfo.announceForAccessibility(message);
       if (settings.speech)
         void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
@@ -547,7 +557,10 @@ function useAppState() {
       setCart(result);
       if (settings.vibration !== false)
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      announce(`장바구니가 변경되었습니다. 합계 ${result.total.toLocaleString('ko-KR')}원`);
+      announce(
+        `장바구니가 변경되었습니다. 합계 ${result.total.toLocaleString('ko-KR')}원`,
+        cartScope,
+      );
       if (previous && previous.sessionId !== active.sessionId) {
         // The new cart is durable. A failed kiosk release must never undo it.
         await api.end(previous.sessionId, device).catch(report);
@@ -688,7 +701,11 @@ function useAppState() {
     announce,
     report,
     demo,
-    repeat: () => announce(lastSpoken.current),
+    repeat: () =>
+      announce(
+        notice || '갈지도에 오신 것을 환영합니다. 매장을 선택하고 메뉴를 살펴보세요.',
+        feedback?.scope === cartScope ? cartScope : undefined,
+      ),
     help: async () =>
       exclusive(async () => {
         if (!connection || pendingRef.current)
@@ -708,8 +725,8 @@ function useAppState() {
   };
 }
 const AppContext = createContext<ReturnType<typeof useAppState> | null>(null);
-export function AppProvider({ children }: { children: React.ReactNode }) {
-  const state = useAppState();
+export function AppProvider({ path = '', children }: { path?: string; children: React.ReactNode }) {
+  const state = useAppState(path);
   return <AppContext.Provider value={state}>{children}</AppContext.Provider>;
 }
 export function useApp() {

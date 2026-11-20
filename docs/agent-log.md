@@ -28,6 +28,13 @@ Newest first, four lines, no stories:
 The review-screen test double rendered the title and footer but omitted the subtitle.
 It now renders the subtitle so tests verify the payment instructions seen by customers.
 
+### 2026-11-21 · Check switch colors on the rendered badge
+
+- **Hit:** The high-contrast On label inherited the outline button’s interaction colors.
+- **Why:** The badge and its parent button use different foreground/background pairs.
+- **Fix:** Isolated the badge’s text styles and verified the rendered colors in Chrome.
+- **Rule:** Inspect the label and its background with the switch focused or hovered.
+
 ### 2026-11-20 · Reuse the pnpm store attached to the project
 
 - **Hit:** Adding the Expo file picker stopped with `ERR_PNPM_UNEXPECTED_STORE`.

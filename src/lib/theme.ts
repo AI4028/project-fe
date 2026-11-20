@@ -32,8 +32,8 @@ function hsl(hex: string) {
 
 export const typography = {
   default: 16,
-  h1: 32,
-  h2: 24,
+  h1: 26,
+  h2: 17,
   h3: 20,
   h4: 18,
   p: 16,
@@ -46,9 +46,9 @@ export const typography = {
 } as const;
 
 export const fontFamily = {
-  regular: 'PretendardRegular',
-  medium: 'PretendardSemiBold',
-  bold: 'PretendardBold',
+  regular: 'KoddiRegular',
+  extraBold: 'KoddiExtraBold',
+  bold: 'KoddiBold',
 } as const;
 
 export const layout = {
@@ -75,7 +75,7 @@ export const palettes = {
     secondary: hsl(brandColors.beige),
     'secondary-foreground': hsl(brandColors.walnut),
     muted: hsl('#F3EEE8'),
-    'muted-foreground': hsl('#6D6259'),
+    'muted-foreground': hsl('#6F655D'),
     accent: hsl(brandColors.beige),
     'accent-foreground': hsl(brandColors.walnut),
     destructive: hsl('#A32D24'),

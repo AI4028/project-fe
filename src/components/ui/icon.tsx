@@ -10,7 +10,13 @@ type IconProps = LucideProps & {
   as: LucideIcon;
 } & React.RefAttributes<LucideIcon>;
 
-function IconImpl({ as: IconComponent, accessible = false, fill, color, ...props }: IconProps) {
+function IconImpl({
+  as: IconComponent,
+  accessible = false,
+  fill = 'none',
+  color,
+  ...props
+}: IconProps) {
   return (
     <IconComponent
       {...props}

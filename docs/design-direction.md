@@ -13,15 +13,15 @@ logos, proprietary fonts, or copied screens.
 | [Apple: typography](https://developer.apple.com/design/human-interface-guidelines/typography) | A restrained type hierarchy, readable body text, and scalable labels.                               |
 | [OpenAI: brand](https://openai.com/brand/)                                                    | Typographic clarity and a balance of precision and warmth.                                          |
 | [Linear: UI redesign](https://linear.app/now/how-we-redesigned-the-linear-ui)                 | Reduce competing chrome; align navigation and surfaces consistently.                                |
-| [Pretendard](https://github.com/orioncactus/pretendard)                                       | A locally bundled cross-platform Korean/Latin family with real regular, semibold, and bold weights. |
+| [KoddiUD OnGothic](https://www.koddi.or.kr/ud/sub1_2)                                       | A locally bundled cross-platform Korean/Latin family with real Regular, Bold and ExtraBold weights. |
 
 ## Visual language
 
 - Keep the walnut identity, warm paper background, and white content surfaces.
 - Reserve the solid primary fill for the main action or active filter.
 - Use quiet separators, 16–24 point corners, and deliberate space between groups.
-- Use 32/24/20 point headings and 16 point body text, with 14 point supporting text.
-- Keep system font scaling and the app's 1.3× large-text setting. Never truncate
+- Use 26 point page titles, 17 point section headings and 14 point supporting text.
+- Keep system font scaling and the app’s large-text settings up to 2×. Never truncate
   essential store names, prices, or action labels to make a layout fit.
 - Keep high contrast token-driven, Korean accessibility labels, keyboard focus
   indicators, and a minimum 48 point touch target.

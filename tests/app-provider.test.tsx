@@ -241,6 +241,37 @@ test('keeps the confirmed cart when a cart update fails', async () => {
   expect(result.current.items).toHaveLength(1);
   expect(result.current.cart.total).toBe(2500);
 });
+
+test('changing language clears cart feedback even when a cart update finishes later', async () => {
+  const { result } = await mount();
+  await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+  const items = [{ itemId: 'coffee', qty: 1, options: {} }];
+  await act(() => result.current.updateSettings({ language: 'en' }));
+  await act(() => result.current.updateCart(items));
+  expect(result.current.notice).toBeTruthy();
+
+  const response = await fetchMock.mock.results.at(-1)!.value;
+  let finish!: () => void;
+  fetchMock.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = () => resolve(response);
+      }),
+  );
+  let update!: Promise<unknown>;
+  await act(async () => {
+    update = result.current.updateCart(items);
+    await Promise.resolve();
+  });
+  await act(() => result.current.updateSettings({ language: 'ko' }));
+  expect(result.current.notice).toBe('');
+  await act(async () => {
+    finish();
+    await update;
+  });
+  expect(result.current.notice).toBe('');
+  expect(result.current.cart.total).toBe(2500);
+});
 test('recovers an already-submitted order from the persisted session after a reload', async () => {
   device = 'dev_test';
   await AsyncStorage.setItem('session:http://127.0.0.1:8000', 's1');

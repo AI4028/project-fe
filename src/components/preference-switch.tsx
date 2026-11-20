@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { IconTile } from './brand';
 import { Button } from './ui/button';
-import { Text } from './ui/text';
+import { Text, TextClassContext } from './ui/text';
 
 export function PreferenceSwitch({
   title,
@@ -41,20 +41,22 @@ export function PreferenceSwitch({
           {description}
         </Text>
       </View>
-      <View
-        accessible={false}
-        className={cn(
-          'min-h-8 shrink-0 items-center justify-center rounded-xl border border-primary px-2',
-          value ? 'bg-primary' : 'bg-card',
-        )}
-      >
-        <Text
-          variant="small"
-          className={value ? 'font-bold text-primary-foreground' : 'font-bold text-primary'}
+      <TextClassContext.Provider value={undefined}>
+        <View
+          accessible={false}
+          className={cn(
+            'min-h-[44px] min-w-[72px] shrink-0 items-center justify-center rounded-[14px] border border-primary px-2',
+            value ? 'bg-primary' : 'bg-card',
+          )}
         >
-          {value ? '켜짐' : '꺼짐'}
-        </Text>
-      </View>
+          <Text
+            variant="small"
+            className={value ? 'font-bold text-primary-foreground' : 'font-bold text-primary'}
+          >
+            {value ? '켜짐' : '꺼짐'}
+          </Text>
+        </View>
+      </TextClassContext.Provider>
     </Button>
   );
 }

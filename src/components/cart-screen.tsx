@@ -131,6 +131,7 @@ export function CartScreen({
 
   return (
     <Screen
+      brandedHeader
       title="장바구니"
       subtitle={qty && storeName ? `${storeName} · ${t(`${qty}개`)}` : undefined}
       reading

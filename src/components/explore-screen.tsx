@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Linking, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { List, LocateFixed, Map, Mic, Search, X } from 'lucide-react-native';
+import { ReceiptText, LocateFixed, MapPin, Mic, Search, X } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import StoreMap from '@/components/store-map';
 
@@ -406,7 +406,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                     accessibilityLabel="말로 검색"
                     onPress={openVoice}
                   >
-                    <Icon as={Mic} size={21} className="text-primary" accessible={false} />
+                    <Icon
+                      as={Mic}
+                      size={24}
+                      strokeWidth={2.4}
+                      className="text-primary"
+                      accessible={false}
+                    />
                   </Button>
                   <View className="min-w-0 flex-1 flex-row items-center rounded-2xl border border-input bg-card">
                     <Input
@@ -437,7 +443,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                       accessibilityLabel="검색 실행"
                       onPress={() => search()}
                     >
-                      <Icon as={Search} size={21} className="text-primary" accessible={false} />
+                      <Icon
+                        as={Search}
+                        size={24}
+                        strokeWidth={2.4}
+                        className="text-primary"
+                        accessible={false}
+                      />
                     </Button>
                   </View>
                   <Button
@@ -457,7 +469,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                     accessibilityLabel="말로 검색"
                     onPress={openVoice}
                   >
-                    <Icon as={Mic} size={21} className="text-primary" accessible={false} />
+                    <Icon
+                      as={Mic}
+                      size={24}
+                      strokeWidth={2.4}
+                      className="text-primary"
+                      accessible={false}
+                    />
                   </Button>
                   <Button
                     variant="ghost"
@@ -475,7 +493,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                         매장 또는 메뉴 검색
                       </Text>
                     )}
-                    <Icon as={Search} size={20} className="text-primary" accessible={false} />
+                    <Icon
+                      as={Search}
+                      size={24}
+                      strokeWidth={2.4}
+                      className="text-primary"
+                      accessible={false}
+                    />
                   </Button>
                 </View>
               )}
@@ -485,8 +509,8 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                 disabled={savingView}
                 label={t('매장 보기 방식')}
                 options={[
-                  { value: 'list', label: '글 지도', icon: List },
-                  { value: 'map', label: '그림 지도', icon: Map },
+                  { value: 'list', label: '글 지도', icon: ReceiptText },
+                  { value: 'map', label: '그림 지도', icon: MapPin },
                 ]}
               />
             </View>
