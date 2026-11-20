@@ -19,11 +19,11 @@ const textVariants = cva(
       variant: {
         default: '',
         h1: cn(
-          'text-left text-[32px] font-bold leading-tight tracking-tight',
+          'text-left text-[26px] font-extrabold leading-tight tracking-tight',
           Platform.select({ web: 'scroll-m-20 text-balance' }),
         ),
         h2: cn(
-          'text-2xl font-bold leading-8 tracking-tight',
+          'text-[17px] font-bold leading-[26px] tracking-tight',
           Platform.select({ web: 'scroll-m-20 first:mt-0' }),
         ),
         h3: cn(
@@ -42,7 +42,7 @@ const textVariants = cva(
         lead: 'text-muted-foreground text-xl',
         large: 'text-lg font-semibold',
         small: 'text-sm font-medium leading-5',
-        muted: 'text-muted-foreground text-sm leading-6',
+        muted: 'text-muted-foreground text-sm font-normal leading-[21px]',
       },
     },
     defaultVariants: {
@@ -103,11 +103,14 @@ function Text({
     typeof child === 'string' ? t(child) : Array.isArray(child) ? child.map(localize) : child;
   const fontsReady = React.useContext(FontReadyContext);
   const textClass = React.useContext(TextClassContext);
-  const resolvedClass = cn(textVariants({ variant }), textClass, className);
-  const weight = /font-(bold|extrabold|black)/.test(resolvedClass)
-    ? 'bold'
-    : /font-(medium|semibold)/.test(resolvedClass)
-      ? 'medium'
+  const resolvedClass =
+    variant === 'muted'
+      ? cn(textClass, textVariants({ variant }), className)
+      : cn(textVariants({ variant }), textClass, className);
+  const weight = /font-(extrabold|black)/.test(resolvedClass)
+    ? 'extraBold'
+    : /font-(medium|semibold|bold)/.test(resolvedClass)
+      ? 'bold'
       : 'regular';
   const sizeClass = resolvedClass.match(
     /(?:^| )text-(xs|sm|base|lg|xl|2xl|3xl|4xl|\[\d+px\])(?: |$)/,

@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppProvider, useApp } from '@/providers/app-provider';
 import { secrets } from '@/lib/storage';
+import * as Haptics from 'expo-haptics';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -163,6 +164,41 @@ test('connects, uses authoritative cart totals, submits once, and clears the ses
   expect(await AsyncStorage.getItem(`session:${result.current.api.base}`)).toBeNull();
   expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'))).toHaveLength(1);
 });
+test.each([true, false])(
+  'pickup vibration (%s) is independent of alerts and fires once',
+  async (vibration) => {
+    jest.mocked(Haptics.notificationAsync).mockClear();
+    const { result } = await mount();
+    await act(() => result.current.updateSettings({ vibration, orderAlerts: !vibration }));
+    await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+    await act(() => result.current.updateCart([{ itemId: 'coffee', qty: 1, options: {} }]));
+    await act(() => result.current.submit('counter', ''));
+    const previous = route;
+    let status = 'accepted';
+    let updatedAtMs = 1;
+    route = (path, method) =>
+      path === '/orders/o1' ? { data: { ...placed, status, updatedAtMs } } : previous(path, method);
+    await act(() => result.current.getOrder('o1'));
+    status = 'preparing';
+    updatedAtMs++;
+    await act(() => result.current.refresh());
+    expect(Haptics.notificationAsync).not.toHaveBeenCalled();
+    status = 'ready';
+    updatedAtMs++;
+    await act(async () => {
+      await Promise.all([result.current.getOrder('o1'), result.current.refresh()]);
+    });
+    expect(result.current.order?.status).toBe('ready');
+    if (vibration) expect(result.current.notice).not.toContain('픽업해 주세요');
+    else expect(result.current.notice).toContain('픽업해 주세요');
+    status = 'preparing';
+    updatedAtMs--;
+    await act(() => result.current.refresh());
+    expect(result.current.order?.status).toBe('ready');
+    expect(Haptics.notificationAsync).toHaveBeenCalledTimes(vibration ? 1 : 0);
+  },
+);
+
 test('obtains a server cart and submits without pairing to a kiosk', async () => {
   const previous = route;
   route = (path, method) => {
@@ -211,6 +247,32 @@ test('keeps independently saved preferences when changes overlap', async () => {
   });
 });
 
+test('recent search consent, queued writes and clearing persist separately', async () => {
+  const { result, unmount } = await mount();
+  await act(async () => {
+    await Promise.all([
+      result.current.rememberSearch('Latte'),
+      result.current.rememberSearch('Mocha'),
+    ]);
+    await result.current.rememberSearch('latte');
+    await Promise.all([
+      result.current.updateSettings({ saveRecentSearches: false }),
+      result.current.rememberSearch('Private'),
+    ]);
+  });
+  expect(result.current.settings.recentSearches).toEqual(['latte', 'Mocha']);
+  await act(() => result.current.updateSettings({ recentSearches: [] }));
+  await unmount();
+  const restored = await mount();
+  expect(restored.result.current.settings).toMatchObject({
+    saveRecentSearches: false,
+    recentSearches: [],
+  });
+  await act(() => restored.result.current.updateSettings({ saveRecentSearches: true }));
+  await act(() => restored.result.current.rememberSearch('Tea'));
+  expect(restored.result.current.settings.recentSearches).toEqual(['Tea']);
+});
+
 test('does not invent an offline session when the kiosk is busy', async () => {
   const previous = route;
   route = (path, method) =>
@@ -239,6 +301,37 @@ test('keeps the confirmed cart when a cart update fails', async () => {
     await expect(result.current.updateCart([])).rejects.toMatchObject({ code: 'item-unavailable' });
   });
   expect(result.current.items).toHaveLength(1);
+  expect(result.current.cart.total).toBe(2500);
+});
+
+test('changing language clears cart feedback even when a cart update finishes later', async () => {
+  const { result } = await mount();
+  await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+  const items = [{ itemId: 'coffee', qty: 1, options: {} }];
+  await act(() => result.current.updateSettings({ language: 'en' }));
+  await act(() => result.current.updateCart(items));
+  expect(result.current.notice).toBeTruthy();
+
+  const response = await fetchMock.mock.results.at(-1)!.value;
+  let finish!: () => void;
+  fetchMock.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = () => resolve(response);
+      }),
+  );
+  let update!: Promise<unknown>;
+  await act(async () => {
+    update = result.current.updateCart(items);
+    await Promise.resolve();
+  });
+  await act(() => result.current.updateSettings({ language: 'ko' }));
+  expect(result.current.notice).toBe('');
+  await act(async () => {
+    finish();
+    await update;
+  });
+  expect(result.current.notice).toBe('');
   expect(result.current.cart.total).toBe(2500);
 });
 test('recovers an already-submitted order from the persisted session after a reload', async () => {
@@ -474,4 +567,54 @@ test('keeps the original cart on a rejected switch and releases it only after th
   expect(result.current.connection?.sessionId).toBe('s2');
   expect(await AsyncStorage.getItem(key)).toBe('s2');
   expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/s1/end'))).toBe(true);
+});
+
+test.each(['ordering-paused', 'unknown-item'])(
+  'releases a pending checkout when replay definitively rejects it with %s',
+  async (reason) => {
+    const { result } = await mount();
+    await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+    const line = { itemId: 'coffee', qty: 1, options: {} };
+    await act(() => result.current.updateCart([line]));
+    const previous = route;
+    route = (path, method) => {
+      if (path.endsWith('/order')) throw new TypeError('Lost response');
+      return previous(path, method);
+    };
+    await act(async () => {
+      await expect(result.current.submit('counter', '')).rejects.toThrow('Lost response');
+    });
+    expect(result.current.pendingSubmission).toBe('s1');
+    route = (path, method) =>
+      path.endsWith('/order')
+        ? { status: reason === 'unknown-item' ? 404 : 409, data: { error: reason } }
+        : previous(path, method);
+    await act(async () => {
+      await expect(result.current.recoverSubmission()).rejects.toMatchObject({ code: reason });
+    });
+    expect(result.current.pendingSubmission).toBeNull();
+    expect(result.current.items).toEqual([line]);
+    expect(result.current.order).toBeNull();
+    expect(await AsyncStorage.getItem('submission:http://127.0.0.1:8000')).toBeNull();
+  },
+);
+
+test('an unreadable successful submission stays recoverable without a second order', async () => {
+  const { result } = await mount();
+  await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+  await act(() => result.current.updateCart([{ itemId: 'coffee', qty: 1, options: {} }]));
+  const previous = route;
+  route = (path, method) =>
+    path.endsWith('/order') ? { status: 201, data: undefined } : previous(path, method);
+  await act(async () => {
+    await expect(result.current.submit('counter', '')).rejects.toMatchObject({ status: 201 });
+  });
+  expect(result.current.pendingSubmission).toBe('s1');
+  route = (path, method) =>
+    path === '/sessions/s1'
+      ? { data: { ...connection, status: 'ordered', orderId: 'o1' } }
+      : previous(path, method);
+  await act(() => result.current.recoverSubmission());
+  expect(result.current.order?.orderId).toBe('o1');
+  expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'))).toHaveLength(1);
 });

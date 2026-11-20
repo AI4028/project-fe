@@ -7,7 +7,7 @@ import { useTranslation } from '@/lib/i18n';
 
 const buttonVariants = cva(
   cn(
-    'group shrink-0 flex-row items-center justify-center gap-2 rounded-2xl shadow-none',
+    'group shrink-0 flex-row items-center justify-center gap-2 rounded-[14px] shadow-none',
     Platform.select({
       web: 'focus-visible:border-ring focus-visible:ring-ring aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive outline-none transition-all focus-visible:ring-[3px] focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0',
     }),
@@ -20,19 +20,19 @@ const buttonVariants = cva(
           Platform.select({ web: 'hover:shadow-md' }),
         ),
         destructive: cn(
-          'bg-destructive active:bg-destructive/90 dark:bg-destructive/60 shadow-sm shadow-black/5',
+          'border-[1.5px] border-destructive bg-destructive active:bg-destructive/90 dark:bg-destructive/60 shadow-sm shadow-black/5',
           Platform.select({
             web: 'hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
           }),
         ),
         outline: cn(
-          'border-border bg-card active:bg-accent border',
+          'border-[1.5px] border-primary bg-secondary active:bg-accent',
           Platform.select({
             web: 'hover:bg-accent dark:hover:bg-input/50',
           }),
         ),
         secondary: cn(
-          'border border-transparent bg-secondary active:bg-accent',
+          'border-[1.5px] border-primary bg-secondary active:bg-accent',
           Platform.select({ web: 'hover:shadow-sm' }),
         ),
         ghost: cn(
@@ -42,12 +42,12 @@ const buttonVariants = cva(
         link: '',
       },
       size: {
-        default: cn('min-h-12 px-4 py-3', Platform.select({ web: 'has-[>svg]:px-3' })),
+        default: cn('min-h-14 px-4 py-3', Platform.select({ web: 'has-[>svg]:px-3' })),
         sm: cn(
           'min-h-12 gap-1.5 rounded-xl px-3 py-2',
           Platform.select({ web: 'has-[>svg]:px-2.5' }),
         ),
-        lg: cn('min-h-14 rounded-2xl px-6 py-3', Platform.select({ web: 'has-[>svg]:px-4' })),
+        lg: cn('min-h-14 rounded-[14px] px-6 py-3', Platform.select({ web: 'has-[>svg]:px-4' })),
         icon: 'h-12 w-12',
       },
     },

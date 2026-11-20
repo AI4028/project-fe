@@ -1,5 +1,6 @@
+import { venueAddress } from '@/lib/catalog';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, View, useWindowDimensions } from 'react-native';
+import { Linking, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { Problem } from '@/components/feedback';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Accessibility, MapPin, Navigation, Volume2 } from 'lucide-react-native';
-import { knownText } from '@/lib/location';
+import { accessDetails, knownText } from '@/lib/location';
 import { directionsUrl } from '@/lib/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useApp } from '@/providers/app-provider';
@@ -17,9 +18,10 @@ import type { Store } from '@/lib/types';
 export default function Guide() {
   const app = useApp();
   const { t, language } = useTranslation();
-  const { width } = useWindowDimensions();
-  const { storeId, name, address, lat, lng } = useLocalSearchParams<{
+  const { storeId, name, address, lat, lng, section, stage } = useLocalSearchParams<{
     storeId?: string;
+    section?: string;
+    stage?: string;
     name?: string;
     address?: string;
     lat?: string;
@@ -73,23 +75,23 @@ export default function Guide() {
     };
   }, [storeId, app.api, app.store, revision, directoryPlace]);
   const displayName = store && (language === 'en' ? store.nameEn || store.name : store.name);
+  const accessOpen = section === 'access' || (!section && stage === 'details');
+  const details = store && !store.directoryOnly ? accessDetails(store, t) : [];
   const description = store
     ? [
         displayName,
-        store.address,
-        store.accessibility.floor != null
-          ? t(`${store.accessibility.floor}층`)
-          : t('층수 확인 필요'),
-        t(knownText(store.accessibility.notes)),
+        venueAddress(store, language),
+        ...details,
+        t('매장에 등록된 실내 이동 안내'),
         t(knownText(store.indoorDirections)),
       ]
         .filter(Boolean)
         .join('. ')
-    : t('매장을 먼저 선택해 주세요.');
+    : '';
   return (
     <Screen
       title="매장으로 길 안내"
-      subtitle="입구·층수·실내 안내를 먼저 확인해 주세요."
+      subtitle="등록된 접근 정보를 읽거나 외부 지도에서 경로를 확인할 수 있어요."
       voice={false}
     >
       {!!error && (
@@ -107,7 +109,7 @@ export default function Guide() {
               {displayName}
             </Text>
             <Text className="mt-2 text-primary-foreground">
-              {store.address || '주소 확인 필요'}
+              {venueAddress(store, language) || '주소 확인 필요'}
             </Text>
           </View>
           <View className="gap-2">
@@ -127,56 +129,57 @@ export default function Guide() {
               외부 지도에서 경로를 확인해요. 접근 가능한 경로인지는 별도 확인이 필요해요.
             </Text>
           </View>
-          <View className="flex-row flex-wrap gap-4">
-            <Card
-              className="min-w-0 rounded-3xl"
-              style={width >= 760 ? { width: '48%' } : { width: '100%' }}
-            >
-              <CardContent className="gap-4 pt-6">
-                <View className="h-11 w-11 items-center justify-center rounded-2xl bg-secondary">
-                  <Icon as={Accessibility} size={22} className="text-primary" />
-                </View>
-                <Text variant="h3">접근성 메모</Text>
-                <Text>
-                  {store.accessibility.floor != null
-                    ? `${store.accessibility.floor}층`
-                    : '층수 확인 필요'}
-                </Text>
-                <Text>{knownText(store.accessibility.notes)}</Text>
-              </CardContent>
-            </Card>
-            <Card
-              className="min-w-0 rounded-3xl"
-              style={width >= 760 ? { width: '48%' } : { width: '100%' }}
-            >
-              <CardContent className="gap-4 pt-6">
-                <View className="h-11 w-11 items-center justify-center rounded-2xl bg-secondary">
-                  <Icon as={Navigation} size={22} className="text-primary" />
-                </View>
-                <Text variant="h3">실내 이동 경로</Text>
-                <Text>{knownText(store.indoorDirections)}</Text>
-              </CardContent>
-            </Card>
-          </View>
-          <Text variant="muted">
-            정보가 없거나 현장과 다르면 직원에게 이동 경로를 확인해 주세요.
-          </Text>
-          <Button variant="outline" onPress={() => app.announce(description)}>
-            <Icon as={Volume2} size={19} className="text-primary" accessible={false} />
-            <Text>안내 듣기</Text>
-          </Button>
-          {!store.directoryOnly && (
-            <View className="gap-2">
+          {store.directoryOnly ? (
+            <Text variant="muted">이 장소에는 등록된 실내 이동 안내가 없어요.</Text>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                accessibilityState={{ expanded: accessOpen }}
+                onPress={() => router.setParams({ section: accessOpen ? 'overview' : 'access' })}
+              >
+                <Icon as={Accessibility} size={20} className="text-primary" accessible={false} />
+                <Text>{accessOpen ? '접근 정보 접기' : '등록된 접근 정보 보기'}</Text>
+              </Button>
+              {accessOpen && (
+                <Card>
+                  <CardContent className="gap-3 pt-6">
+                    <Text variant="h3">접근성 정보</Text>
+                    {details.map((detail, index) => (
+                      <Text key={index} translate={false}>
+                        {detail}
+                      </Text>
+                    ))}
+                    <Text variant="h3">매장에 등록된 실내 이동 안내</Text>
+                    <Text>{knownText(store.indoorDirections)}</Text>
+                    <Button variant="outline" onPress={() => app.readAloud(description)}>
+                      <Icon as={Volume2} size={19} className="text-primary" accessible={false} />
+                      <Text>안내 듣기</Text>
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+              <NavLink href={{ pathname: '/menu', params: { storeId: store.storeId } }}>
+                {store.hasOrderTerminal === false || store.orderingPaused
+                  ? '메뉴 보기'
+                  : '먼저 주문하기'}
+              </NavLink>
+              <NavLink
+                href={{
+                  pathname: '/help',
+                  params: {
+                    storeId: store.storeId,
+                    from: 'guide',
+                    ...(accessOpen && { section: 'access' }),
+                  },
+                }}
+              >
+                직원에게 문의
+              </NavLink>
               <NavLink href={{ pathname: '/store', params: { storeId: store.storeId } }}>
                 매장 정보 보기
               </NavLink>
-              <NavLink href={{ pathname: '/menu', params: { storeId: store.storeId } }}>
-                메뉴 보기
-              </NavLink>
-              <NavLink href={{ pathname: '/help', params: { storeId: store.storeId } }}>
-                직원에게 문의
-              </NavLink>
-            </View>
+            </>
           )}
         </>
       ) : !loading && !error ? (

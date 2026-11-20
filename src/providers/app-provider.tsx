@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -28,6 +29,33 @@ import {
   type Store,
 } from '@/lib/types';
 
+// Only explicit checkout rejections establish that the server declined the order.
+function checkoutRejected(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status >= 400 &&
+    error.status < 500 &&
+    [
+      'bad-payment-method',
+      'bad-note',
+      'price-changed',
+      'ordering-paused',
+      'empty-order',
+      'too-many-lines',
+      'bad-line',
+      'unknown-item',
+      'item-unavailable',
+      'bad-qty',
+      'bad-options',
+      'unknown-option',
+      'missing-option',
+      'too-many-choices',
+      'unknown-choice',
+      'choice-unavailable',
+    ].includes(error.code)
+  );
+}
+
 type Settings = {
   language?: Language;
   assistance?: import('@/lib/location').Assistance;
@@ -41,6 +69,7 @@ type Settings = {
   vibration?: boolean;
   orderAlerts?: boolean;
   locateOnStart?: boolean;
+  saveRecentSearches?: boolean;
   recentSearches?: string[];
 };
 const initialSettings: Settings = {
@@ -54,6 +83,7 @@ const initialSettings: Settings = {
   largeText: false,
   speech: false,
   voiceInput: false,
+  locateOnStart: false,
 };
 const emptyCart: Cart = { lines: [], summary: '', total: 0 };
 
@@ -70,7 +100,7 @@ async function readSavedPlaces(base: string): Promise<Store[]> {
   );
 }
 
-function useAppState() {
+function useAppState(path: string) {
   const [settings, setSettings] = useState(initialSettings);
   const settingsRef = useRef(initialSettings);
   const settingsQueue = useRef<Promise<void>>(Promise.resolve());
@@ -81,7 +111,17 @@ function useAppState() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [cart, setCart] = useState<Cart>(emptyCart);
   const [order, setOrder] = useState<Order | null>(null);
-  const [notice, setNotice] = useState('');
+  const cartScope = useMemo(
+    () => ({ path, language: settings.language }),
+    [path, settings.language],
+  );
+  const activeScope = useRef(cartScope);
+  useLayoutEffect(() => {
+    activeScope.current = cartScope;
+  }, [cartScope]);
+  const [feedback, setFeedback] = useState<{ message: string; scope?: typeof cartScope }>();
+  const notice =
+    feedback && (!feedback.scope || feedback.scope === cartScope) ? feedback.message : '';
   const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
   const pendingRef = useRef<string | null>(null);
   const [helpState, setHelpState] = useState<'idle' | 'sent' | 'acknowledged'>('idle');
@@ -102,7 +142,6 @@ function useAppState() {
 
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
-  const lastSpoken = useRef('갈지도에 오신 것을 환영합니다. 매장을 선택하고 메뉴를 살펴보세요.');
   const api = useMemo(() => new Api(settings.apiBase), [settings.apiBase]);
   const [saved, setSaved] = useState<{
     base: string;
@@ -155,22 +194,27 @@ function useAppState() {
   const selectStoreSeq = useRef(0);
   const pendingToken = useRef<{ base: string; promise: Promise<string> } | null>(null);
   const demo = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
+  const speechRevision = useRef(0);
   const announce = useCallback(
-    (message: string) => {
+    (message: string, scope?: typeof cartScope, readAloud = false) => {
+      if (scope && scope !== activeScope.current) return;
+      setFeedback({ message, scope });
       message = translate(message, settings.language ?? 'ko');
-      lastSpoken.current = message;
-      setNotice(message);
       if (Platform.OS !== 'web') AccessibilityInfo.announceForAccessibility(message);
-      if (settings.speech)
-        void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
-          if (!enabled) {
-            void Speech.stop();
-            Speech.speak(message, {
-              language: settings.language === 'en' ? 'en-US' : 'ko-KR',
-              rate: 0.95,
-            });
-          }
-        });
+      if (!settings.speech && !readAloud) return;
+      if (Platform.OS === 'web' && !globalThis.speechSynthesis) return;
+      const revision = ++speechRevision.current;
+      async function speak() {
+        if (Platform.OS !== 'web' && (await AccessibilityInfo.isScreenReaderEnabled())) return;
+        if (revision !== speechRevision.current) return;
+        await Speech.stop();
+        if (revision === speechRevision.current)
+          Speech.speak(message, {
+            language: settings.language === 'en' ? 'en-US' : 'ko-KR',
+            rate: 0.95,
+          });
+      }
+      void speak().catch(() => {}); // The live text remains available if speech is unsupported.
     },
     [settings.speech, settings.language],
   );
@@ -214,14 +258,30 @@ function useAppState() {
     const device = await secrets.get(api.base, 'device');
     return device ? api.orders(device) : [];
   }, [api]);
+  const applyOrderUpdate = useCallback((latest: Order) => {
+    setOrder((current) =>
+      current?.orderId === latest.orderId && (latest.updatedAtMs ?? 0) >= (current.updatedAtMs ?? 0)
+        ? latest
+        : current,
+    );
+  }, []);
+  const previousOrder = useRef<Order | null>(null);
+  useEffect(() => {
+    const previous = previousOrder.current;
+    previousOrder.current = order;
+    if (!order || previous?.orderId !== order.orderId || previous.status === order.status) return;
+    if (settingsRef.current.orderAlerts !== false)
+      announce(`주문 ${order.orderNumber}번, ${statusLabels[order.status]}`);
+    if (order.status === 'ready' && settingsRef.current.vibration !== false)
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }, [order, announce]);
   const getOrder = useCallback(
     async (id: string) => {
       const latest = await api.order(id, await token());
-      if (currentApi.current === api)
-        setOrder((current) => (current?.orderId === id ? latest : current));
+      if (currentApi.current === api) applyOrderUpdate(latest);
       return latest;
     },
-    [api, token],
+    [api, token, applyOrderUpdate],
   );
   const clearSession = useCallback(async () => {
     currentConnection.current = null;
@@ -269,14 +329,8 @@ function useAppState() {
           return rememberOrder(placed);
         } catch (error) {
           if (
-            error instanceof ApiError &&
-            [
-              'bad-payment-method',
-              'price-changed',
-              'item-unavailable',
-              'choice-unavailable',
-              'session-expired',
-            ].includes(error.code)
+            checkoutRejected(error) ||
+            (error instanceof ApiError && error.code === 'session-expired')
           )
             await markPending(null);
           throw error;
@@ -315,11 +369,9 @@ function useAppState() {
     if (order) {
       const latest = await api.order(order.orderId, device);
       if (currentApi.current !== api) return;
-      if (latest.status !== order.status && settingsRef.current.orderAlerts !== false)
-        announce(`주문 ${latest.orderNumber}번, ${statusLabels[latest.status]}`);
-      setOrder((current) => (current?.orderId === latest.orderId ? latest : current));
+      applyOrderUpdate(latest);
     }
-  }, [api, connection, order?.orderId, order?.status, clearSession, announce]);
+  }, [api, connection, order?.orderId, clearSession, applyOrderUpdate]);
   useEffect(() => {
     AsyncStorage.getItem('galjido.settings')
       .then((raw) => {
@@ -545,9 +597,10 @@ function useAppState() {
       }
       setItems(next);
       setCart(result);
-      if (settings.vibration !== false)
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      announce(`장바구니가 변경되었습니다. 합계 ${result.total.toLocaleString('ko-KR')}원`);
+      announce(
+        `장바구니가 변경되었습니다. 합계 ${result.total.toLocaleString('ko-KR')}원`,
+        cartScope,
+      );
       if (previous && previous.sessionId !== active.sessionId) {
         // The new cart is durable. A failed kiosk release must never undo it.
         await api.end(previous.sessionId, device).catch(report);
@@ -595,12 +648,7 @@ function useAppState() {
         );
       } catch (error) {
         // A timeout/5xx or already-closed session can hide a committed order.
-        if (
-          error instanceof ApiError &&
-          error.status < 500 &&
-          !['session-expired', 'session-not-found', 'idempotency-conflict'].includes(error.code)
-        )
-          await markPending(null);
+        if (checkoutRejected(error)) await markPending(null);
         if (error instanceof ApiError && error.code === 'price-changed') {
           const changed = await api.cart(connection.sessionId, items, device);
           setCart(changed);
@@ -622,11 +670,13 @@ function useAppState() {
       announce('연결을 종료했습니다.');
     });
   }
-  function updateSettings(patch: Partial<Settings>) {
+  function queueSettings(change: (current: Settings) => Partial<Settings> | null) {
     const task = settingsQueue.current
       .catch(() => {})
       .then(async () => {
         const previous = settingsRef.current;
+        const patch = change(previous);
+        if (!patch) return;
         const base = patch.apiBase === undefined ? previous.apiBase : normalizeBase(patch.apiBase);
         if (base !== previous.apiBase) {
           if (lock.current) throw new Error('요청이 완료된 후 서버를 변경해 주세요.');
@@ -643,12 +693,31 @@ function useAppState() {
         }
         settingsRef.current = next;
         setSettings(next);
-        if (previous.speech && !next.speech) await Speech.stop();
+        if (previous.speech && !next.speech) {
+          speechRevision.current++;
+          await Speech.stop().catch(() => {});
+        }
       });
     settingsQueue.current = task;
     return task;
   }
+  function updateSettings(patch: Partial<Settings>) {
+    return queueSettings(() => patch);
+  }
+  function rememberSearch(term: string) {
+    return queueSettings(({ saveRecentSearches, recentSearches = [] }) =>
+      saveRecentSearches === false
+        ? null
+        : {
+            recentSearches: [
+              term,
+              ...recentSearches.filter((item) => item.toLowerCase() !== term.toLowerCase()),
+            ].slice(0, 8),
+          },
+    );
+  }
   return {
+    rememberSearch,
     api,
     savedPlaces: saved.base === api.base ? saved.places : [],
     savedPlacesReady: saved.base === api.base && saved.ready,
@@ -686,9 +755,15 @@ function useAppState() {
     busy: busy || restoring,
     notice,
     announce,
+    readAloud: (message: string) => announce(message, undefined, true),
     report,
     demo,
-    repeat: () => announce(lastSpoken.current),
+    repeat: () =>
+      announce(
+        notice || '갈지도에 오신 것을 환영합니다. 매장을 선택하고 메뉴를 살펴보세요.',
+        feedback?.scope === cartScope ? cartScope : undefined,
+        true,
+      ),
     help: async () =>
       exclusive(async () => {
         if (!connection || pendingRef.current)
@@ -708,8 +783,8 @@ function useAppState() {
   };
 }
 const AppContext = createContext<ReturnType<typeof useAppState> | null>(null);
-export function AppProvider({ children }: { children: React.ReactNode }) {
-  const state = useAppState();
+export function AppProvider({ path = '', children }: { path?: string; children: React.ReactNode }) {
+  const state = useAppState(path);
   return <AppContext.Provider value={state}>{children}</AppContext.Provider>;
 }
 export function useApp() {

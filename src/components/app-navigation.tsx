@@ -25,7 +25,7 @@ export function AppNavigation() {
       ? '/orders'
       : path === '/saved'
         ? '/saved'
-        : path === '/settings'
+        : path.startsWith('/settings')
           ? '/settings'
           : '/';
   return (
@@ -33,7 +33,7 @@ export function AppNavigation() {
       <View
         accessibilityRole="tablist"
         accessibilityLabel={t('주요 탐색')}
-        className="flex-row gap-1 border-t border-border bg-card px-2 py-1"
+        className="flex-row gap-1 border-t border-border bg-card min-h-[76px] px-2 py-1"
       >
         {tabs.map(({ href, label, icon }) => (
           <Button
@@ -43,25 +43,20 @@ export function AppNavigation() {
             accessibilityLabel={label}
             accessibilityState={{ selected: active === href }}
             className={cn(
-              'min-w-0 flex-1 flex-col gap-0.5 rounded-xl px-0.5 py-1.5',
-              active === href && 'border-primary',
+              'min-h-[66px] min-w-0 flex-1 flex-col gap-1 rounded-[14px] border-0 px-0.5 py-1.5',
+              active === href && 'bg-secondary',
             )}
             onPress={() => {
               const target = href === '/' ? home : href;
               if (path !== target) router.navigate(target);
             }}
           >
-            <Icon
-              as={icon}
-              size={20}
-              className={active === href ? 'text-primary' : 'text-muted-foreground'}
-              accessible={false}
-            />
+            <Icon as={icon} size={24} className="text-primary" accessible={false} />
             <Text
               variant="small"
               className={cn(
                 'text-center leading-4',
-                'text-[11px]',
+                path.startsWith('/settings') ? 'text-xs' : 'text-sm',
                 active === href ? 'font-bold text-primary' : 'font-medium text-foreground',
               )}
             >

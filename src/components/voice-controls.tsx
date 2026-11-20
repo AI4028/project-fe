@@ -59,7 +59,7 @@ function RecognitionVoiceControls({
     else if (/길|실내|어디|\b(?:directions)\b/i.test(text)) router.push('/guide');
     else if (/연결|\b(?:connect)\b/i.test(text)) router.push('/connect');
     else if (/메뉴.*(읽|알려)|\b(?:read (?:the )?menu)\b/i.test(text))
-      app.announce(
+      app.readAloud(
         app.store?.menu
           ?.map(
             (item) =>

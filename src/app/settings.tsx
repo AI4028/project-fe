@@ -1,6 +1,17 @@
-import { useState } from 'react';
-import { Linking } from 'react-native';
-import * as Location from 'expo-location';
+import { Children, useState, type ReactNode } from 'react';
+import { Linking, View } from 'react-native';
+import { router } from 'expo-router';
+import {
+  Accessibility,
+  Bell,
+  MapPin,
+  Search,
+  Languages,
+  Store,
+  Newspaper,
+  type LucideIcon,
+} from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
 import { Screen } from '@/components/screen';
 import { LanguageSwitch } from '@/components/language-switch';
 import { PreferenceSwitch } from '@/components/preference-switch';
@@ -14,92 +25,103 @@ import { resolveExploreMode, type ExploreMode } from '@/lib/location';
 import { resolveTextSize } from '@/lib/text-size';
 import { useTranslation } from '@/lib/i18n';
 
+function SettingsSection({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: LucideIcon;
+  children: ReactNode;
+}) {
+  return (
+    <Card className="gap-0 py-0">
+      <CardContent className="px-4">
+        <View className="flex-row items-center gap-3 py-4">
+          <Icon as={icon} size={24} className="text-primary" />
+          <Text variant="h2">{title}</Text>
+        </View>
+        {Children.toArray(children).map((row, index) => (
+          <View key={index} className="border-t border-border py-1">
+            {row}
+          </View>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function publicForm(value?: string) {
+  try {
+    const url = new URL(value ?? '');
+    if (url.protocol === 'https:' && !url.username && !url.password) return url.href;
+  } catch {}
+}
+
 export default function Settings() {
   const app = useApp();
   const { settings } = app;
   const { t } = useTranslation();
-  const [permissions, setPermissions] = useState(false);
-  const [location, setLocation] = useState('');
   const [confirm, setConfirm] = useState(false);
-  const registrationUrl = process.env.EXPO_PUBLIC_STORE_REGISTRATION_URL;
+  const registrationUrl = publicForm(process.env.EXPO_PUBLIC_STORE_REGISTRATION_URL);
+  const newsUrl = publicForm(process.env.EXPO_PUBLIC_ACCESSIBILITY_NEWS_URL);
   const save = (patch: Parameters<typeof app.updateSettings>[0]) =>
     app.updateSettings(patch).catch(app.report);
-  const checkLocation = async (request: boolean) => {
-    try {
-      const result = request
-        ? await Location.requestForegroundPermissionsAsync()
-        : await Location.getForegroundPermissionsAsync();
-      setLocation(result.granted ? '위치 · 허용됨' : '위치 · 허용 안 됨');
-    } catch {
-      setLocation('위치를 확인하지 못했어요');
-    }
-  };
-  if (permissions)
-    return (
-      <Screen
-        onBack={() => setPermissions(false)}
-        title="기기 권한"
-        subtitle="필요한 기능을 사용할 때만 권한을 요청해요."
-        voice={false}
-      >
-        <Card>
-          <CardContent>
-            <Text variant="h3">{location || '위치'}</Text>
-            <Button onPress={() => void checkLocation(true)}>
-              <Text>위치 권한 다시 확인</Text>
-            </Button>
-          </CardContent>
-        </Card>
-        <Text>마이크 · 음성 검색을 시작할 때 요청해요.</Text>
-        <Text>Bluetooth · 매장 검색과 주문에는 필요하지 않아요.</Text>
-      </Screen>
-    );
   return (
-    <Screen title="이용 설정" subtitle="변경 내용은 이 기기에 저장돼요." voice={false} reading>
-      <Card>
-        <CardContent className="gap-3">
-          <LanguageSwitch />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="gap-3">
-          <Text variant="h2">접근성</Text>
-          <PreferenceSwitch
-            title="고대비"
-            description="글자와 버튼 경계를 선명하게"
-            value={settings.contrast}
-            onChange={(contrast) => void save({ contrast })}
-          />
-          <PreferenceSwitch
-            title="큰 글씨"
-            description="기본 글자의 2배로 확대"
-            value={resolveTextSize(settings) === 'xlarge'}
-            onChange={(largeText) =>
-              void save({ largeText, textSize: largeText ? 'xlarge' : 'base' })
-            }
-          />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="gap-3">
-          <Text variant="h2">위치와 지도</Text>
-          <PreferenceSwitch
-            title="시작 시 현재 위치 감지"
-            description="GPS로 가까운 매장을 찾아요."
-            value={!!settings.locateOnStart}
-            onChange={(locateOnStart) => void save({ locateOnStart })}
-          />
-          <Button
-            variant="outline"
-            onPress={() => {
-              setPermissions(true);
-              void checkLocation(false);
-            }}
-          >
-            <Text>기기 권한 확인</Text>
-          </Button>
+    <Screen
+      title="이용 설정"
+      subtitle="변경 내용은 이 기기에 저장돼요."
+      voice={false}
+      reading
+      brandedHeader
+    >
+      <SettingsSection title="언어 선택" icon={Languages}>
+        <LanguageSwitch showHeading={false} />
+      </SettingsSection>
+      <SettingsSection title="접근성" icon={Accessibility}>
+        <PreferenceSwitch
+          flat
+          title="고대비"
+          description="글자와 버튼 경계를 선명하게"
+          value={settings.contrast}
+          onChange={(contrast) => void save({ contrast })}
+        />
+        <PreferenceSwitch
+          flat
+          title="큰 글씨"
+          description="기본 글자의 2배로 확대"
+          value={resolveTextSize(settings) !== 'base'}
+          onChange={(largeText) =>
+            void save({ largeText, textSize: largeText ? 'xlarge' : 'base' })
+          }
+        />
+        <PreferenceSwitch
+          flat
+          title="음성 명령"
+          description="말로 메뉴를 선택하거나 장바구니를 열어요."
+          value={!!settings.voiceInput}
+          onChange={(voiceInput) => void save({ voiceInput })}
+        />
+        <PreferenceSwitch
+          flat
+          title="음성 안내"
+          description="앱의 안내와 상태 변경을 소리로 들어요."
+          value={settings.speech}
+          onChange={(speech) => void save({ speech })}
+        />
+      </SettingsSection>
+      <SettingsSection title="위치와 지도" icon={MapPin}>
+        <PreferenceSwitch
+          flat
+          title="시작 시 현재 위치 감지"
+          description="앱을 열 때 가까운 매장을 찾아요. 위치 없이도 검색할 수 있어요."
+          value={!!settings.locateOnStart}
+          onChange={(locateOnStart) => void save({ locateOnStart })}
+        />
+        <View className="gap-2 py-2">
           <Text>시작 화면 지도 방식</Text>
           <SegmentedControl<ExploreMode>
+            mapChoice
             value={resolveExploreMode(settings.assistance, settings.exploreMode) ?? 'list'}
             onChange={(exploreMode) => void save({ exploreMode })}
             label={t('지도 방식')}
@@ -108,57 +130,59 @@ export default function Settings() {
               { value: 'map', label: '그림 지도' },
             ]}
           />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="gap-3">
-          <Text variant="h2">기기 설정</Text>
-          <PreferenceSwitch
-            title="음성 명령"
-            description="말로 매장과 메뉴 검색"
-            value={!!settings.voiceInput}
-            onChange={(voiceInput) => void save({ voiceInput })}
-          />
-          <PreferenceSwitch
-            title="주문 상태 알림"
-            description="앱을 사용하는 동안 주문 상태가 바뀌면 알려요."
-            value={settings.orderAlerts !== false}
-            onChange={(orderAlerts) => void save({ orderAlerts })}
-          />
-          <PreferenceSwitch
-            title="음성 안내"
-            description="화면 안내를 소리로 읽어요."
-            value={settings.speech}
-            onChange={(speech) => void save({ speech })}
-          />
-          <PreferenceSwitch
-            title="주문 진동"
-            description="장바구니가 변경되면 진동으로 알려요."
-            value={settings.vibration !== false}
-            onChange={(vibration) => void save({ vibration })}
-          />
-          <Button variant="outline" onPress={() => setConfirm(true)}>
-            <Text>최근 검색어 지우기</Text>
+        </View>
+        <Button variant="ghost" onPress={() => router.push('/settings/permissions')}>
+          <Text>기기 권한 확인</Text>
+        </Button>
+      </SettingsSection>
+      <SettingsSection title="주문 알림" icon={Bell}>
+        <PreferenceSwitch
+          flat
+          title="주문 진행 알림"
+          description="앱을 이용하는 동안 주문 접수, 준비, 픽업 등 상태 변경을 알려요."
+          value={settings.orderAlerts !== false}
+          onChange={(orderAlerts) => void save({ orderAlerts })}
+        />
+        <PreferenceSwitch
+          flat
+          title="픽업 준비 진동"
+          description="주문을 받을 준비가 되면 지원 기기에서 진동해요."
+          value={settings.vibration !== false}
+          onChange={(vibration) => void save({ vibration })}
+        />
+      </SettingsSection>
+      <SettingsSection title="검색 기록" icon={Search}>
+        <PreferenceSwitch
+          flat
+          title="최근 검색어 저장"
+          description="이 기기에 검색어를 저장해요."
+          value={settings.saveRecentSearches !== false}
+          onChange={(saveRecentSearches) => void save({ saveRecentSearches })}
+        />
+        <Button variant="ghost" onPress={() => setConfirm(true)}>
+          <Text>최근 검색어 지우기</Text>
+        </Button>
+      </SettingsSection>
+      {newsUrl && (
+        <SettingsSection title="접근성 소식과 혜택" icon={Newspaper}>
+          <Button variant="outline" onPress={() => void Linking.openURL(newsUrl).catch(app.report)}>
+            <Text>소식과 혜택 신청하기</Text>
           </Button>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="gap-3">
-          <Text variant="h2">매장 등록</Text>
+        </SettingsSection>
+      )}
+      {registrationUrl && (
+        <SettingsSection title="매장 등록" icon={Store}>
           <Button
             variant="outline"
-            disabled={!registrationUrl?.startsWith('https://')}
-            onPress={() => {
-              if (registrationUrl) void Linking.openURL(registrationUrl).catch(app.report);
-            }}
+            onPress={() => void Linking.openURL(registrationUrl).catch(app.report)}
           >
             <Text>매장 등록 신청</Text>
           </Button>
-          {!registrationUrl?.startsWith('https://') && (
-            <Text variant="muted">매장 등록 링크가 준비되면 신청할 수 있어요.</Text>
-          )}
-        </CardContent>
-      </Card>
+        </SettingsSection>
+      )}
+      <Text variant="muted">
+        VoiceOver와 TalkBack은 기기 설정을 따릅니다. 진동과 권한은 기기와 브라우저에 따라 달라요.
+      </Text>
       <Dialog open={confirm} onOpenChange={setConfirm}>
         <DialogContent>
           <DialogTitle>최근 검색어를 지울까요?</DialogTitle>

@@ -1,10 +1,10 @@
 import { AppNavigation } from '@/components/app-navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Linking, ScrollView, View } from 'react-native';
+import { Keyboard, Linking, ScrollView, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { List, LocateFixed, Map, Mic, Search, X } from 'lucide-react-native';
-import { useFocusEffect } from 'expo-router';
+import { ReceiptText, LocateFixed, MapPin, Mic, Search, X } from 'lucide-react-native';
+import { router, useFocusEffect } from 'expo-router';
 import StoreMap from '@/components/store-map';
 
 import { PlacePreview } from '@/components/place-preview';
@@ -37,6 +37,8 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
   const mic = useRef<{ start: () => void }>(null);
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [panelTop, setPanelTop] = useState(64);
+  const { height } = useWindowDimensions();
   const [submitted, setSubmitted] = useState('');
   const [placeStatus, setPlaceStatus] = useState<PlaceSearchResult | null>(null);
   const [placeLoading, setPlaceLoading] = useState(false);
@@ -189,15 +191,12 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
   }, [app.settings.locateOnStart]);
   function search(value = query) {
     const next = value.trim();
-    if (next) {
-      const previous = app.settings.recentSearches ?? [];
-      void app
-        .updateSettings({
-          recentSearches: [next, ...previous.filter((item) => item !== next)].slice(0, 8),
-        })
-        .catch(app.report);
-    }
-    setQuery(value);
+    request.current++;
+    setLocating(false);
+    if (next && app.settings.saveRecentSearches !== false)
+      void app.rememberSearch(next).catch(app.report);
+    setLocationMessage('');
+    setQuery(next);
     if (submitted === next) setPlaceRevision((revision) => revision + 1);
     setSubmitted(next);
     setSelectedId(null);
@@ -205,9 +204,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
     setVoiceOpen(false);
     Keyboard.dismiss();
   }
+  function openSearch() {
+    setQuery(submitted);
+    setSearchOpen(true);
+  }
   function resetSearch() {
     setPosition(null);
-    setNoticeDismissed(true);
+    setNoticeDismissed(false);
     search('');
   }
   async function changeView(next: Presentation) {
@@ -234,8 +237,11 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
         </Text>
         {!!locationMessage && !position && (
           <View className="w-full flex-row flex-wrap gap-2">
-            <Button variant="outline" onPress={() => setSearchOpen(true)}>
+            <Button variant="outline" onPress={openSearch}>
               <Text>매장 이름이나 주소 입력</Text>
+            </Button>
+            <Button variant="outline" onPress={() => router.push('/settings/permissions')}>
+              <Text>기기 권한 확인</Text>
             </Button>
             <Button variant="outline" disabled={locating} onPress={() => void locate()}>
               <Text>위치 다시 확인하기</Text>
@@ -291,9 +297,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
         </View>
       )}
       {placeStatus?.generalSearch === 'not-configured' && (
-        <Text variant="muted">
-          일반 장소 검색은 준비 중이에요. 등록 매장과 공공 접근성 자료는 검색할 수 있어요.
-        </Text>
+        <Text variant="muted">등록 매장과 공공 자료에서 찾은 결과예요.</Text>
       )}
       {placeStatus?.generalSearch === 'unavailable' && placeStatus.status === 'results' && (
         <Text variant="muted">
@@ -309,32 +313,55 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
       )}
     </>
   );
+  const settled = !loading && !placeLoading;
+  const emptyCatalog =
+    !!submitted &&
+    settled &&
+    !placeError &&
+    !stores.length &&
+    (placeStatus?.status === 'empty' ||
+      (placeStatus?.status === 'unavailable' && placeStatus.generalSearch === 'not-configured'));
   const resultCount = (
-    <>
-      {!placeError && (!failed || stores.length > 0) && (
+    <View className="min-w-0 shrink gap-1">
+      {!!submitted && (
+        <Text variant="h2" translate={false}>
+          {language === 'en' ? `Results for “${submitted}”` : `“${submitted}” 검색 결과`}
+        </Text>
+      )}
+      {!placeError && (!failed || stores.length > 0) && !emptyCatalog && (
         <Text variant="muted" accessibilityLiveRegion="polite">
           {placeLoading
             ? '장소를 검색하고 있어요.'
             : loading
               ? '매장을 찾고 있어요…'
-              : t(`${stores.length} 개의 장소`)}
+              : submitted && stores.length
+                ? t(`장소 ${stores.length}곳을 찾았어요`)
+                : t(`${stores.length} 개의 장소`)}
         </Text>
       )}
-    </>
+      {!!submitted && !emptyCatalog && (
+        <Button variant="ghost" onPress={resetSearch}>
+          <Text>전체 매장 보기</Text>
+        </Button>
+      )}
+    </View>
   );
   const noResults =
-    !loading &&
-    !placeLoading &&
-    !failed &&
-    !placeError &&
-    !stores.length &&
-    (!placeStatus || placeStatus.status === 'empty');
+    emptyCatalog ||
+    (!submitted &&
+      settled &&
+      !failed &&
+      !placeError &&
+      !stores.length &&
+      (!placeStatus || placeStatus.status === 'empty'));
   const emptyResults = noResults && (
     <View className="gap-3 rounded-2xl border border-border bg-card p-4">
-      <Text variant="h3">검색 결과가 없어요</Text>
+      <Text variant="h3" accessibilityLiveRegion="polite">
+        검색 결과가 없어요
+      </Text>
       <Text variant="muted">다른 매장명이나 메뉴로 찾아보세요.</Text>
       <View className="flex-row flex-wrap gap-2">
-        <Button variant="outline" onPress={() => setSearchOpen(true)}>
+        <Button variant="outline" onPress={openSearch}>
           <Text>검색어 수정</Text>
         </Button>
         <Button variant="ghost" onPress={resetSearch}>
@@ -343,36 +370,59 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
       </View>
     </View>
   );
-  const terms = new Set<string>(app.settings.recentSearches ?? []);
-  const storeNames = registered.map((store) => (language === 'en' && store.nameEn) || store.name);
-  const menuNames = registered.flatMap((store) =>
-    (store.menuSuggestions ?? []).map((item) => (language === 'en' && item.nameEn) || item.name),
-  );
-  for (const name of [...storeNames.slice(0, 3), ...menuNames, ...storeNames.slice(3)])
-    terms.add(name);
-  const suggestions = Array.from(terms)
-    .filter((term) => term.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
-    .slice(0, 6);
-  const searchOptions = searchOpen && (
-    <View className="gap-2">
-      {!!suggestions.length && (
-        <>
-          <Text variant="h3">추천 가게 및 검색어</Text>
-          {suggestions.map((term) => (
+  const matchesDraft = (term: string) =>
+    term.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+  const recent =
+    app.settings.saveRecentSearches === false
+      ? []
+      : (app.settings.recentSearches ?? []).filter(matchesDraft);
+  const suggestions = new globalThis.Map<string, '매장' | '메뉴'>();
+  for (const store of registered) {
+    const name = (language === 'en' && store.nameEn) || store.name;
+    if (matchesDraft(name)) suggestions.set(name, '매장');
+    for (const item of store.menuSuggestions ?? []) {
+      const term = (language === 'en' && item.nameEn) || item.name;
+      if (matchesDraft(term) && !suggestions.has(term)) suggestions.set(term, '메뉴');
+    }
+  }
+  const searchOptions = searchOpen && (recent.length > 0 || suggestions.size > 0) && (
+    <View
+      className="absolute left-6 right-6 z-20 rounded-[14px] border border-search-border bg-card"
+      style={{ top: panelTop, maxHeight: height * 0.36 }}
+    >
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="gap-1 p-2">
+        {!!recent.length && <Text variant="h2">최근 검색어</Text>}
+        {recent.map((term) => (
+          <Button
+            key={term}
+            variant="ghost"
+            className="justify-start"
+            accessibilityLabel={term}
+            onPress={() => search(term)}
+          >
+            <Text translate={false}>{term}</Text>
+          </Button>
+        ))}
+        {!!suggestions.size && <Text variant="h2">추천 검색어</Text>}
+        {Array.from(suggestions)
+          .slice(0, 6)
+          .map(([term, kind]) => (
             <Button
               key={term}
               variant="ghost"
-              className="justify-start"
+              className="justify-between"
+              accessibilityLabel={`${term}, ${t(kind)}`}
               onPress={() => search(term)}
             >
               <Text translate={false}>{term}</Text>
+              <Text variant="muted">{kind}</Text>
             </Button>
           ))}
-        </>
-      )}
+      </ScrollView>
     </View>
   );
   function openVoice() {
+    setSearchOpen(false);
     Keyboard.dismiss();
     mic.current?.start();
     setVoiceOpen(true);
@@ -397,22 +447,32 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
             className="min-h-0 w-full flex-1 self-center"
             style={{ maxWidth: view === 'list' ? layout.readingWidth : layout.shellWidth }}
           >
-            <View className="gap-2 px-3 py-2">
+            <View
+              className="px-6 pt-2"
+              onLayout={({ nativeEvent: { layout } }) => setPanelTop(layout.y + layout.height)}
+            >
               {searchOpen ? (
-                <View className="flex-row items-center gap-1">
+                <View className="min-h-[56px] flex-row items-center gap-1 rounded-[14px] border border-search-border bg-card px-2 web:focus-within:ring-2 web:focus-within:ring-ring">
                   <Button
                     variant="secondary"
                     size="icon"
                     accessibilityLabel="말로 검색"
                     onPress={openVoice}
                   >
-                    <Icon as={Mic} size={21} className="text-primary" accessible={false} />
+                    <Icon
+                      as={Mic}
+                      size={24}
+                      strokeWidth={2.4}
+                      className="text-primary"
+                      accessible={false}
+                    />
                   </Button>
-                  <View className="min-w-0 flex-1 flex-row items-center rounded-2xl border border-input bg-card">
+                  <View className="min-w-0 flex-1 flex-row items-center">
                     <Input
                       autoFocus
-                      className="min-w-0 flex-1 border-0 bg-transparent"
-                      accessibilityLabel="매장 이름 또는 주소 검색"
+                      className="min-h-12 min-w-0 flex-1 border-0 bg-transparent px-1 web:focus-visible:ring-0 web:focus-visible:ring-offset-0"
+                      accessibilityLabel="매장 또는 메뉴 검색"
+                      maxLength={100}
                       placeholder={t('매장 또는 메뉴 검색')}
                       value={query}
                       onChangeText={setQuery}
@@ -437,7 +497,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                       accessibilityLabel="검색 실행"
                       onPress={() => search()}
                     >
-                      <Icon as={Search} size={21} className="text-primary" accessible={false} />
+                      <Icon
+                        as={Search}
+                        size={24}
+                        strokeWidth={2.4}
+                        className="text-primary"
+                        accessible={false}
+                      />
                     </Button>
                   </View>
                   <Button
@@ -450,43 +516,67 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                   </Button>
                 </View>
               ) : (
-                <View className="flex-row items-center rounded-2xl border border-input bg-card px-1">
+                <View className="min-h-[56px] flex-row items-center rounded-[14px] border border-search-border bg-card px-2">
                   <Button
                     variant="ghost"
                     size="icon"
                     accessibilityLabel="말로 검색"
                     onPress={openVoice}
                   >
-                    <Icon as={Mic} size={21} className="text-primary" accessible={false} />
+                    <Icon
+                      as={Mic}
+                      size={24}
+                      strokeWidth={2.4}
+                      className="text-primary"
+                      accessible={false}
+                    />
                   </Button>
                   <Button
                     variant="ghost"
-                    className="min-w-0 flex-1 justify-start"
-                    accessibilityLabel="검색 열기"
+                    className="min-h-12 min-w-0 flex-1 justify-start px-2 py-1"
+                    accessibilityLabel="매장 또는 메뉴 검색"
                     accessibilityState={{ expanded: false }}
-                    onPress={() => setSearchOpen(true)}
+                    onPress={openSearch}
                   >
                     {submitted ? (
-                      <Text translate={false} className="flex-1 font-normal" numberOfLines={1}>
+                      <Text
+                        translate={false}
+                        className="flex-1 text-left text-base font-normal"
+                        numberOfLines={1}
+                      >
                         {submitted}
                       </Text>
                     ) : (
-                      <Text variant="muted" className="flex-1" numberOfLines={1}>
+                      <Text
+                        variant="muted"
+                        className="flex-1 text-left text-base font-normal"
+                        numberOfLines={1}
+                      >
                         매장 또는 메뉴 검색
                       </Text>
                     )}
-                    <Icon as={Search} size={20} className="text-primary" accessible={false} />
+                    <Icon
+                      as={Search}
+                      size={24}
+                      strokeWidth={2.4}
+                      className="text-primary"
+                      accessible={false}
+                    />
                   </Button>
                 </View>
               )}
+            </View>
+            {searchOptions}
+            <View className="px-3 py-2">
               <SegmentedControl
+                mapChoice
                 value={view}
                 onChange={(next) => void changeView(next)}
                 disabled={savingView}
                 label={t('매장 보기 방식')}
                 options={[
-                  { value: 'list', label: '글 지도', icon: List },
-                  { value: 'map', label: '그림 지도', icon: Map },
+                  { value: 'list', label: '글 지도', icon: ReceiptText },
+                  { value: 'map', label: '그림 지도', icon: MapPin },
                 ]}
               />
             </View>
@@ -517,7 +607,6 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                   keyboardShouldPersistTaps="handled"
                 >
                   {notice}
-                  {searchOptions}
                   {searchFeedback}
                   <View className="flex-row flex-wrap items-center justify-between gap-2">
                     {resultCount}
@@ -543,7 +632,11 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                       store={store}
                       actions
                       showDistance={!!position}
-                      onPress={() => setSelectedId(store.storeId)}
+                      onPress={() =>
+                        store.directoryOnly
+                          ? setSelectedId(store.storeId)
+                          : router.push({ pathname: '/store', params: { storeId: store.storeId } })
+                      }
                     />
                   ))}
                   {emptyResults}
@@ -552,12 +645,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                 </ScrollView>
               )}
               {view === 'map' &&
-                (notice ||
-                  searchOpen ||
-                  placeError ||
-                  placeStatus ||
-                  placeLoading ||
-                  noResults) && (
+                (notice || placeError || placeStatus || placeLoading || noResults) && (
                   <View className="absolute left-3 right-3 top-3" style={{ maxHeight: '55%' }}>
                     <ScrollView
                       contentContainerClassName="gap-3 rounded-2xl border border-border bg-card p-3"
@@ -565,14 +653,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                     >
                       {notice}
                       {searchFeedback}
-                      {searchOptions}
                       {(submitted || position || placeLoading) && resultCount}
                       {emptyResults}
                       {!!placeError && (
                         <Button
                           variant="outline"
                           onPress={() =>
-                            void Linking.openURL(placeSearchUrl(query)).catch(app.report)
+                            void Linking.openURL(placeSearchUrl(submitted)).catch(app.report)
                           }
                         >
                           <Text>지도 앱에서 검색</Text>
@@ -621,7 +708,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                 </View>
               )}
             </View>
-            {selected && (
+            {selected && (view === 'map' || selected.directoryOnly) && (
               <ScrollView
                 style={{ flexGrow: 0, maxHeight: '46%' }}
                 keyboardShouldPersistTaps="handled"

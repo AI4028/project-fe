@@ -13,20 +13,29 @@ logos, proprietary fonts, or copied screens.
 | [Apple: typography](https://developer.apple.com/design/human-interface-guidelines/typography) | A restrained type hierarchy, readable body text, and scalable labels.                               |
 | [OpenAI: brand](https://openai.com/brand/)                                                    | Typographic clarity and a balance of precision and warmth.                                          |
 | [Linear: UI redesign](https://linear.app/now/how-we-redesigned-the-linear-ui)                 | Reduce competing chrome; align navigation and surfaces consistently.                                |
-| [Pretendard](https://github.com/orioncactus/pretendard)                                       | A locally bundled cross-platform Korean/Latin family with real regular, semibold, and bold weights. |
+| [KoddiUD OnGothic](https://www.koddi.or.kr/ud/sub1_2)                                       | A locally bundled cross-platform Korean/Latin family with real Regular, Bold and ExtraBold weights. |
 
 ## Visual language
 
 - Keep the walnut identity, warm paper background, and white content surfaces.
 - Reserve the solid primary fill for the main action or active filter.
 - Use quiet separators, 16–24 point corners, and deliberate space between groups.
-- Use 32/24/20 point headings and 16 point body text, with 14 point supporting text.
-- Keep system font scaling and the app's 1.3× large-text setting. Never truncate
+- Use 26 point page titles, 17 point section headings and 14 point supporting text.
+- Keep system font scaling and the app’s large-text settings up to 2×. Never truncate
   essential store names, prices, or action labels to make a layout fit.
 - Keep high contrast token-driven, Korean accessibility labels, keyboard focus
   indicators, and a minimum 48 point touch target.
 
 ## Customer flow
+
+### Block 1 release reference
+
+| Finding | Released flow to check on develop |
+| --- | --- |
+| F01 · Checkout | With a live cart, open Review, confirm the amount, submit the order and pay at the café. The resulting order shows on-site payment instructions. In a dedicated demo build with a demo API, choose a simulated card or wallet and verify that the review identifies the simulation. |
+| F02–F04 · Directions | Open Directions before starting an order. Read the venue’s registered access notes and indoor directions, or open the external map for the journey to the venue. A registered venue also links to its menu. Ordering works with Bluetooth off. Live beacon guidance and in-app turn-by-turn routing are future work. |
+| F05 · Staff help | Open Help from a venue. Call when a phone number is on file, ask in person, or connect with its kiosk code to send a request. An existing cart session for this venue or an open order can send directly. Verify the request at the venue’s kiosk. The customer sees a separate acknowledgement after staff acts. |
+| S01, S04, V14 · Language and headers | On a fresh install, choose English in the body of first-time setup and complete it. Reopen the app and verify the choice persists. Change it back in Usage Settings. Menu, Cart, Review and Settings use the shared back button without a second top bar. |
 
 1. **Discover.** Search by store name/address immediately. Filter for a confirmed
    step-free entrance or accessible restroom. Unknown information never qualifies.
@@ -35,7 +44,8 @@ logos, proprietary fonts, or copied screens.
    preview; opening details is a separate action. List mode works without maps.
 3. **Inspect.** Store details lead with address and accessibility. Menu preview is
    the persistent next step; customers already on site can connect immediately.
-4. **Connect.** Enter codes, then show store verification as a separate stage.
+4. **Connect (optional).** Customers ordering from the menu can add an item to
+   start a store cart. Customers pairing with a kiosk enter codes, then see store verification as a separate stage.
    Retain explicit confirmation, mismatched-store rejection, and busy recovery.
 5. **Choose.** Compact menu cards show name, price, availability and real menu
    imagery where available. Categories scroll horizontally. No invented ratings,

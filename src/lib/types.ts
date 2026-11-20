@@ -13,6 +13,7 @@ export type MenuItem = {
   name: string;
   nameEn?: string;
   description: string;
+  descriptionEn?: string | null;
   category: string;
   price: number;
   available: boolean;
@@ -29,9 +30,12 @@ export type Store = {
   directoryOnly?: boolean;
   storeId: string;
   name: string;
-  address: string;
+  address: string | null;
+  addressEn?: string | null;
   accessibility: {
     floor?: number;
+    demo?: boolean;
+    staffAssistance?: boolean | null;
     notes?: string;
     stepFreeEntrance?: boolean | null;
     automaticDoor?: boolean | null;
@@ -99,7 +103,7 @@ export type PricedLine = {
   nameEn?: string | null;
   qty: number;
   lineTotal: number;
-  options: { optionId: string; choiceId: string; choiceName: string }[];
+  options: { optionId: string; choiceId: string; choiceName: string; priceDelta?: number }[];
 };
 export type Cart = { quoteId?: string; total: number; summary: string; lines: PricedLine[] };
 export type Session = {

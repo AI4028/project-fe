@@ -1,5 +1,15 @@
 import type { CartItem, MenuItem, Options, PricedLine } from './types';
 export const money = (value: number) => `${value.toLocaleString('ko-KR')}원`;
+export function optionSummary(line: PricedLine, t: (text: string) => string) {
+  return line.options
+    .map(({ choiceName, priceDelta }) => {
+      const name = t(choiceName);
+      if (!priceDelta) return name;
+      return `${name} (${priceDelta > 0 ? '+' : '−'}${t(money(Math.abs(priceDelta)))})`;
+    })
+    .join(' · ');
+}
+
 export function validateItem(item: MenuItem, qty: number, picked: Options): string | null {
   if (!item.available) return '품절된 메뉴입니다.';
   if (!Number.isInteger(qty) || qty < 1 || qty > 10)

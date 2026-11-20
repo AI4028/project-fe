@@ -5,7 +5,7 @@ import OrderScreen from '@/app/orders/[orderId]';
 import { ApiError } from '@/lib/api';
 import type { Order } from '@/lib/types';
 
-let mockParams: { orderId?: string };
+let mockParams: { orderId?: string; storeId?: string };
 let mockApp: ReturnType<typeof makeApp>;
 
 jest.mock('@rn-primitives/slot', () => ({ Slot: jest.fn() }));
@@ -169,4 +169,45 @@ test('staff help for a direct order shows sent only after confirmation and then 
   await waitFor(() => expect(mockApp.requestOrderHelp).toHaveBeenCalledWith('owned-order'));
   expect(await screen.findByText('직원이 도움 요청을 확인했어요')).toBeTruthy();
   expect(mockApp.api.kioskInfo).not.toHaveBeenCalled();
+});
+
+test('before ordering, help offers kiosk pairing without claiming a request was sent', async () => {
+  mockParams = { storeId: 'cafe' };
+  await render(<Help />);
+  expect(await screen.findByText('키오스크 코드로 연결해 도움 요청하기')).toBeTruthy();
+  expect(screen.queryByText('앱으로 직원 도움 요청하기')).toBeNull();
+  expect(screen.queryByText('도움 요청을 보냈어요')).toBeNull();
+  expect(mockApp.requestOrderHelp).not.toHaveBeenCalled();
+});
+
+test('a venue without a terminal offers its recorded phone number and handles an unavailable dialer', async () => {
+  mockParams = { storeId: 'cafe' };
+  mockApp.api.store.mockResolvedValue({
+    storeId: 'cafe',
+    name: '카페',
+    phone: '062-715-0000',
+    hasOrderTerminal: false,
+  });
+  const open = jest
+    .spyOn(require('react-native').Linking, 'openURL')
+    .mockRejectedValue(new Error('No dialer'));
+  try {
+    await render(<Help />);
+    await screen.findByText('현재 이 매장에는 앱으로 새 도움 요청을 보낼 수 없어요.');
+    expect(screen.queryByText('키오스크 코드로 연결해 도움 요청하기')).toBeNull();
+    await fireEvent.press(screen.getByText('(062-715-0000)'));
+    expect(open).toHaveBeenCalledWith('tel:0627150000');
+    await screen.findByText('전화 앱을 열 수 없어요. 표시된 번호로 전화해 주세요.');
+  } finally {
+    open.mockRestore();
+  }
+});
+
+test('a failed staff request stays retryable and does not report delivery', async () => {
+  mockApp.requestOrderHelp.mockRejectedValueOnce(new Error('요청 실패'));
+  await render(<Help />);
+  await fireEvent.press(await screen.findByText('앱으로 직원 도움 요청하기'));
+  await screen.findByText('요청 실패');
+  expect(screen.queryByText('도움 요청을 보냈어요')).toBeNull();
+  expect(screen.getByText('앱으로 직원 도움 요청하기')).toBeTruthy();
 });

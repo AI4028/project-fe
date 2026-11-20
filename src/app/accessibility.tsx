@@ -52,7 +52,7 @@ export default function AccessibilityDetails() {
       reading
       onTranscript={(text) => {
         if (/읽|안내|read/i.test(text) && data) {
-          app.announce(
+          app.readAloud(
             data.groups
               .map(
                 (group) =>

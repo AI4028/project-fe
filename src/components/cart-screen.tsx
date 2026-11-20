@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { router, useFocusEffect, usePathname } from 'expo-router';
-import { ArrowRight, ShoppingBag, Trash2 } from 'lucide-react-native';
+import { ShoppingBag, Trash2 } from 'lucide-react-native';
 import { EmptyState } from './brand';
 import { OrderingPaused, Problem, SubmissionRecovery } from './feedback';
 import { ItemOptionsSheet, type CartEdit } from './item-options-sheet';
-import { CartLineSummary, MenuThumbnail, QuantityStepper } from './menu-controls';
+import { CartLineSummary, QuantityStepper } from './menu-controls';
+import { CatalogThumbnail } from './catalog-thumbnail';
 import { NavLink, Screen } from './screen';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -131,38 +132,24 @@ export function CartScreen({
 
   return (
     <Screen
+      brandedHeader
       title="장바구니"
       subtitle={qty && storeName ? `${storeName} · ${t(`${qty}개`)}` : undefined}
       reading
       voice={!edit && !remove}
       footer={
         !!qty && (
-          <>
-            <View className="flex-row flex-wrap items-baseline justify-between gap-2">
-              <Text variant="muted">
-                {t('총 합계')} ({t(`${qty}개`)})
-              </Text>
-              <Text className="text-lg font-bold" accessibilityLiveRegion="polite">
-                {money(app.cart.total)}
-              </Text>
-            </View>
-            <Button
-              size="lg"
-              className="justify-between"
-              disabled={disabled || !!app.store?.orderingPaused}
-              onPress={() => void review()}
-            >
-              <Text className="shrink text-left">
-                {checking ? '가격과 재고 확인 중' : app.demo ? '결제 수단 선택' : '주문 확인하기'}
-              </Text>
-              <Icon
-                as={ArrowRight}
-                size={19}
-                className="text-primary-foreground"
-                accessible={false}
-              />
-            </Button>
-          </>
+          <Button
+            size="lg"
+            disabled={disabled || !!app.store?.orderingPaused}
+            onPress={() => void review()}
+          >
+            <Text className="shrink text-center font-bold" translate={false}>
+              {checking
+                ? t('가격과 재고 확인 중')
+                : `${t(money(app.cart.total))} · ${t(app.demo ? '결제 수단 선택' : '주문 확인하기')}`}
+            </Text>
+          </Button>
         )
       }
     >
@@ -195,13 +182,36 @@ export function CartScreen({
                 <Card key={`${line.itemId}:${index}`} className="rounded-2xl p-0 shadow-none">
                   <CardContent className="gap-3 p-4">
                     <View className="flex-row items-start gap-3">
-                      <MenuThumbnail imageUrl={menuItem?.imageUrl} size={52} />
+                      <CatalogThumbnail imageUrl={menuItem?.imageUrl} size={56} />
                       <View className="min-w-0 flex-1 self-center">
                         <CartLineSummary line={localized} />
                       </View>
+                    </View>
+                    <View className="flex-row flex-wrap items-center justify-between gap-2">
+                      <QuantityStepper
+                        compact
+                        qty={line.qty}
+                        name={name}
+                        disabled={disabled || !original || menuItem?.available === false}
+                        onChange={(value) => void adjustQuantity(index, value)}
+                      />
+                      <Text className="text-[22px] font-extrabold">{money(line.lineTotal)}</Text>
+                    </View>
+                    <View className="flex-row flex-wrap gap-2">
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="outline"
+                        className="grow border-primary"
+                        disabled={disabled || !original || !menuItem}
+                        accessibilityLabel={`${name} 옵션과 수량 수정`}
+                        onPress={() => {
+                          if (original) setEdit({ index, original });
+                        }}
+                      >
+                        <Text className="shrink">옵션 바꾸기</Text>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="border-[1.5px] border-destructive bg-card"
                         disabled={disabled || !original}
                         accessibilityLabel={`${name} 삭제`}
                         onPress={() => {
@@ -210,35 +220,23 @@ export function CartScreen({
                           setRemove({ index, original, line: localized, storeId });
                         }}
                       >
-                        <Icon as={Trash2} size={21} className="text-primary" accessible={false} />
+                        <Icon
+                          as={Trash2}
+                          size={21}
+                          className="text-destructive"
+                          accessible={false}
+                        />
+                        <Text className="shrink text-destructive">삭제</Text>
                       </Button>
                     </View>
-                    <Text className="self-end text-xl font-bold">{money(line.lineTotal)}</Text>
-                    <QuantityStepper
-                      qty={line.qty}
-                      name={name}
-                      disabled={disabled || !original || menuItem?.available === false}
-                      onChange={(value) => void adjustQuantity(index, value)}
-                    />
-                    <Button
-                      variant="outline"
-                      className="border-primary"
-                      disabled={disabled || !original || !menuItem}
-                      accessibilityLabel={`${name} 옵션과 수량 수정`}
-                      onPress={() => {
-                        if (original) setEdit({ index, original });
-                      }}
-                    >
-                      <Text>옵션 바꾸기</Text>
-                    </Button>
                   </CardContent>
                 </Card>
               );
             })}
           </View>
-          <View className="flex-row flex-wrap gap-2">
-            <NavLink href={menuHref}>메뉴 더 고르기</NavLink>
-          </View>
+          <NavLink href={menuHref} className="w-full">
+            메뉴 더 고르기
+          </NavLink>
         </>
       )}
       {isCart && app.store && itemToEdit && edit && (
@@ -259,7 +257,7 @@ export function CartScreen({
           <DialogContent>
             <DialogTitle>이 메뉴를 삭제할까요?</DialogTitle>
             <View className="flex-row items-center gap-3 rounded-2xl border border-border p-3">
-              <MenuThumbnail imageUrl={photoOf(remove.line.itemId)} size={56} />
+              <CatalogThumbnail imageUrl={photoOf(remove.line.itemId)} size={56} />
               <View className="min-w-0 flex-1">
                 <CartLineSummary line={remove.line} />
               </View>

@@ -1,3 +1,5 @@
+import { useTranslation } from '@/lib/i18n';
+import { venueAddress } from '@/lib/catalog';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -14,7 +16,15 @@ import { ApiError, errorMessage } from '@/lib/api';
 import type { Store } from '@/lib/types';
 export default function Connect() {
   const app = useApp();
-  const params = useLocalSearchParams<{ kioskId?: string; token?: string; storeId?: string }>();
+  const { language } = useTranslation();
+  const params = useLocalSearchParams<{
+    kioskId?: string;
+    token?: string;
+    storeId?: string;
+    next?: string;
+    from?: string;
+    section?: string;
+  }>();
   const [kioskId, setKioskId] = useState(params.kioskId ?? '');
   const [code, setCode] = useState(params.token ?? '');
   const [candidate, setCandidate] = useState<{
@@ -53,7 +63,18 @@ export default function Connect() {
     setWaiting(false);
     try {
       await app.connect(candidate.kioskId, code, candidate.store.storeId);
-      router.replace('/menu');
+      router.replace(
+        params.next === 'help'
+          ? {
+              pathname: '/help',
+              params: {
+                storeId: candidate.store.storeId,
+                from: params.from,
+                section: params.section,
+              },
+            }
+          : '/menu',
+      );
     } catch (reason) {
       setWaiting(reason instanceof ApiError && reason.code === 'kiosk-busy');
       if (reason instanceof ApiError && reason.code === 'ordering-paused') {
@@ -184,7 +205,7 @@ export default function Connect() {
                     <Text translate={false} variant="h4">
                       {candidate.store.name}
                     </Text>
-                    <Text>{candidate.store.address || '주소 확인 필요'}</Text>
+                    <Text>{venueAddress(candidate.store, language) || '주소 확인 필요'}</Text>
                     <Text variant="muted">매장 기기: {candidate.name}</Text>
                   </View>
                   {mismatch ? (
@@ -221,7 +242,10 @@ export default function Connect() {
         )
       )}
       <NavLink
-        href={{ pathname: '/help', params: params.storeId ? { storeId: params.storeId } : {} }}
+        href={{
+          pathname: '/help',
+          params: { storeId: params.storeId, from: params.from, section: params.section },
+        }}
       >
         코드 없이 이용하기 · 직원에게 문의
       </NavLink>

@@ -146,8 +146,8 @@ const messages: Record<Stage, { title: string; message: string }> = {
   listening: { title: '듣고 있어요', message: '매장 이름이나 메뉴를 말해 주세요.' },
   review: { title: '이렇게 들었어요', message: '틀린 부분은 글자로 고친 뒤 검색해 주세요.' },
   denied: {
-    title: '마이크 권한이 꺼져 있어요',
-    message: '기기에서 권한을 확인하거나 직접 입력해 주세요.',
+    title: '마이크를 사용할 수 없어요',
+    message: '기기나 브라우저에서 마이크와 음성 인식 권한을 확인하거나 글자로 검색해 주세요.',
   },
   failed: { title: '말을 알아듣지 못했어요', message: '다시 말하거나 글자로 검색해 주세요.' },
   unavailable: {
@@ -219,13 +219,13 @@ function VoiceSearchView({
         <Button disabled={!listening} onPress={stop}>
           <Text>말하기 마치기</Text>
         </Button>
-      ) : start && stage !== 'unavailable' ? (
+      ) : start ? (
         <Button variant={stage === 'review' ? 'outline' : 'default'} onPress={start}>
           <Icon as={Mic} size={20} accessible={false} />
           <Text>
             {stage === 'idle'
               ? '마이크 켜고 말하기'
-              : stage === 'denied'
+              : stage === 'denied' || stage === 'unavailable'
                 ? '다시 확인'
                 : '다시 말하기'}
           </Text>
@@ -241,7 +241,7 @@ function VoiceSearchView({
         </Button>
       )}
       <Button variant="ghost" onPress={onClose}>
-        <Text>닫기</Text>
+        <Text>{stage === 'denied' || stage === 'unavailable' ? '홈으로 돌아가기' : '닫기'}</Text>
       </Button>
     </ScrollView>
   );

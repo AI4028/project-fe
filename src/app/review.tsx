@@ -1,4 +1,5 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { venueAddress } from '@/lib/catalog';
+import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { View } from 'react-native';
 import { ArrowRight, Check, Circle, CreditCard, MapPin, Store } from 'lucide-react-native';
@@ -69,6 +70,7 @@ export default function Review() {
 
   return (
     <Screen
+      brandedHeader
       title={title}
       subtitle={
         !locked && !error && !priceChange
@@ -139,9 +141,9 @@ export default function Review() {
                   <Text translate={false} variant="h3">
                     {(language === 'en' && app.store?.nameEn) || app.store?.name}
                   </Text>
-                  {!!app.store?.address && (
+                  {!!venueAddress(app.store, language) && (
                     <Text translate={false} variant="muted">
-                      {app.store.address}
+                      {venueAddress(app.store, language)}
                     </Text>
                   )}
                 </View>

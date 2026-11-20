@@ -1,7 +1,8 @@
+import { venueAddress } from '@/lib/catalog';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Check, Clock, HandHelping, MessageCircle } from 'lucide-react-native';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { IconTile } from '@/components/brand';
 import { Icon } from '@/components/ui/icon';
 import { Screen, NavLink } from '@/components/screen';
@@ -19,9 +20,29 @@ import type { Order, Store } from '@/lib/types';
 export default function Help() {
   const app = useApp();
   const { language } = useTranslation();
-  const { storeId, orderId } = useLocalSearchParams<{ storeId?: string; orderId?: string }>();
-  const [order, setOrder] = useState<Order | null>(null);
-  const [store, setStore] = useState<Store | null>(null);
+  const {
+    storeId,
+    orderId: requestedOrder,
+    from,
+    section,
+  } = useLocalSearchParams<{
+    storeId?: string;
+    orderId?: string;
+    from?: string;
+    section?: string;
+  }>();
+  const venueOrder =
+    storeId &&
+    app.connection?.storeId !== storeId &&
+    app.order?.storeId === storeId &&
+    isOpenOrder(app.order)
+      ? app.order.orderId
+      : undefined;
+  const orderId = requestedOrder || venueOrder;
+  const [loadedOrder, setOrder] = useState<Order | null>(null);
+  const order = loadedOrder?.orderId === orderId ? loadedOrder : null;
+  const [storeError, setStoreError] = useState('');
+  const [loadedStore, setStore] = useState<Store | null>(null);
   const [orderError, setOrderError] = useState('');
   const [actionError, setActionError] = useState('');
   const [revision, setRevision] = useState(0);
@@ -48,30 +69,30 @@ export default function Help() {
       setOrderError('');
       setActionError('');
       setSending(false);
-      if (!orderId) return;
       let active = true;
       let timer: ReturnType<typeof setTimeout> | undefined;
       const poll = async () => {
         await refresh();
         if (active) timer = setTimeout(() => void poll(), 10000);
       };
-      void poll();
+      if (orderId) void poll();
       return () => {
         active = false;
         focus.current++;
         sequence.current++;
         if (timer !== undefined) clearTimeout(timer);
       };
-    }, [orderId, refresh]),
+    }, [orderId, storeId, refresh]),
   );
 
   const linkedStore = orderId
-    ? order?.storeId
+    ? order?.storeId || (!requestedOrder ? storeId : undefined)
     : storeId || app.connection?.storeId || app.store?.storeId;
   const linkedKiosk = orderId ? order?.kioskId : undefined;
   useEffect(() => {
     let active = true;
     setStore(null);
+    setStoreError('');
     void orderStoreId(app.api, linkedStore, linkedKiosk)
       .then(async (id) => {
         if (id && active) {
@@ -79,12 +100,30 @@ export default function Help() {
           if (active) setStore(value);
         }
       })
-      .catch(() => {});
+      .catch((reason) => {
+        if (active) setStoreError(errorMessage(reason));
+      });
     return () => {
       active = false;
     };
   }, [app.api, linkedStore, linkedKiosk, revision]);
 
+  const store = linkedStore && loadedStore?.storeId !== linkedStore ? null : loadedStore;
+  const guideReturn = from === 'guide' && !!storeId;
+  const returnTo: Href = guideReturn
+    ? { pathname: '/guide', params: { storeId, ...(section === 'access' && { section }) } }
+    : requestedOrder
+      ? { pathname: '/orders/[orderId]', params: { orderId: requestedOrder } }
+      : linkedStore
+        ? { pathname: '/store', params: { storeId: linkedStore } }
+        : '/';
+  const returnLabel = guideReturn
+    ? '길 안내로 돌아가기'
+    : requestedOrder
+      ? '주문으로 돌아가기'
+      : linkedStore
+        ? '매장 정보로 돌아가기'
+        : '매장 찾기로';
   const canRequest = orderId
     ? !!order && isOpenOrder(order) && !orderError
     : !!app.connection &&
@@ -120,9 +159,14 @@ export default function Help() {
   return (
     <Screen
       title="직원 도움이 필요하신가요?"
-      subtitle="방문·주문·픽업에 필요한 도움을 요청할 수 있어요."
+      subtitle="이 매장의 직원에게 도움을 요청해요."
       voice={false}
       reading
+      onBack={
+        from === 'guide' || from === 'store' || requestedOrder
+          ? () => router.dismissTo(returnTo)
+          : undefined
+      }
     >
       {(store || order) && (
         <Card className="py-4 shadow-none">
@@ -132,9 +176,9 @@ export default function Help() {
                 <Text translate={false} className="font-bold">
                   {(language === 'en' && store.nameEn) || store.name}
                 </Text>
-                {!!store.address && (
+                {!!venueAddress(store, language) && (
                   <Text translate={false} variant="muted">
-                    {store.address}
+                    {venueAddress(store, language)}
                   </Text>
                 )}
               </>
@@ -155,7 +199,44 @@ export default function Help() {
           }}
         />
       )}
+      {!!storeError && (
+        <Problem message={storeError} retry={() => setRevision((value) => value + 1)} />
+      )}
       {!!actionError && <Problem message={actionError} />}
+      {!orderId && app.pendingSubmission && <Text>먼저 주문 전송 결과를 확인해 주세요.</Text>}
+      {!orderId &&
+        !app.connection &&
+        !app.pendingSubmission &&
+        store &&
+        store.storeId === linkedStore &&
+        !store.orderingPaused &&
+        store.hasOrderTerminal !== false && (
+          <>
+            <Text variant="muted">
+              이 매장의 장바구니를 열거나 키오스크에 연결하면 앱으로 직원에게 도움을 요청할 수
+              있어요.
+            </Text>
+            <NavLink
+              href={{
+                pathname: '/connect',
+                params: { storeId: store.storeId, next: 'help', from, section },
+              }}
+            >
+              키오스크 코드로 연결해 도움 요청하기
+            </NavLink>
+          </>
+        )}
+      {!orderId &&
+        store &&
+        !canRequest &&
+        !app.pendingSubmission &&
+        (app.connection && app.connection.storeId !== store.storeId ? (
+          <Text variant="muted">
+            다른 매장에 연결되어 있어요. 이 매장은 전화나 현장에서 문의해 주세요.
+          </Text>
+        ) : store.hasOrderTerminal === false || store.orderingPaused ? (
+          <Text variant="muted">현재 이 매장에는 앱으로 새 도움 요청을 보낼 수 없어요.</Text>
+        ) : null)}
       {(waiting || acknowledged) && (
         <Card className="border-0 bg-secondary py-4 shadow-none">
           <CardContent className="gap-2 px-4">
@@ -203,17 +284,9 @@ export default function Help() {
           </Text>
         </CardContent>
       </Card>
-      {orderId ? (
-        <NavLink href={{ pathname: '/orders/[orderId]', params: { orderId } }}>
-          주문으로 돌아가기
-        </NavLink>
-      ) : (
-        <NavLink
-          href={linkedStore ? { pathname: '/store', params: { storeId: linkedStore } } : '/'}
-        >
-          {linkedStore ? '매장 정보로 돌아가기' : '매장 찾기로'}
-        </NavLink>
-      )}
+      <Button variant="outline" onPress={() => router.dismissTo(returnTo)}>
+        <Text>{returnLabel}</Text>
+      </Button>
     </Screen>
   );
 }

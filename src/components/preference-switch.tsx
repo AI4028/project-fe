@@ -3,18 +3,20 @@ import type { LucideIcon } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { IconTile } from './brand';
 import { Button } from './ui/button';
-import { Text } from './ui/text';
+import { Text, TextClassContext } from './ui/text';
 
 export function PreferenceSwitch({
   title,
   description,
   icon,
+  flat = false,
   value,
   disabled,
   onChange,
 }: {
   title: string;
-  description: string;
+  description?: string;
+  flat?: boolean;
   icon?: LucideIcon;
   value: boolean;
   disabled?: boolean;
@@ -22,10 +24,11 @@ export function PreferenceSwitch({
 }) {
   return (
     <Button
-      variant="outline"
+      variant={flat ? 'ghost' : 'outline'}
       className={cn(
-        'w-full justify-start gap-3 rounded-2xl bg-card px-4 py-3',
-        value ? 'border-primary' : 'border-input',
+        'w-full justify-start gap-3 py-3',
+        flat ? 'px-1' : 'rounded-2xl bg-card px-4',
+        !flat && (value ? 'border-primary' : 'border-input'),
       )}
       accessibilityRole="switch"
       accessibilityLabel={title}
@@ -37,24 +40,28 @@ export function PreferenceSwitch({
       {icon && <IconTile icon={icon} small />}
       <View className="min-w-0 flex-1 gap-0.5">
         <Text className="text-left font-bold text-foreground">{title}</Text>
-        <Text variant="muted" className="text-left font-normal text-muted-foreground">
-          {description}
-        </Text>
-      </View>
-      <View
-        accessible={false}
-        className={cn(
-          'min-h-8 shrink-0 items-center justify-center rounded-xl border border-primary px-2',
-          value ? 'bg-primary' : 'bg-card',
+        {description && (
+          <Text variant="muted" className="text-left font-normal text-muted-foreground">
+            {description}
+          </Text>
         )}
-      >
-        <Text
-          variant="small"
-          className={value ? 'font-bold text-primary-foreground' : 'font-bold text-primary'}
-        >
-          {value ? '켜짐' : '꺼짐'}
-        </Text>
       </View>
+      <TextClassContext.Provider value={undefined}>
+        <View
+          accessible={false}
+          className={cn(
+            'min-h-[44px] min-w-[72px] shrink-0 items-center justify-center rounded-[14px] border border-primary px-2',
+            value ? 'bg-primary' : 'bg-card',
+          )}
+        >
+          <Text
+            variant="small"
+            className={value ? 'font-bold text-primary-foreground' : 'font-bold text-primary'}
+          >
+            {value ? '켜짐' : '꺼짐'}
+          </Text>
+        </View>
+      </TextClassContext.Provider>
     </Button>
   );
 }

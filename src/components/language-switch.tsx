@@ -7,9 +7,11 @@ import { SegmentedControl } from './ui/segmented-control';
 
 export function LanguageSwitch({
   compact = false,
+  showHeading = true,
   disabled = false,
 }: {
   compact?: boolean;
+  showHeading?: boolean;
   disabled?: boolean;
 }) {
   const app = useApp();
@@ -46,7 +48,7 @@ export function LanguageSwitch({
       ]}
     />
   );
-  if (compact) return control;
+  if (compact || !showHeading) return control;
   return (
     <View className="gap-3">
       <Text variant="h2">언어 선택</Text>

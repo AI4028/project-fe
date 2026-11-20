@@ -1,6 +1,6 @@
 import { AppNavigation } from './app-navigation';
 import { useState, useCallback, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, ScrollView, View } from 'react-native';
 import { Link, router, useFocusEffect, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, type LucideIcon } from 'lucide-react-native';
@@ -10,7 +10,7 @@ import { Icon } from './ui/icon';
 import { VoiceControls } from './voice-controls';
 import { useApp } from '@/providers/app-provider';
 import { cn } from '@/lib/utils';
-import { layout } from '@/lib/theme';
+import { brandColors, layout } from '@/lib/theme';
 import { useTranslation } from '@/lib/i18n';
 
 export function NavLink({
@@ -59,6 +59,7 @@ export function Screen({
   roomy = false,
   chrome = 'app',
   onBack,
+  brandedHeader = false,
 }: {
   title: string;
   subtitle?: string;
@@ -70,6 +71,7 @@ export function Screen({
   roomy?: boolean;
   chrome?: 'app' | 'onboarding' | 'minimal';
   onBack?: () => void;
+  brandedHeader?: boolean;
 }) {
   const app = useApp();
   const { t } = useTranslation();
@@ -102,23 +104,42 @@ export function Screen({
                 style={{ maxWidth }}
               >
                 {!onboarding && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="self-start"
-                    accessibilityLabel="이전 화면으로"
-                    onPress={
-                      onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')))
-                    }
+                  <View
+                    className={cn(
+                      'flex-row items-center justify-between',
+                      brandedHeader && 'border-b border-border pb-2',
+                    )}
                   >
-                    <Icon as={ArrowLeft} size={22} />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="self-start"
+                      accessibilityLabel="이전 화면으로"
+                      onPress={
+                        onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')))
+                      }
+                    >
+                      <Icon as={ArrowLeft} size={22} />
+                    </Button>
+                    {brandedHeader && (
+                      <Image
+                        source={require('../../assets/brand/galjido-logo-654B3C.png')}
+                        resizeMode="contain"
+                        accessible={false}
+                        style={{
+                          width: 32,
+                          height: 40,
+                          tintColor: app.settings.contrast ? brandColors.beige : brandColors.walnut,
+                        }}
+                      />
+                    )}
+                  </View>
                 )}
                 <View className="max-w-3xl gap-2">
                   <Text variant="h1" className="text-left">
                     {title}
                   </Text>
-                  {subtitle && <Text className="leading-7 text-muted-foreground">{subtitle}</Text>}
+                  {subtitle && <Text variant="muted">{subtitle}</Text>}
                 </View>
                 {app.busy && (
                   <View className="flex-row items-center gap-3">

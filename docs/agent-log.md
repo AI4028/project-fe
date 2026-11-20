@@ -23,10 +23,38 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-21 · Web speech and microphone status
+
+- **Hit:** Automatic spoken guidance stayed silent in the web build.
+- **Why:** React Native Web reports that a screen reader is enabled unconditionally. The web speech-recognition module also returns a placeholder microphone permission result.
+- **Fix:** Use browser speech synthesis for requested readings and the browser Permissions API for microphone status. Keep native screen-reader handling on iOS and Android.
+- **Rule:** Test disabled recognition and denied browser permissions independently.
+
+### 2026-11-21 · Run the check watcher with polling when file watches are exhausted
+
+- **Hit:** The watcher exited with `EMFILE: too many open files, watch`.
+- **Why:** The host exhausted the native file watches available to Chokidar.
+- **Fix:** Started it with `CHOKIDAR_USEPOLLING=true pnpm check:watch`.
+- **Rule:** Use polling on affected hosts and verify the latest check completed for the current revision.
+
 ### 2026-11-20 · Include checkout subtitles in screen tests
 
 The review-screen test double rendered the title and footer but omitted the subtitle.
 It now renders the subtitle so tests verify the payment instructions seen by customers.
+
+### 2026-11-21 · Check switch colors on the rendered badge
+
+- **Hit:** The high-contrast On label inherited the outline button’s interaction colors.
+- **Why:** The badge and its parent button use different foreground/background pairs.
+- **Fix:** Isolated the badge’s text styles and verified the rendered colors in Chrome.
+- **Rule:** Inspect the label and its background with the switch focused or hovered.
+
+### 2026-11-21 · Measure the search field at the focus boundary
+
+- **Hit:** Chrome reported no focus ring on the outer layout container.
+- **Why:** The search field groups the microphone, input and actions inside that container.
+- **Fix:** Measured the element enclosing those controls while the input had focus.
+- **Rule:** At 390 px, check the ring on the 342 × 56 px field and verify opening suggestions preserves the first venue card’s position.
 
 ### 2026-11-20 · Reuse the pnpm store attached to the project
 
@@ -325,3 +353,19 @@ It now renders the subtitle so tests verify the payment instructions seen by cus
 ### 2026-11-19 · Open voice search from the first microphone tap
 
 The web speech recognizer needs to start during the tap. Keep the listener mounted while discovery is visible, start it in the microphone handler, and abort on leaving the voice screen. Discovery tests cover the first tap and denied permissions. The web gesture test leaves speech playback shutdown pending.
+
+### 2026-11-21 · Check bookmarks at normal text size
+
+The onboarding button reads “Save settings and start” at normal text size and “Get started” in the compact layout. Browser checks that start with onboarding should allow both labels before testing bookmarks.
+
+### 2026-11-21 · Check quoted prices across checkout screens
+
+Expo Router can retain the cart in the web DOM while the final review is visible. Scope browser assertions to the visible screen when checking the same option summary on both routes.
+
+### 2026-11-21 · Verify the return from kiosk pairing
+
+Directions can stay mounted while the customer opens Help and enters a kiosk code. Carry the venue ID, origin and expanded access section through the pairing redirect so the return action also works after a reload.
+
+### 2026-11-21 · Recover checkout after a lost response
+
+A replay can return a definite rejection if a venue pauses orders or removes an item. Release the pending submission and retain the cart in that case. An unreadable success response can mean the order was committed. Keep its recovery data and look up the order before allowing another submission.

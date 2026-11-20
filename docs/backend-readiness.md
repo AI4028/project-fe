@@ -13,7 +13,8 @@ For an existing unversioned database, follow its `docs/migrations.md` adoption s
   during a refresh trigger another refresh. Phone refreshes also reload stock.
 - Adding the first cart item opens a store-scoped session. The store must have a
   configured staff kiosk to receive orders. That kiosk's paired session slot
-  remains available. Bluetooth and QR pairing can still be used independently.
+  remains available. QR and kiosk codes offer a separate pairing path. Live BLE
+  navigation is outside the current release.
 - Phone order history is scoped to the device. Staff receives and acknowledges
   post-order help through the store's staff queue.
 

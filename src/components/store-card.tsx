@@ -1,4 +1,7 @@
-import { Image, View } from 'react-native';
+import { CatalogThumbnail } from './catalog-thumbnail';
+import { VenueHours } from './venue-hours';
+import { venueAddress } from '@/lib/catalog';
+import { View } from 'react-native';
 import { Store as StoreIcon, Clock, MapPin } from 'lucide-react-native';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
@@ -29,27 +32,22 @@ export function StoreCard({
           variant="ghost"
           onPress={onPress}
           accessibilityLabel={`${name} 매장 정보 보기`}
-          accessibilityHint={`${store.address || t('주소 확인 필요')}. ${accessibilitySummary(store).split(' · ').map(t).join(' · ')}`}
+          accessibilityHint={`${venueAddress(store, language) || t('주소 확인 필요')}. ${accessibilitySummary(store).split(' · ').map(t).join(' · ')}`}
           className="min-w-0 flex-1 flex-col items-stretch gap-3 rounded-2xl p-2"
         >
           <View className="flex-row items-start gap-3">
-            {store.imageUrl ? (
-              <Image
-                source={{ uri: store.imageUrl }}
-                className="h-20 w-20 rounded-xl bg-secondary"
-                accessible={false}
-              />
-            ) : (
-              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-secondary">
-                <Icon as={StoreIcon} size={23} className="text-primary" accessible={false} />
-              </View>
-            )}
+            <CatalogThumbnail
+              imageUrl={store.imageUrl}
+              size={72}
+              height={80}
+              fallback={StoreIcon}
+            />
             <View className="min-w-0 flex-1 gap-1">
               <Text translate={false} className="text-left text-lg font-semibold text-foreground">
                 {name}
               </Text>
               <Text variant="muted" className="text-left font-normal text-muted-foreground">
-                {store.address || '주소 확인 필요'}
+                {venueAddress(store, language) || '주소 확인 필요'}
               </Text>
             </View>
           </View>
@@ -67,9 +65,7 @@ export function StoreCard({
           {hours && (
             <View className="flex-row items-center gap-2">
               <Icon as={Clock} size={16} className="text-primary" accessible={false} />
-              <Text variant="small">
-                {t('영업시간')} · {hours}
-              </Text>
+              <VenueHours store={store} />
             </View>
           )}
         </Button>
