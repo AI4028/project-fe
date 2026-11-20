@@ -242,6 +242,7 @@ const messages: Record<string, string> = {
   'missing-option': '필수 옵션을 모두 선택해 주세요.',
   'order-not-found': '주문을 찾을 수 없습니다. 주문 번호를 직원에게 보여 주세요.',
   'too-late-to-cancel': '매장에서 이미 접수한 주문입니다. 직원에게 문의해 주세요.',
+  'no-help-request': '확인할 도움 요청이 없어요.',
   'bad-transition': '이미 처리되었거나 종료된 주문입니다. 상태를 새로고침해 주세요.',
   'bad-note': '요청 사항은 200자 이내로 입력해 주세요.',
   'bad-payment-method': '결제 수단을 다시 선택해 주세요.',

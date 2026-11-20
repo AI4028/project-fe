@@ -10,7 +10,7 @@ import { Icon } from '@/components/ui/icon';
 import { Accessibility, Navigation, ShoppingBag } from 'lucide-react-native';
 import { OrderingPaused, Problem } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
-import { knownText } from '@/lib/location';
+import { accessDetails, knownText } from '@/lib/location';
 import { errorMessage } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { PlaceBookmark } from '@/components/place-actions';
@@ -140,57 +140,11 @@ export default function StoreDetails() {
                   <Icon as={Accessibility} size={22} className="text-primary" />
                 </View>
                 <Text variant="h3">접근성 정보</Text>
-                <Text>
-                  층수 ·{' '}
-                  {store.accessibility.floor != null
-                    ? `${store.accessibility.floor}층`
-                    : '확인 필요'}
-                </Text>
-                <Text>
-                  입구 단차 ·{' '}
-                  {store.accessibility.stepFreeEntrance === true
-                    ? '턱 없는 입구'
-                    : store.accessibility.stepFreeEntrance === false
-                      ? '입구에 턱 있음'
-                      : '확인 필요'}
-                </Text>
-                <Text>
-                  자동문 ·{' '}
-                  {store.accessibility.automaticDoor === true
-                    ? '있음'
-                    : store.accessibility.automaticDoor === false
-                      ? '없음'
-                      : '확인 필요'}
-                </Text>
-                <Text>
-                  엘리베이터 ·{' '}
-                  {store.accessibility.elevator === true
-                    ? '있음'
-                    : store.accessibility.elevator === false
-                      ? '없음'
-                      : '확인 필요'}
-                </Text>
-                <Text>
-                  장애인 화장실 ·{' '}
-                  {store.accessibility.accessibleRestroom === true
-                    ? '있음'
-                    : store.accessibility.accessibleRestroom === false
-                      ? '없음'
-                      : '확인 필요'}
-                </Text>
-                <View className="h-px bg-border" />
-                <Text className="font-semibold">추가 안내</Text>
-                {store.accessibility.staffAssistance != null && (
-                  <Text>
-                    {store.accessibility.staffAssistance ? '직원 도움 가능' : '직원 도움 불가'}
+                {accessDetails(store, t).map((detail, index) => (
+                  <Text key={index} translate={false}>
+                    {detail}
                   </Text>
-                )}
-                <Text>{knownText(store.accessibility.notes)}</Text>
-                <Text variant="muted">
-                  {store.accessibility.demo
-                    ? '이 데모 매장의 접근성 정보는 예시입니다.'
-                    : '정보 출처와 확인 날짜는 아직 제공되지 않았습니다. 이용 가능 여부는 직원에게 확인해 주세요.'}
-                </Text>
+                ))}
               </CardContent>
             </Card>
             <Card
@@ -209,7 +163,7 @@ export default function StoreDetails() {
                 <NavLink
                   href={{
                     pathname: '/guide',
-                    params: { storeId: store.storeId, stage: 'details' },
+                    params: { storeId: store.storeId, section: 'access' },
                   }}
                 >
                   안내 자세히 보기
@@ -242,7 +196,7 @@ export default function StoreDetails() {
               ) : null}
             </CardContent>
           </Card>
-          <NavLink href={{ pathname: '/help', params: { storeId: store.storeId } }}>
+          <NavLink href={{ pathname: '/help', params: { storeId: store.storeId, from: 'store' } }}>
             다른 주문 방법 · 직원에게 문의
           </NavLink>
         </>

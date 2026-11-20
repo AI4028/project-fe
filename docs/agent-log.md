@@ -361,3 +361,7 @@ The onboarding button reads “Save settings and start” at normal text size an
 ### 2026-11-21 · Check quoted prices across checkout screens
 
 Expo Router can retain the cart in the web DOM while the final review is visible. Scope browser assertions to the visible screen when checking the same option summary on both routes.
+
+### 2026-11-21 · Verify the return from kiosk pairing
+
+Directions can stay mounted while the customer opens Help and enters a kiosk code. Carry the venue ID, origin and expanded access section through the pairing redirect so the return action also works after a reload.

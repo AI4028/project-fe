@@ -22,6 +22,8 @@ export default function Connect() {
     token?: string;
     storeId?: string;
     next?: string;
+    from?: string;
+    section?: string;
   }>();
   const [kioskId, setKioskId] = useState(params.kioskId ?? '');
   const [code, setCode] = useState(params.token ?? '');
@@ -63,7 +65,14 @@ export default function Connect() {
       await app.connect(candidate.kioskId, code, candidate.store.storeId);
       router.replace(
         params.next === 'help'
-          ? { pathname: '/help', params: { storeId: candidate.store.storeId } }
+          ? {
+              pathname: '/help',
+              params: {
+                storeId: candidate.store.storeId,
+                from: params.from,
+                section: params.section,
+              },
+            }
           : '/menu',
       );
     } catch (reason) {
@@ -233,7 +242,10 @@ export default function Connect() {
         )
       )}
       <NavLink
-        href={{ pathname: '/help', params: params.storeId ? { storeId: params.storeId } : {} }}
+        href={{
+          pathname: '/help',
+          params: { storeId: params.storeId, from: params.from, section: params.section },
+        }}
       >
         코드 없이 이용하기 · 직원에게 문의
       </NavLink>
