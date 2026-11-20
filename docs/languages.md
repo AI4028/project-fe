@@ -1,6 +1,6 @@
 # Languages
 
-Select **English** under **Language / 언어** in Usage Settings. The
+Select **English** during first-time setup or under **Language / 언어** in Usage Settings. The
 preference is saved on this device with the existing settings. Korean remains
 the default for existing installations and invalid saved language values.
 

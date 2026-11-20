@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-21 · Run the check watcher with polling when file watches are exhausted
+
+- **Hit:** The watcher exited with `EMFILE: too many open files, watch`.
+- **Why:** The host exhausted the native file watches available to Chokidar.
+- **Fix:** Started it with `CHOKIDAR_USEPOLLING=true pnpm check:watch`.
+- **Rule:** Use polling on affected hosts and verify the latest check completed for the current revision.
+
 ### 2026-11-20 · Include checkout subtitles in screen tests
 
 The review-screen test double rendered the title and footer but omitted the subtitle.

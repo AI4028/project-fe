@@ -4,6 +4,7 @@ import { vars } from 'nativewind';
 import { router } from 'expo-router';
 import { ArrowRight } from 'lucide-react-native';
 import { PreferenceSwitch } from '@/components/preference-switch';
+import { LanguageSwitch } from '@/components/language-switch';
 import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -77,6 +78,7 @@ export default function Onboarding() {
           }
           voice={false}
         >
+          <LanguageSwitch disabled={saving} />
           <View className="gap-3">
             <PreferenceSwitch
               title="고대비"

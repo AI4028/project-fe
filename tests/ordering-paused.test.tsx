@@ -1,12 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Api, ApiError, errorMessage } from '@/lib/api';
 import Connect from '@/app/connect';
+import { router } from 'expo-router';
+
+let mockParams: { next?: string; storeId?: string };
 
 jest.mock('@rn-primitives/slot', () => ({ Slot: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View }));
 jest.mock('expo-router', () => ({
   router: { replace: jest.fn(), push: jest.fn() },
-  useLocalSearchParams: () => ({}),
+  useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/components/screen', () => {
   const { Text, View } = require('react-native');
@@ -46,11 +49,24 @@ async function checkStore() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = {};
+  mockApp.connect.mockResolvedValue(undefined);
   mockApp.api.kioskInfo.mockResolvedValue({
     kioskId: 'GK01',
     storeId: 'gist-cafe',
     name: '키오스크 1',
   });
+});
+
+test.each([
+  [undefined, '/menu'],
+  ['help', { pathname: '/help', params: { storeId: 'gist-cafe' } }],
+] as const)('pairing from %s opens the requested screen', async (next, destination) => {
+  mockParams = { next, storeId: store.storeId };
+  mockApp.api.store.mockResolvedValue(store);
+  await checkStore();
+  await fireEvent.press(screen.getByText('이 매장이 맞아요 · 연결하기'));
+  expect(router.replace).toHaveBeenCalledWith(destination);
 });
 
 test('staff pause call and the Korean message', async () => {
