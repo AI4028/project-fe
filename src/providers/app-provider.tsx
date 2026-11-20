@@ -29,6 +29,33 @@ import {
   type Store,
 } from '@/lib/types';
 
+// Only explicit checkout rejections establish that the server declined the order.
+function checkoutRejected(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status >= 400 &&
+    error.status < 500 &&
+    [
+      'bad-payment-method',
+      'bad-note',
+      'price-changed',
+      'ordering-paused',
+      'empty-order',
+      'too-many-lines',
+      'bad-line',
+      'unknown-item',
+      'item-unavailable',
+      'bad-qty',
+      'bad-options',
+      'unknown-option',
+      'missing-option',
+      'too-many-choices',
+      'unknown-choice',
+      'choice-unavailable',
+    ].includes(error.code)
+  );
+}
+
 type Settings = {
   language?: Language;
   assistance?: import('@/lib/location').Assistance;
@@ -302,14 +329,8 @@ function useAppState(path: string) {
           return rememberOrder(placed);
         } catch (error) {
           if (
-            error instanceof ApiError &&
-            [
-              'bad-payment-method',
-              'price-changed',
-              'item-unavailable',
-              'choice-unavailable',
-              'session-expired',
-            ].includes(error.code)
+            checkoutRejected(error) ||
+            (error instanceof ApiError && error.code === 'session-expired')
           )
             await markPending(null);
           throw error;
@@ -627,12 +648,7 @@ function useAppState(path: string) {
         );
       } catch (error) {
         // A timeout/5xx or already-closed session can hide a committed order.
-        if (
-          error instanceof ApiError &&
-          error.status < 500 &&
-          !['session-expired', 'session-not-found', 'idempotency-conflict'].includes(error.code)
-        )
-          await markPending(null);
+        if (checkoutRejected(error)) await markPending(null);
         if (error instanceof ApiError && error.code === 'price-changed') {
           const changed = await api.cart(connection.sessionId, items, device);
           setCart(changed);

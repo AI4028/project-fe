@@ -365,3 +365,7 @@ Expo Router can retain the cart in the web DOM while the final review is visible
 ### 2026-11-21 · Verify the return from kiosk pairing
 
 Directions can stay mounted while the customer opens Help and enters a kiosk code. Carry the venue ID, origin and expanded access section through the pairing redirect so the return action also works after a reload.
+
+### 2026-11-21 · Recover checkout after a lost response
+
+A replay can return a definite rejection if a venue pauses orders or removes an item. Release the pending submission and retain the cart in that case. An unreadable success response can mean the order was committed. Keep its recovery data and look up the order before allowing another submission.

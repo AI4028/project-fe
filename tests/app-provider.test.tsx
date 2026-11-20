@@ -568,3 +568,53 @@ test('keeps the original cart on a rejected switch and releases it only after th
   expect(await AsyncStorage.getItem(key)).toBe('s2');
   expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/s1/end'))).toBe(true);
 });
+
+test.each(['ordering-paused', 'unknown-item'])(
+  'releases a pending checkout when replay definitively rejects it with %s',
+  async (reason) => {
+    const { result } = await mount();
+    await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+    const line = { itemId: 'coffee', qty: 1, options: {} };
+    await act(() => result.current.updateCart([line]));
+    const previous = route;
+    route = (path, method) => {
+      if (path.endsWith('/order')) throw new TypeError('Lost response');
+      return previous(path, method);
+    };
+    await act(async () => {
+      await expect(result.current.submit('counter', '')).rejects.toThrow('Lost response');
+    });
+    expect(result.current.pendingSubmission).toBe('s1');
+    route = (path, method) =>
+      path.endsWith('/order')
+        ? { status: reason === 'unknown-item' ? 404 : 409, data: { error: reason } }
+        : previous(path, method);
+    await act(async () => {
+      await expect(result.current.recoverSubmission()).rejects.toMatchObject({ code: reason });
+    });
+    expect(result.current.pendingSubmission).toBeNull();
+    expect(result.current.items).toEqual([line]);
+    expect(result.current.order).toBeNull();
+    expect(await AsyncStorage.getItem('submission:http://127.0.0.1:8000')).toBeNull();
+  },
+);
+
+test('an unreadable successful submission stays recoverable without a second order', async () => {
+  const { result } = await mount();
+  await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+  await act(() => result.current.updateCart([{ itemId: 'coffee', qty: 1, options: {} }]));
+  const previous = route;
+  route = (path, method) =>
+    path.endsWith('/order') ? { status: 201, data: undefined } : previous(path, method);
+  await act(async () => {
+    await expect(result.current.submit('counter', '')).rejects.toMatchObject({ status: 201 });
+  });
+  expect(result.current.pendingSubmission).toBe('s1');
+  route = (path, method) =>
+    path === '/sessions/s1'
+      ? { data: { ...connection, status: 'ordered', orderId: 'o1' } }
+      : previous(path, method);
+  await act(() => result.current.recoverSubmission());
+  expect(result.current.order?.orderId).toBe('o1');
+  expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'))).toHaveLength(1);
+});
