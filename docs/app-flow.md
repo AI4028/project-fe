@@ -59,3 +59,21 @@ as dismissible notices with a separate retry action, without a bottom error bar.
 | `orders/[orderId].tsx` | order tracking and cancellation      |
 | `kiosk.tsx`            | staff console                        |
 | `settings.tsx`         | accessibility and API address        |
+
+## Usage Settings and device permissions
+
+First-time setup offers language, contrast, text size and map view. Location at
+startup is opt-in. Customers can browse and search after denying location.
+Voice commands and automatic spoken guidance are independent accessibility
+preferences. Customers can also request an individual reading.
+
+The app announces changes to the tracked order while it is open. Pickup
+vibration has its own setting and fires when that order changes to ready.
+Reading an already-ready order at startup is silent. The permissions page checks
+available status without requesting access. Voice input and nearby search request
+their respective permissions when used.
+
+Venue registration and accessibility news are optional links to public HTTPS
+forms. Set the GitHub Actions variables `STORE_REGISTRATION_URL` and
+`ACCESSIBILITY_NEWS_URL` when those forms exist. For a local build, prefix each
+name with `EXPO_PUBLIC_`. The form handles signup and consent.

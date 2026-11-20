@@ -25,7 +25,7 @@ export function AppNavigation() {
       ? '/orders'
       : path === '/saved'
         ? '/saved'
-        : path === '/settings'
+        : path.startsWith('/settings')
           ? '/settings'
           : '/';
   return (
@@ -56,7 +56,7 @@ export function AppNavigation() {
               variant="small"
               className={cn(
                 'text-center leading-4',
-                path === '/settings' ? 'text-xs' : 'text-sm',
+                path.startsWith('/settings') ? 'text-xs' : 'text-sm',
                 active === href ? 'font-bold text-primary' : 'font-medium text-foreground',
               )}
             >

@@ -145,7 +145,7 @@ export function MenuScreen({
       onTranscript={(transcript) => {
         if (!store) return false;
         if (/메뉴.*(읽|알려)|\bread (?:the )?menu\b/i.test(transcript)) {
-          app.announce(
+          app.readAloud(
             menu
               .map(
                 (entry) =>

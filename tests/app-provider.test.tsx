@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppProvider, useApp } from '@/providers/app-provider';
 import { secrets } from '@/lib/storage';
+import * as Haptics from 'expo-haptics';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -163,6 +164,41 @@ test('connects, uses authoritative cart totals, submits once, and clears the ses
   expect(await AsyncStorage.getItem(`session:${result.current.api.base}`)).toBeNull();
   expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'))).toHaveLength(1);
 });
+test.each([true, false])(
+  'pickup vibration (%s) is independent of alerts and fires once',
+  async (vibration) => {
+    jest.mocked(Haptics.notificationAsync).mockClear();
+    const { result } = await mount();
+    await act(() => result.current.updateSettings({ vibration, orderAlerts: !vibration }));
+    await act(() => result.current.connect('GK01', 'ABCDEFGH'));
+    await act(() => result.current.updateCart([{ itemId: 'coffee', qty: 1, options: {} }]));
+    await act(() => result.current.submit('counter', ''));
+    const previous = route;
+    let status = 'accepted';
+    let updatedAtMs = 1;
+    route = (path, method) =>
+      path === '/orders/o1' ? { data: { ...placed, status, updatedAtMs } } : previous(path, method);
+    await act(() => result.current.getOrder('o1'));
+    status = 'preparing';
+    updatedAtMs++;
+    await act(() => result.current.refresh());
+    expect(Haptics.notificationAsync).not.toHaveBeenCalled();
+    status = 'ready';
+    updatedAtMs++;
+    await act(async () => {
+      await Promise.all([result.current.getOrder('o1'), result.current.refresh()]);
+    });
+    expect(result.current.order?.status).toBe('ready');
+    if (vibration) expect(result.current.notice).not.toContain('픽업해 주세요');
+    else expect(result.current.notice).toContain('픽업해 주세요');
+    status = 'preparing';
+    updatedAtMs--;
+    await act(() => result.current.refresh());
+    expect(result.current.order?.status).toBe('ready');
+    expect(Haptics.notificationAsync).toHaveBeenCalledTimes(vibration ? 1 : 0);
+  },
+);
+
 test('obtains a server cart and submits without pairing to a kiosk', async () => {
   const previous = route;
   route = (path, method) => {

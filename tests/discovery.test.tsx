@@ -148,7 +148,7 @@ test('denied microphone keeps a typed query available', async () => {
   await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
   await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), '성수');
   await fireEvent.press(screen.getByLabelText('말로 검색'));
-  await screen.findByText('마이크 권한이 꺼져 있어요');
+  await screen.findByText('마이크를 사용할 수 없어요');
   await fireEvent.press(screen.getByText('글자로 입력하기'));
   expect(screen.getByDisplayValue('성수')).toBeTruthy();
   expect(mockApi.searchPlaces).not.toHaveBeenCalled();

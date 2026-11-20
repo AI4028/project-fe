@@ -161,7 +161,7 @@ export default function Guide() {
           <Text variant="muted">
             정보가 없거나 현장과 다르면 직원에게 이동 경로를 확인해 주세요.
           </Text>
-          <Button variant="outline" onPress={() => app.announce(description)}>
+          <Button variant="outline" onPress={() => app.readAloud(description)}>
             <Icon as={Volume2} size={19} className="text-primary" accessible={false} />
             <Text>안내 듣기</Text>
           </Button>

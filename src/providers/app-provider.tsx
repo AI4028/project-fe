@@ -56,6 +56,7 @@ const initialSettings: Settings = {
   largeText: false,
   speech: false,
   voiceInput: false,
+  locateOnStart: false,
 };
 const emptyCart: Cart = { lines: [], summary: '', total: 0 };
 
@@ -166,22 +167,27 @@ function useAppState(path: string) {
   const selectStoreSeq = useRef(0);
   const pendingToken = useRef<{ base: string; promise: Promise<string> } | null>(null);
   const demo = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
+  const speechRevision = useRef(0);
   const announce = useCallback(
-    (message: string, scope?: typeof cartScope) => {
+    (message: string, scope?: typeof cartScope, readAloud = false) => {
       if (scope && scope !== activeScope.current) return;
       setFeedback({ message, scope });
       message = translate(message, settings.language ?? 'ko');
       if (Platform.OS !== 'web') AccessibilityInfo.announceForAccessibility(message);
-      if (settings.speech)
-        void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
-          if (!enabled) {
-            void Speech.stop();
-            Speech.speak(message, {
-              language: settings.language === 'en' ? 'en-US' : 'ko-KR',
-              rate: 0.95,
-            });
-          }
-        });
+      if (!settings.speech && !readAloud) return;
+      if (Platform.OS === 'web' && !globalThis.speechSynthesis) return;
+      const revision = ++speechRevision.current;
+      async function speak() {
+        if (Platform.OS !== 'web' && (await AccessibilityInfo.isScreenReaderEnabled())) return;
+        if (revision !== speechRevision.current) return;
+        await Speech.stop();
+        if (revision === speechRevision.current)
+          Speech.speak(message, {
+            language: settings.language === 'en' ? 'en-US' : 'ko-KR',
+            rate: 0.95,
+          });
+      }
+      void speak().catch(() => {}); // The live text remains available if speech is unsupported.
     },
     [settings.speech, settings.language],
   );
@@ -225,14 +231,30 @@ function useAppState(path: string) {
     const device = await secrets.get(api.base, 'device');
     return device ? api.orders(device) : [];
   }, [api]);
+  const applyOrderUpdate = useCallback((latest: Order) => {
+    setOrder((current) =>
+      current?.orderId === latest.orderId && (latest.updatedAtMs ?? 0) >= (current.updatedAtMs ?? 0)
+        ? latest
+        : current,
+    );
+  }, []);
+  const previousOrder = useRef<Order | null>(null);
+  useEffect(() => {
+    const previous = previousOrder.current;
+    previousOrder.current = order;
+    if (!order || previous?.orderId !== order.orderId || previous.status === order.status) return;
+    if (settingsRef.current.orderAlerts !== false)
+      announce(`주문 ${order.orderNumber}번, ${statusLabels[order.status]}`);
+    if (order.status === 'ready' && settingsRef.current.vibration !== false)
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }, [order, announce]);
   const getOrder = useCallback(
     async (id: string) => {
       const latest = await api.order(id, await token());
-      if (currentApi.current === api)
-        setOrder((current) => (current?.orderId === id ? latest : current));
+      if (currentApi.current === api) applyOrderUpdate(latest);
       return latest;
     },
-    [api, token],
+    [api, token, applyOrderUpdate],
   );
   const clearSession = useCallback(async () => {
     currentConnection.current = null;
@@ -326,11 +348,9 @@ function useAppState(path: string) {
     if (order) {
       const latest = await api.order(order.orderId, device);
       if (currentApi.current !== api) return;
-      if (latest.status !== order.status && settingsRef.current.orderAlerts !== false)
-        announce(`주문 ${latest.orderNumber}번, ${statusLabels[latest.status]}`);
-      setOrder((current) => (current?.orderId === latest.orderId ? latest : current));
+      applyOrderUpdate(latest);
     }
-  }, [api, connection, order?.orderId, order?.status, clearSession, announce]);
+  }, [api, connection, order?.orderId, clearSession, applyOrderUpdate]);
   useEffect(() => {
     AsyncStorage.getItem('galjido.settings')
       .then((raw) => {
@@ -556,8 +576,6 @@ function useAppState(path: string) {
       }
       setItems(next);
       setCart(result);
-      if (settings.vibration !== false)
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       announce(
         `장바구니가 변경되었습니다. 합계 ${result.total.toLocaleString('ko-KR')}원`,
         cartScope,
@@ -659,7 +677,10 @@ function useAppState(path: string) {
         }
         settingsRef.current = next;
         setSettings(next);
-        if (previous.speech && !next.speech) await Speech.stop();
+        if (previous.speech && !next.speech) {
+          speechRevision.current++;
+          await Speech.stop().catch(() => {});
+        }
       });
     settingsQueue.current = task;
     return task;
@@ -718,12 +739,14 @@ function useAppState(path: string) {
     busy: busy || restoring,
     notice,
     announce,
+    readAloud: (message: string) => announce(message, undefined, true),
     report,
     demo,
     repeat: () =>
       announce(
         notice || '갈지도에 오신 것을 환영합니다. 매장을 선택하고 메뉴를 살펴보세요.',
         feedback?.scope === cartScope ? cartScope : undefined,
+        true,
       ),
     help: async () =>
       exclusive(async () => {

@@ -75,7 +75,7 @@ export default function StoreDetails() {
         if (/메뉴.*(읽|알려)|\bread (?:the )?menu\b/i.test(text)) {
           const preview = store?.menu;
           if (preview?.length) {
-            app.announce(
+            app.readAloud(
               preview
                 .map(
                   (item) =>

@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-21 · Web speech and microphone status
+
+- **Hit:** Automatic spoken guidance stayed silent in the web build.
+- **Why:** React Native Web reports that a screen reader is enabled unconditionally. The web speech-recognition module also returns a placeholder microphone permission result.
+- **Fix:** Use browser speech synthesis for requested readings and the browser Permissions API for microphone status. Keep native screen-reader handling on iOS and Android.
+- **Rule:** Test disabled recognition and denied browser permissions independently.
+
 ### 2026-11-21 · Run the check watcher with polling when file watches are exhausted
 
 - **Hit:** The watcher exited with `EMFILE: too many open files, watch`.

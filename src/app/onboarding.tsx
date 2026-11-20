@@ -22,7 +22,7 @@ export default function Onboarding() {
   const { t } = useTranslation();
   const [contrast, setContrast] = useState(app.settings.contrast);
   const [size, setSize] = useState(() => resolveTextSize(app.settings));
-  const [voiceInput, setVoiceInput] = useState(!!app.settings.voiceInput);
+  const compactCopy = size !== 'base';
   const [mode, setMode] = useState(
     () => resolveExploreMode(app.settings.assistance, app.settings.exploreMode) ?? 'list',
   );
@@ -42,7 +42,6 @@ export default function Onboarding() {
         textSize: size,
         largeText: size !== 'base',
         contrast,
-        voiceInput,
       });
       router.replace(exploreRoute(undefined, mode));
     } catch (reason) {
@@ -58,7 +57,7 @@ export default function Onboarding() {
       <View style={[{ flex: 1 }, vars(themeVariables(contrast))]}>
         <Screen
           title={size === 'xlarge' ? '크게 확인해요' : '나에게 편한 이용 설정'}
-          subtitle="필요한 기능만 골라 켜 주세요."
+          subtitle={compactCopy ? '필요한 기능을 선택하세요.' : '필요한 기능만 골라 켜 주세요.'}
           chrome="onboarding"
           footer={
             <Button
@@ -67,7 +66,9 @@ export default function Onboarding() {
               accessibilityState={{ busy: saving }}
               onPress={() => void start()}
             >
-              <Text>{saving ? '저장 중…' : '설정 완료하고 시작하기'}</Text>
+              <Text>
+                {saving ? '저장 중…' : compactCopy ? '시작하기' : '설정 완료하고 시작하기'}
+              </Text>
               <Icon
                 as={ArrowRight}
                 size={20}
@@ -82,24 +83,17 @@ export default function Onboarding() {
           <View className="gap-3">
             <PreferenceSwitch
               title="고대비"
-              description="글자와 버튼 경계를 선명하게"
+              description={compactCopy ? undefined : '글자와 버튼 경계를 선명하게'}
               value={contrast}
               disabled={saving}
               onChange={setContrast}
             />
             <PreferenceSwitch
               title="큰 글씨"
-              description="기본 글자의 2배로 확대"
-              value={size === 'xlarge'}
+              description={compactCopy ? undefined : '기본 글자의 2배로 확대'}
+              value={size !== 'base'}
               disabled={saving}
               onChange={(enabled) => setSize(enabled ? 'xlarge' : 'base')}
-            />
-            <PreferenceSwitch
-              title="음성 명령"
-              description="말로 매장과 메뉴 검색"
-              value={voiceInput}
-              disabled={saving}
-              onChange={setVoiceInput}
             />
           </View>
           <View className="gap-2">

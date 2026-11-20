@@ -111,22 +111,19 @@ test('onboarding previews independent accessibility settings and saves before op
   expect(screen.queryAllByRole('tab')).toHaveLength(0);
   const contrast = screen.getByRole('switch', { name: '고대비' });
   const largeText = screen.getByRole('switch', { name: '큰 글씨' });
-  const voice = screen.getByRole('switch', { name: '음성 명령' });
+  expect(screen.queryByRole('switch', { name: '음성 명령' })).toBeNull();
   const heading = screen.getByRole('heading', { name: '나에게 편한 이용 설정' });
   await fireEvent.press(contrast);
   expect(contrast.props.accessibilityState.checked).toBe(true);
-  expect(voice.props.accessibilityState.checked).toBe(false);
   await fireEvent.press(largeText);
   expect(StyleSheet.flatten(heading.props.style).fontSize).toBe(52);
-  await fireEvent.press(voice);
   await fireEvent.press(screen.getByRole('radio', { name: '그림 지도' }));
-  await fireEvent.press(screen.getByRole('button', { name: '설정 완료하고 시작하기' }));
+  await fireEvent.press(screen.getByRole('button', { name: '시작하기' }));
   expect(mockUpdateSettings).toHaveBeenCalledWith({
     exploreMode: 'map',
     textSize: 'xlarge',
     largeText: true,
     contrast: true,
-    voiceInput: true,
   });
   expect(router.replace).not.toHaveBeenCalled();
   await act(async () => saved());
@@ -153,7 +150,6 @@ test('the single start action saves the displayed defaults', async () => {
     textSize: 'base',
     largeText: false,
     contrast: false,
-    voiceInput: false,
   });
   expect(router.replace).toHaveBeenCalledWith('/explore/list');
 });

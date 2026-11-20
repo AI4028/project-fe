@@ -240,6 +240,9 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
             <Button variant="outline" onPress={openSearch}>
               <Text>매장 이름이나 주소 입력</Text>
             </Button>
+            <Button variant="outline" onPress={() => router.push('/settings/permissions')}>
+              <Text>기기 권한 확인</Text>
+            </Button>
             <Button variant="outline" disabled={locating} onPress={() => void locate()}>
               <Text>위치 다시 확인하기</Text>
             </Button>
@@ -419,6 +422,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
     </View>
   );
   function openVoice() {
+    setSearchOpen(false);
     Keyboard.dismiss();
     mic.current?.start();
     setVoiceOpen(true);

@@ -9,12 +9,14 @@ export function PreferenceSwitch({
   title,
   description,
   icon,
+  flat = false,
   value,
   disabled,
   onChange,
 }: {
   title: string;
-  description: string;
+  description?: string;
+  flat?: boolean;
   icon?: LucideIcon;
   value: boolean;
   disabled?: boolean;
@@ -22,10 +24,11 @@ export function PreferenceSwitch({
 }) {
   return (
     <Button
-      variant="outline"
+      variant={flat ? 'ghost' : 'outline'}
       className={cn(
-        'w-full justify-start gap-3 rounded-2xl bg-card px-4 py-3',
-        value ? 'border-primary' : 'border-input',
+        'w-full justify-start gap-3 py-3',
+        flat ? 'px-1' : 'rounded-2xl bg-card px-4',
+        !flat && (value ? 'border-primary' : 'border-input'),
       )}
       accessibilityRole="switch"
       accessibilityLabel={title}
@@ -37,9 +40,11 @@ export function PreferenceSwitch({
       {icon && <IconTile icon={icon} small />}
       <View className="min-w-0 flex-1 gap-0.5">
         <Text className="text-left font-bold text-foreground">{title}</Text>
-        <Text variant="muted" className="text-left font-normal text-muted-foreground">
-          {description}
-        </Text>
+        {description && (
+          <Text variant="muted" className="text-left font-normal text-muted-foreground">
+            {description}
+          </Text>
+        )}
       </View>
       <TextClassContext.Provider value={undefined}>
         <View
