@@ -141,6 +141,8 @@
   "지도 앱에서 검색": "Search in a map app",
   "위치 없이 검색할 수 있어요.": "You can search without sharing your location.",
   "현재 위치를 표시합니다. 거리는 직선거리예요.": "Showing your location. Distances are straight-line estimates.",
+  "브라우저가 이 사이트의 위치 요청을 거부했어요. 사이트 설정에서 위치를 허용한 뒤 다시 시도해 주세요.": "Your browser denied location access for this site. Allow location in the website settings, then try again.",
+  "위치 확인 시간이 초과됐어요. 다시 시도하거나 장소를 검색해 주세요.": "The location request timed out. Try again or search for a place.",
   "위치를 확인하지 못했어요. 검색으로 장소를 찾아주세요.": "Location unavailable. Search for a place instead.",
   "검색 결과가 없어요. 검색어를 바꾸거나 지도 앱에서 찾아보세요.": "No results. Try another search or search in a map app.",
   "지도에서 장소를 선택하세요. 주문은 등록 매장에서 지원해요.": "Select a place on the map. Galjido ordering is available at partner stores.",

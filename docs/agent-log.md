@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-23 · Verify browser location requests after a denial
+
+- **Hit:** Find nearby showed the generic location error after Safari returned code 1.
+- **Why:** The screen discarded browser error codes and depended on a separate permission query.
+- **Fix:** Request a position directly on web and distinguish permission denial from timeout.
+- **Rule:** Exercise denial followed by retry, including when the Permissions API is unavailable.
+
 ### 2026-11-23 · Browser compass needs a tap, even in Chromium
 
 - **Hit:** simulated `deviceorientationabsolute` events never turned the direction arrow in Playwright.

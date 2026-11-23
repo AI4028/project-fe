@@ -1,5 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Text as MockText, View as MockView, Pressable as MockPressable } from 'react-native';
+import {
+  Platform,
+  Text as MockText,
+  View as MockView,
+  Pressable as MockPressable,
+} from 'react-native';
 import Discovery from '@/app/explore/list';
 import MapExplore from '@/app/explore/map';
 import { filterStores } from '@/lib/discovery';
@@ -194,6 +199,37 @@ test('location denial stays visible even when ordering is offline', async () => 
   );
   expect(screen.queryByText('주문 연결 불가')).toBeNull();
   expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
+});
+
+test('web retries a denied location request directly without a permission preflight', async () => {
+  const platform = jest.replaceProperty(Platform, 'OS', 'web');
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const getCurrentPosition = jest
+    .fn()
+    .mockImplementationOnce((_success, failure) => failure({ code: 1 }))
+    .mockImplementationOnce((success) => success({ coords: { latitude: 35.2, longitude: 126.8 } }));
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { geolocation: { getCurrentPosition } },
+  });
+  try {
+    await render(<Discovery />);
+    await fireEvent.press(screen.getByLabelText('내 주변에서 찾기'));
+    await screen.findByText(
+      '브라우저가 이 사이트의 위치 요청을 거부했어요. 사이트 설정에서 위치를 허용한 뒤 다시 시도해 주세요.',
+    );
+    expect(mockApi.searchPlaces).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByText('위치 다시 확인하기'));
+    await waitFor(() =>
+      expect(mockApi.searchPlaces).toHaveBeenCalledWith('', 'all', { lat: 35.2, lng: 126.8 }),
+    );
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+  } finally {
+    platform.restore();
+    if (original) Object.defineProperty(globalThis, 'navigator', original);
+    else Reflect.deleteProperty(globalThis, 'navigator');
+  }
 });
 
 test('a stalled location request times out and ignores a late position', async () => {

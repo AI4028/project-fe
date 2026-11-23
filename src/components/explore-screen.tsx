@@ -1,6 +1,6 @@
 import { AppNavigation } from '@/components/app-navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Linking, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Keyboard, Linking, Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { ReceiptText, LocateFixed, MapPin, Mic, Search, X } from 'lucide-react-native';
@@ -161,26 +161,51 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
     setLocating(true);
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (id !== request.current) return;
-      if (!permission.granted) {
-        setLocationMessage(
-          '위치 권한이 꺼져 있어요. 기기 설정에서 허용하거나 장소 이름을 검색해 주세요.',
-        );
-        return;
+      let coords: { latitude: number; longitude: number };
+      if (Platform.OS === 'web') {
+        // Request from the tap itself. Some browsers cannot query permission beforehand.
+        const result = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            maximumAge: 60000,
+            timeout: 20000,
+          });
+        });
+        coords = result.coords;
+      } else {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (id !== request.current) return;
+        if (!permission.granted) {
+          setLocationMessage(
+            '위치 권한이 꺼져 있어요. 기기 설정에서 허용하거나 장소 이름을 검색해 주세요.',
+          );
+          return;
+        }
+        const result = await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          new Promise<never>((_, reject) => {
+            timeout = setTimeout(() => reject(new Error('location-timeout')), 12000);
+          }),
+        ]);
+        coords = result.coords;
       }
-      const result = await Promise.race([
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-        new Promise<never>((_, reject) => {
-          timeout = setTimeout(() => reject(new Error('location-timeout')), 12000);
-        }),
-      ]);
       if (id !== request.current) return;
-      setPosition({ lat: result.coords.latitude, lng: result.coords.longitude });
+      setPosition({ lat: coords.latitude, lng: coords.longitude });
       setLocationMessage('현재 위치를 표시합니다. 거리는 직선거리예요.');
-    } catch {
-      if (id === request.current)
+    } catch (error) {
+      if (id !== request.current) return;
+      const code =
+        Platform.OS === 'web' && error && typeof error === 'object' && 'code' in error
+          ? error.code
+          : undefined;
+      if (code === 1) {
+        setLocationMessage(
+          '브라우저가 이 사이트의 위치 요청을 거부했어요. 사이트 설정에서 위치를 허용한 뒤 다시 시도해 주세요.',
+        );
+      } else if (code === 3) {
+        setLocationMessage('위치 확인 시간이 초과됐어요. 다시 시도하거나 장소를 검색해 주세요.');
+      } else {
         setLocationMessage('위치를 확인하지 못했어요. 검색으로 장소를 찾아주세요.');
+      }
     } finally {
       clearTimeout(timeout);
       if (id === request.current) setLocating(false);
