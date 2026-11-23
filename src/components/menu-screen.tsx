@@ -114,6 +114,7 @@ export function MenuScreen({
           <View className="py-2">
             <Link href="/cart" asChild>
               <Button
+                role="button"
                 variant="secondary"
                 size="lg"
                 className="min-h-16 flex-wrap justify-between gap-3"

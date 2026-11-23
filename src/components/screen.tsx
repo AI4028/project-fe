@@ -28,7 +28,8 @@ export function NavLink({
 } & Omit<ButtonProps, 'children'>) {
   return (
     <Link href={href} asChild>
-      <Button variant={variant} className={cn('gap-2', className)} {...props}>
+      {/* Link marks its child as a link; these look and act like the buttons around them. */}
+      <Button role="button" variant={variant} className={cn('gap-2', className)} {...props}>
         {icon && (
           <Icon
             as={icon}
