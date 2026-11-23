@@ -77,3 +77,15 @@ test('notices when the signal fades after the direction was found', () => {
   expect(signalFaded(-62, -64)).toBe(false);
   expect(signalFaded(-62, -70)).toBe(true);
 });
+
+test('compass heading works flat and held upright', () => {
+  const { headingFromOrientation } = jest.requireActual('@/lib/use-heading');
+  // Flat, alpha 90 (counter-clockwise) → facing west (270).
+  expect(headingFromOrientation(90, 0, 0)).toBeCloseTo(270, 5);
+  expect(headingFromOrientation(0, 0, 0)).toBeCloseTo(0, 5);
+  // Upright at the chest (beta 90): the back of the phone faces the same way.
+  expect(headingFromOrientation(90, 90, 0)).toBeCloseTo(270, 5);
+  expect(headingFromOrientation(300, 80, 0)).toBeCloseTo(60, 5);
+  // Tilted 45° still agrees.
+  expect(headingFromOrientation(200, 45, 0)).toBeCloseTo(160, 5);
+});

@@ -204,6 +204,13 @@ export default function FindKiosk() {
                 <Text variant="muted">
                   신호 {Math.round(beacon.rssi)}dBm · 1m 기준 {rssiAt1m}dBm
                 </Text>
+                <Text variant="muted">
+                  {heading != null
+                    ? `나침반 ${Math.round(heading)}°${target ? ` · 키오스크 방위 ${Math.round(target.bearing)}°` : ''}`
+                    : compassStatus === 'unavailable'
+                      ? '나침반 없음'
+                      : '나침반 기다리는 중'}
+                </Text>
               </>
             )}
           </View>
