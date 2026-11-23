@@ -1,6 +1,8 @@
-import { venueAddress } from '@/lib/catalog';
+import { CatalogThumbnail } from './catalog-thumbnail';
+import { VenueHours } from './venue-hours';
+import { venueAddress, venueDistance } from '@/lib/catalog';
 import { View } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X, MapPin, Clock } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Text } from './ui/text';
 import { Button } from './ui/button';
@@ -11,13 +13,12 @@ import { useTranslation } from '@/lib/i18n';
 import { PlaceActions, PlaceBookmark } from './place-actions';
 export function PlacePreview({ store, onClose }: { store: Store; onClose: () => void }) {
   const { t, language } = useTranslation();
+  const distance = venueDistance(store, language, t);
   return (
-    <View className="gap-3 rounded-t-3xl border-t border-border bg-card px-5 py-4">
-      <View className="flex-row items-start gap-3">
+    <View className="gap-2 rounded-3xl border border-border bg-card p-3">
+      <View className="flex-row items-start gap-2">
+        <CatalogThumbnail imageUrl={store.imageUrl} size={48} />
         <View className="min-w-0 flex-1 gap-1">
-          <Text variant="small" className="text-primary">
-            {store.directoryOnly ? '일반 장소 · 주문 미지원' : '갈지도 등록 매장'}
-          </Text>
           <Text variant="h3" translate={false}>
             {language === 'en' ? store.nameEn || store.name : store.name}
           </Text>
@@ -30,12 +31,24 @@ export function PlacePreview({ store, onClose }: { store: Store; onClose: () => 
           <Icon as={X} size={20} />
         </Button>
       </View>
+      {!!distance && (
+        <View className="flex-row items-center gap-2">
+          <Icon as={MapPin} size={16} className="text-primary" />
+          <Text variant="small" translate={false}>{distance}</Text>
+        </View>
+      )}
+      {!!(store.hours || store.hoursEn) && (
+        <View className="flex-row items-center gap-2">
+          <Icon as={Clock} size={16} className="text-primary" />
+          <VenueHours store={store} />
+        </View>
+      )}
+      <PlaceActions store={store} />
       <Text variant="small">
         {store.directoryOnly
-          ? '접근성 정보 확인 필요'
+          ? '일반 장소 · 주문 미지원'
           : accessibilitySummary(store).split(' · ').map(t).join(' · ')}
       </Text>
-      <PlaceActions store={store} />
       {!store.directoryOnly && (
         <Button
           variant="ghost"

@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-23 · Wait for nearby results before testing a map pin
+
+- **Hit:** The store name captured by the browser check changed before selection.
+- **Why:** Registered stores render while the nearby directory request is in flight.
+- **Fix:** Wait for the searched venues, then select a named marker and check its preview.
+- **Rule:** Verify the preview against the selected venue after nearby discovery settles.
+
 ### 2026-11-23 · Verify browser location requests after a denial
 
 - **Hit:** Find nearby showed the generic location error after Safari returned code 1.
