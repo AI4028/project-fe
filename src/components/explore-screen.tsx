@@ -376,14 +376,10 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
     app.settings.saveRecentSearches === false
       ? []
       : (app.settings.recentSearches ?? []).filter(matchesDraft);
-  const suggestions = new globalThis.Map<string, '매장' | '메뉴'>();
+  const suggestions = new Set<string>();
   for (const store of registered) {
     const name = (language === 'en' && store.nameEn) || store.name;
-    if (matchesDraft(name)) suggestions.set(name, '매장');
-    for (const item of store.menuSuggestions ?? []) {
-      const term = (language === 'en' && item.nameEn) || item.name;
-      if (matchesDraft(term) && !suggestions.has(term)) suggestions.set(term, '메뉴');
-    }
+    if (matchesDraft(name)) suggestions.add(name);
   }
   const searchOptions = searchOpen && (recent.length > 0 || suggestions.size > 0) && (
     <View
@@ -406,16 +402,16 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
         {!!suggestions.size && <Text variant="h2">추천 검색어</Text>}
         {Array.from(suggestions)
           .slice(0, 6)
-          .map(([term, kind]) => (
+          .map((term) => (
             <Button
               key={term}
               variant="ghost"
               className="justify-between"
-              accessibilityLabel={`${term}, ${t(kind)}`}
+              accessibilityLabel={`${term}, ${t('매장')}`}
               onPress={() => search(term)}
             >
               <Text translate={false}>{term}</Text>
-              <Text variant="muted">{kind}</Text>
+              <Text variant="muted">매장</Text>
             </Button>
           ))}
       </ScrollView>
@@ -567,6 +563,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
               )}
             </View>
             {searchOptions}
+            {!searchOpen && !app.connection && (
+              <View className="px-6 pt-2">
+                <Button variant="secondary" onPress={() => router.push('/connect')}>
+                  <Text>키오스크 연결</Text>
+                </Button>
+              </View>
+            )}
             <View className="px-3 py-2">
               <SegmentedControl
                 mapChoice

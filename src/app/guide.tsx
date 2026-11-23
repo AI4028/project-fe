@@ -179,11 +179,15 @@ export default function Guide() {
                   </CardContent>
                 </Card>
               )}
-              <NavLink href={{ pathname: '/menu', params: { storeId: store.storeId } }}>
-                {store.hasOrderTerminal === false || store.orderingPaused
-                  ? '메뉴 보기'
-                  : '먼저 주문하기'}
-              </NavLink>
+              {app.connection?.kioskId && app.connection.storeId === store.storeId ? (
+                <NavLink href={{ pathname: '/menu', params: { storeId: store.storeId } }}>
+                  메뉴 보기
+                </NavLink>
+              ) : !store.orderingPaused && store.hasOrderTerminal !== false ? (
+                <NavLink href={{ pathname: '/connect', params: { storeId: store.storeId } }}>
+                  키오스크에 연결해 주문하기
+                </NavLink>
+              ) : null}
               <NavLink
                 href={{
                   pathname: '/help',

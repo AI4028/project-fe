@@ -30,6 +30,48 @@ Newest first, four lines, no stories:
 - **Fix:** the direction screen shows "나침반 허용하고 화살표 보기"; tests override `requestPermission` to resolve `'granted'` before dispatching events.
 - **Rule:** start compass/orientation from a user tap and keep the no-compass fallback (absolute direction words); in Playwright, stub `requestPermission` first.
 
+### 2026-11-23 · Update tests when removing the code-free cart path
+
+- **Hit:** TypeScript reported `Expected 1-2 arguments, but got 3` in a cart test.
+- **Why:** The third argument belonged to the old code-free store switch flow.
+- **Fix:** Test that switching stores requires a new kiosk pairing and that the old cart stays available until the user leaves it.
+- **Rule:** Check both the menu routes and the provider when changing the pairing gate.
+
+### 2026-11-23 · Preserve signing when publishing a branch
+
+- **Hit:** A sandboxed `git commit` failed with `gpg failed to sign the data`.
+- **Why:** The configured GPG signing agent needed access outside the sandbox.
+- **Fix:** Ran the signed commit in an approved terminal session.
+- **Rule:** Retry with access to the configured signing agent and keep commit signing enabled.
+
+### 2026-11-23 · Android 37 package name and APK build storage
+
+- **Hit:** `sdkmanager` could not find `platforms;android-37`, and Gradle later reported `No space left on device` while resolving Android dependencies.
+- **Why:** Google publishes this platform as `android-37.0`. The SDK, NDK, Gradle caches, and React Native debug AAR need substantial temporary disk space.
+- **Fix:** Install `platforms;android-37.0` and run the BLE module's `compileDebugKotlin` task separately when storage limits block full APK assembly.
+- **Rule:** Check available disk space before provisioning a local Android toolchain and keep its installation separate from the source tree.
+
+### 2026-11-23 · Keep local Android modules visible to Git
+
+- **Hit:** The unanchored `android/` ignore rule excluded the BLE module's Gradle file, manifest, and Kotlin source.
+- **Why:** Git applied the rule to every nested directory named `android`.
+- **Fix:** Anchor the generated `/android/` and `/ios/` entries at the app root.
+- **Rule:** Check new Expo native module files with `git status --untracked-files=all` before building or handing off.
+
+### 2026-11-23 · Test Android scan permissions and screen cleanup
+
+- **Hit:** TypeScript rejected assignment to `Platform.Version`, and the Connect screen mock lacked `useFocusEffect`.
+- **Why:** React Native exposes `Version` as read-only, and Connect now cancels scans on blur.
+- **Fix:** Replace the version on the mock with `jest.replaceProperty` and delegate the router mock to React's effect lifecycle.
+- **Rule:** Exercise a late scan result after unmount when testing route-level cancellation.
+
+### 2026-11-23 · Exercise demo pairing when local ports are blocked
+
+- **Hit:** Uvicorn exited with `operation not permitted` when binding to localhost.
+- **Why:** This workspace sandbox denied listening sockets.
+- **Fix:** Used FastAPI `TestClient` with a temporary seeded database and the seed's existing Americano options.
+- **Rule:** Use the in-process client to check demo token, session and order endpoints when a sandbox prevents local listeners.
+
 ### 2026-11-21 · Web speech and microphone status
 
 - **Hit:** Automatic spoken guidance stayed silent in the web build.

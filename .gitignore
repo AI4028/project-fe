@@ -18,8 +18,8 @@ node_modules/
 dist/
 coverage/
 .checks/
-android/
-ios/
+/android/
+/ios/
 .env.*
 !.env.example
 *.tsbuildinfo
