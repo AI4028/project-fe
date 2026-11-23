@@ -96,10 +96,12 @@ real-device testing; automated tests are not an accessibility certification.
 - The current location feature uses foreground coordinates and server/local radius
   comparisons. It is not background geofencing or indoor navigation. A nearby
   store is not automatically selected or connected.
-- Direct BLE scanning/broadcasting is not implemented. No RSSI-based meter/floor
-  claim is shown. The old Arduino demo transport is not proof of phone-side BLE.
-- `EXPO_PUBLIC_DEMO_MODE=true` plus backend `DEMO_MODE=1` enables a clearly labelled
-  demo code fetch. Both default off. The customer UX no longer uses the shared
+- Android development builds can find kiosks from their BLE advertisements on
+  `/connect`. The scan runs in the foreground and uses the existing store
+  confirmation and pairing flow. Over-the-air testing still needs an ESP32 and
+  an Android phone.
+- `EXPO_PUBLIC_DEMO_MODE=true` plus backend `DEMO_MODE=1` enables simulated nearby
+  kiosk discovery on `/connect`. Both default off. The customer UX no longer uses the shared
   `/ws/proximity` demo feed as a real location measurement.
 - Speech recognition requires a native development build. Expo Go falls back to
   touch controls if the native module is absent. Browser recognition support varies.

@@ -12,6 +12,7 @@ import { OrderingPaused, Problem } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { accessDetails, knownText } from '@/lib/location';
 import { errorMessage } from '@/lib/api';
+import { androidKioskScanAvailable } from '@/lib/android-kiosk-ble';
 import { useTranslation } from '@/lib/i18n';
 import { PlaceBookmark } from '@/components/place-actions';
 import type { Store } from '@/lib/types';
@@ -55,6 +56,14 @@ export default function StoreDetails() {
     table: '테이블 주문',
   };
   const different = app.connection && app.connection.storeId !== id;
+  const canFindKiosk =
+    (androidKioskScanAvailable || app.demo) &&
+    store &&
+    !store.directoryOnly &&
+    !store.orderingPaused &&
+    store.hasOrderTerminal !== false &&
+    !app.connection &&
+    !app.pendingSubmission;
   return (
     <Screen
       title={(language === 'en' ? store?.nameEn || store?.name : store?.name) ?? '매장 정보'}
@@ -185,6 +194,11 @@ export default function StoreDetails() {
                 휴대폰 주문 지원 여부와 현재 운영 상태는 매장에서 확인해 주세요. 가까이 있다는
                 것만으로 주문이 연결되지는 않습니다.
               </Text>
+              {canFindKiosk && (
+                <NavLink href={{ pathname: '/connect', params: { storeId: store.storeId } }}>
+                  키오스크에 연결해 주문하기
+                </NavLink>
+              )}
               {different ? (
                 <View className="gap-3 rounded-2xl bg-secondary p-4">
                   <Text>

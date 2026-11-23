@@ -1,8 +1,8 @@
 import { useTranslation } from '@/lib/i18n';
 import { venueAddress } from '@/lib/catalog';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,10 +13,37 @@ import { Check, Hash } from 'lucide-react-native';
 import { OrderingPaused, Problem, SubmissionRecovery } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { ApiError, errorMessage } from '@/lib/api';
-import type { Store } from '@/lib/types';
+import { androidKioskScanAvailable, scanAndroidAdvertisements } from '@/lib/android-kiosk-ble';
+import {
+  inspectKiosk,
+  resolveKioskAdvertisements,
+  scanDemoKiosks,
+  type KioskCandidate,
+  type ScannedKiosk,
+} from '@/lib/kiosk-scan';
+
+const scanMessages = {
+  demo: {
+    subtitle: '데모 기기를 검색하거나 매장 화면에 표시된 코드를 입력해 주세요.',
+    start: '주변 데모 기기 검색',
+    busy: '데모 기기 검색 중',
+    results: '연결할 데모 기기를 선택해 주세요.',
+    empty: '데모 기기를 찾지 못했어요. 다시 검색하거나 코드를 입력해 주세요.',
+    expired: '연결 코드가 만료되었어요. 데모 기기를 다시 검색해 주세요.',
+  },
+  bluetooth: {
+    subtitle: '주변 키오스크를 검색하거나 매장 화면에 표시된 코드를 입력해 주세요.',
+    start: '주변 키오스크 검색',
+    busy: '주변 키오스크 검색 중',
+    results: '연결할 키오스크를 선택해 주세요.',
+    empty: '주변 키오스크를 찾지 못했어요. 다시 검색하거나 코드를 입력해 주세요.',
+    expired: '연결 코드가 만료되었어요. 주변 키오스크를 다시 검색해 주세요.',
+  },
+};
+
 export default function Connect() {
   const app = useApp();
-  const { language } = useTranslation();
+  const { language, t } = useTranslation();
   const params = useLocalSearchParams<{
     kioskId?: string;
     token?: string;
@@ -27,42 +54,79 @@ export default function Connect() {
   }>();
   const [kioskId, setKioskId] = useState(params.kioskId ?? '');
   const [code, setCode] = useState(params.token ?? '');
-  const [candidate, setCandidate] = useState<{
-    kioskId: string;
-    name: string;
-    store: Store;
-  } | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [candidate, setCandidate] = useState<KioskCandidate | ScannedKiosk | null>(null);
+  const [scanResults, setScanResults] = useState<ScannedKiosk[] | null>(null);
+  const [action, setAction] = useState<'scan' | 'inspect' | 'connect' | null>(null);
   const [error, setError] = useState('');
   const [waiting, setWaiting] = useState(false);
+  const activeScan = useRef<AbortController | null>(null);
+  const scanMode = app.demo ? 'demo' : androidKioskScanAvailable ? 'bluetooth' : null;
+  const scanCopy = scanMessages[scanMode === 'demo' ? 'demo' : 'bluetooth'];
+  const loading = action !== null;
   const mismatch = candidate && params.storeId && candidate.store.storeId !== params.storeId;
-  async function inspect(demo = false) {
-    setLoading(true);
+
+  useFocusEffect(useCallback(() => () => activeScan.current?.abort(), []));
+
+  async function inspect() {
+    setAction('inspect');
     setError('');
     setWaiting(false);
     setCandidate(null);
     try {
-      const id = demo ? 'GK01' : kioskId.trim().toUpperCase();
-      const kiosk = await app.api.kioskInfo(id);
-      const store = await app.api.store(kiosk.storeId);
-      if (demo) {
-        setKioskId(id);
-        setCode((await app.api.demoToken(id)).token);
-      }
-      setCandidate({ kioskId: id, name: kiosk.name, store });
+      setCandidate(await inspectKiosk(app.api, kioskId.trim().toUpperCase()));
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
-      setLoading(false);
+      setAction(null);
     }
   }
-  async function connect() {
-    if (!candidate || mismatch) return;
-    setLoading(true);
+
+  async function scan() {
+    if (!scanMode || activeScan.current) return;
+    const controller = new AbortController();
+    activeScan.current = controller;
+    const { signal } = controller;
+    setAction('scan');
+    setScanResults(null);
     setError('');
     setWaiting(false);
     try {
-      await app.connect(candidate.kioskId, code, candidate.store.storeId);
+      if (scanMode === 'demo') {
+        const results = await scanDemoKiosks(app.api, params.storeId);
+        if (!signal.aborted) setScanResults(results);
+      } else {
+        const advertisements = await scanAndroidAdvertisements(signal);
+        if (signal.aborted || advertisements === null) return;
+        const results = await resolveKioskAdvertisements(app.api, advertisements, params.storeId);
+        if (!signal.aborted) setScanResults(results);
+      }
+    } catch (reason) {
+      if (!signal.aborted) setError(errorMessage(reason));
+    } finally {
+      activeScan.current = null;
+      setAction(null);
+    }
+  }
+
+  function scanExpired() {
+    setCandidate(null);
+    setScanResults(null);
+    setWaiting(false);
+    setError(scanCopy.expired);
+  }
+
+  async function connect() {
+    if (!candidate || mismatch) return;
+    const scanned = 'token' in candidate ? candidate : null;
+    if (scanned?.expiresAtMs !== undefined && scanned.expiresAtMs <= Date.now()) {
+      scanExpired();
+      return;
+    }
+    setAction('connect');
+    setError('');
+    setWaiting(false);
+    try {
+      await app.connect(candidate.kioskId, scanned?.token ?? code, candidate.store.storeId);
       router.replace(
         params.next === 'help'
           ? {
@@ -76,6 +140,10 @@ export default function Connect() {
           : '/menu',
       );
     } catch (reason) {
+      if (scanned && reason instanceof ApiError && reason.code === 'token-invalid') {
+        scanExpired();
+        return;
+      }
       setWaiting(reason instanceof ApiError && reason.code === 'kiosk-busy');
       if (reason instanceof ApiError && reason.code === 'ordering-paused') {
         // Paused after the store was checked: show the notice instead of an error.
@@ -86,7 +154,7 @@ export default function Connect() {
       }
       setError(errorMessage(reason));
     } finally {
-      setLoading(false);
+      setAction(null);
     }
   }
   return (
@@ -95,7 +163,9 @@ export default function Connect() {
       subtitle={
         candidate
           ? '이름과 주소를 확인한 뒤 연결해 주세요.'
-          : '매장 화면에 표시된 코드를 입력해 주세요.'
+          : scanMode
+            ? scanCopy.subtitle
+            : '매장 화면에 표시된 코드를 입력해 주세요.'
       }
       voice={false}
       reading
@@ -124,8 +194,59 @@ export default function Connect() {
       ) : (
         !app.pendingSubmission && (
           <>
+            {!!error && <Problem message={error} />}
             {!candidate && (
               <View className="gap-4">
+                {scanMode && (
+                  <Card className="rounded-3xl">
+                    <CardContent className="gap-3 pt-6">
+                      <Button
+                        variant="secondary"
+                        disabled={loading || app.busy}
+                        accessibilityState={{
+                          busy: action === 'scan',
+                          disabled: loading || app.busy,
+                        }}
+                        onPress={() => void scan()}
+                      >
+                        <Text>{action === 'scan' ? scanCopy.busy : scanCopy.start}</Text>
+                      </Button>
+                      {scanResults && (
+                        <>
+                          <Text accessibilityLiveRegion="polite">
+                            {scanResults.length ? scanCopy.results : scanCopy.empty}
+                          </Text>
+                          {scanResults.map((result) => {
+                            const address =
+                              venueAddress(result.store, language) || t('주소 확인 필요');
+                            return (
+                              <Button
+                                key={result.kioskId}
+                                variant="outline"
+                                className="h-auto min-h-12 flex-col items-start py-3"
+                                accessibilityLabel={`${result.store.name}, ${result.name}, ${result.kioskId}, ${address}`}
+                                disabled={loading || app.busy}
+                                onPress={() => {
+                                  setError('');
+                                  setWaiting(false);
+                                  setCandidate(result);
+                                }}
+                              >
+                                <Text translate={false} className="text-left">
+                                  {result.store.name}
+                                </Text>
+                                <Text className="text-left font-normal">
+                                  {`${result.name} · ${result.kioskId}`}
+                                </Text>
+                                <Text className="text-left font-normal">{address}</Text>
+                              </Button>
+                            );
+                          })}
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
                 <Card className="w-full rounded-3xl py-0">
                   <CardContent className="gap-4 py-6">
                     <View className="h-12 w-12 items-center justify-center rounded-2xl bg-secondary">
@@ -171,17 +292,8 @@ export default function Connect() {
                       }
                       onPress={() => void inspect()}
                     >
-                      <Text>{loading ? '확인 중' : '연결할 매장 확인하기'}</Text>
+                      <Text>{action === 'inspect' ? '확인 중' : '연결할 매장 확인하기'}</Text>
                     </Button>
-                    {app.demo && (
-                      <Button
-                        variant="secondary"
-                        disabled={loading || app.busy}
-                        onPress={() => void inspect(true)}
-                      >
-                        <Text>데모 매장 확인</Text>
-                      </Button>
-                    )}
                   </CardContent>
                 </Card>
                 <Text variant="muted">
@@ -190,7 +302,6 @@ export default function Connect() {
                 </Text>
               </View>
             )}
-            {!!error && <Problem message={error} />}
             {waiting && (
               <Text>
                 다른 고객이 주문 중입니다. 자동으로 대기 등록되지는 않습니다. 잠시 후 다시
@@ -228,12 +339,16 @@ export default function Connect() {
                     disabled={loading}
                     onPress={() => {
                       setCandidate(null);
-                      setCode('');
+                      if (!('token' in candidate)) setCode('');
                       setWaiting(false);
                       setError('');
                     }}
                   >
-                    <Text>다른 코드 입력</Text>
+                    <Text>
+                      {'token' in candidate
+                        ? '기기 목록과 코드 입력으로 돌아가기'
+                        : '다른 코드 입력'}
+                    </Text>
                   </Button>
                 </CardContent>
               </Card>
