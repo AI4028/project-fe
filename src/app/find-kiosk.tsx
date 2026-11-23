@@ -168,6 +168,15 @@ export default function FindKiosk() {
             {beacon && (
               <>
                 <Text variant="h3">{beacon.kioskId} 키오스크</Text>
+                <Text
+                  testID="beacon-name"
+                  className="font-mono text-lg"
+                  accessibilityLabel={`받은 신호 L K ${beacon.kioskId.split('').join(' ')}, 연결 코드 ${beacon.token.split('').join(' ')}`}
+                >
+                  LK{beacon.kioskId}
+                  {beacon.token}
+                </Text>
+                <Text>연결 코드 {beacon.token}</Text>
                 <View
                   className="my-4 h-40 w-40 items-center justify-center rounded-full border-4 border-primary"
                   accessible={false}
