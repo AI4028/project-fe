@@ -1,12 +1,16 @@
 import {
+  beepInterval,
   distanceStep,
   estimateDirection,
+  hotCold,
+  locateBeacon,
   estimateDistanceM,
   parseBeaconName,
   signalFaded,
   smoothRssi,
   turnCoverage,
   type Sample,
+  type TrackSample,
 } from '@/lib/ble-direction';
 
 // Repeatable pseudo-random jitter (uniform in ±noise dB).
@@ -90,16 +94,6 @@ test('compass heading works flat and held upright', () => {
   expect(headingFromOrientation(200, 45, 0)).toBeCloseTo(160, 5);
 });
 
-test('tells whether the customer is getting closer or further', () => {
-  const { rssiTrend } = jest.requireActual('@/lib/ble-direction');
-  const walk = (from: number, to: number) =>
-    Array.from({ length: 10 }, (_, i) => ({ at: i * 300, rssi: from + ((to - from) * i) / 9 }));
-  expect(rssiTrend(walk(-80, -66), 2700)).toBe('closer');
-  expect(rssiTrend(walk(-62, -76), 2700)).toBe('further');
-  expect(rssiTrend(walk(-70, -71), 2700)).toBe('steady');
-  expect(rssiTrend([], 0)).toBe('steady');
-});
-
 test('kiosk guidance reads well in English', () => {
   const { translate } = jest.requireActual('@/lib/i18n');
   expect(translate('키오스크는 오른쪽, 3시 방향, 약 3m예요.', 'en')).toBe(
@@ -109,5 +103,131 @@ test('kiosk guidance reads well in English', () => {
     'Found the signal of kiosk GK01. 10 m or more.',
   );
   expect(translate('연결 코드 7H3KQ9ZC', 'en')).toBe('Connection code 7H3KQ9ZC');
-  expect(translate('가까워지고 있어요', 'en')).toBe('Getting closer');
+  expect(translate('따뜻해지고 있어요. 이 방향이 맞아요.', 'en')).toBe(
+    "Getting warmer. You're on the right track.",
+  );
+});
+
+// --- Walk-and-learn arrow and hot/cold ---------------------------------------
+
+// A customer near the kiosk (kiosk at the origin). Steps are 0.65 m on the
+// phone's track but really longer or shorter; body shadow 8 dB; ±3 dB noise.
+function simulateTrack(
+  seed: number,
+  plan: ({ rotate: number } | { walk: number; ms: number })[],
+  away: number,
+) {
+  const random = jitterSource(seed);
+  const next = () => random(0.5) + 0.5;
+  const kiosk = next() * 360; // bearing from the start
+  let x = -away * Math.sin((kiosk * Math.PI) / 180);
+  let y = -away * Math.cos((kiosk * Math.PI) / 180);
+  const here = { x: 0, y: 0 };
+  const stride = 0.65 * (0.8 + next() * 0.4);
+  const track: TrackSample[] = [];
+  let at = 0;
+  let heading = next() * 360;
+  const record = () => {
+    const d = Math.max(0.5, Math.hypot(x, y));
+    const toKiosk = ((Math.atan2(-x, -y) * 180) / Math.PI + 360) % 360;
+    const off = Math.abs(((heading - toKiosk + 540) % 360) - 180);
+    track.push({
+      at,
+      ...here,
+      heading: (heading + random(5) + 360) % 360,
+      rssi: -59 - 25 * Math.log10(d) - (8 * off) / 180 + random(3),
+    });
+    at += 100;
+  };
+  for (const part of plan) {
+    if ('rotate' in part) {
+      const from = heading;
+      for (let t = 0; t < part.rotate; t += 100) {
+        heading = (from + (360 * t) / part.rotate) % 360;
+        record();
+      }
+    } else {
+      heading = (part.walk + kiosk + 360) % 360;
+      for (let t = 0; t < part.ms; t += 100) {
+        x += 0.11 * Math.sin((heading * Math.PI) / 180);
+        y += 0.11 * Math.cos((heading * Math.PI) / 180);
+        if (t % 500 === 400) {
+          here.x += stride * Math.sin((heading * Math.PI) / 180);
+          here.y += stride * Math.cos((heading * Math.PI) / 180);
+        }
+        record();
+      }
+    }
+  }
+  const truth = ((Math.atan2(-x, -y) * 180) / Math.PI + 360) % 360;
+  return { located: locateBeacon(track, here), truth };
+}
+
+const gap = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+
+test('turning on the spot locates the kiosk', () => {
+  for (const seed of [3, 11, 29]) {
+    const { located, truth } = simulateTrack(seed, [{ rotate: 15000 }], 6);
+    expect(located.ok).toBe(true);
+    if (located.ok) expect(gap(located.bearing, truth)).toBeLessThan(25);
+  }
+});
+
+test('walking with a bend locates the kiosk, even after passing it', () => {
+  for (const seed of [5, 17]) {
+    const passBy = simulateTrack(
+      seed,
+      [
+        { walk: 20, ms: 6000 },
+        { walk: 100, ms: 4000 },
+      ],
+      6,
+    );
+    expect(passBy.located.ok).toBe(true);
+    if (passBy.located.ok) expect(gap(passBy.located.bearing, passBy.truth)).toBeLessThan(35);
+    const zigzag = simulateTrack(
+      seed,
+      [
+        { walk: 70, ms: 3000 },
+        { walk: -50, ms: 3000 },
+        { walk: 60, ms: 3000 },
+      ],
+      8,
+    );
+    expect(zigzag.located.ok).toBe(true);
+    if (zigzag.located.ok) expect(gap(zigzag.located.bearing, zigzag.truth)).toBeLessThan(35);
+  }
+});
+
+test('a straight walk or too little data gives no arrow instead of a guess', () => {
+  for (const seed of [2, 8]) {
+    const straight = simulateTrack(seed, [{ walk: 30, ms: 6000 }], 9);
+    expect(straight.located.ok).toBe(false);
+  }
+  expect(simulateTrack(4, [{ rotate: 600 }], 5).located).toMatchObject({
+    ok: false,
+    reason: 'need-more',
+  });
+});
+
+test('hot/cold: warmer when the signal rises, hot right at the kiosk', () => {
+  const series = (from: number, to: number) =>
+    Array.from({ length: 30 }, (_, i) => ({ at: i * 150, rssi: from + ((to - from) * i) / 29 }));
+  const rising = hotCold(series(-82, -64), 29 * 150)!;
+  expect(rising.change).toBe('warmer');
+  const falling = hotCold(series(-62, -80), 29 * 150)!;
+  expect(falling.change).toBe('colder');
+  expect(rising.value).toBeGreaterThan(falling.value);
+  const atKiosk = hotCold(series(-59, -59), 29 * 150, -59)!;
+  expect(atKiosk.level).toBe('hot');
+  const far = hotCold(series(-88, -88), 29 * 150, -59)!;
+  expect(far.level).toBe('cold');
+  expect(hotCold([], 0)).toBeNull();
+});
+
+test('beeps speed up as it gets hotter', () => {
+  expect(beepInterval(0)).toBe(1200);
+  expect(beepInterval(1)).toBe(144);
+  expect(beepInterval(0.5)).toBeLessThan(beepInterval(0.2));
+  expect(beepInterval(0.3, true)).toBe(120);
 });

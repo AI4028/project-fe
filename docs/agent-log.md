@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-23 · Simulate walking inside the page, and filter impossible motion readings
+
+- **Hit:** the walk-and-learn arrow was 80–90° off in Playwright but right in Node with the same path; the page had counted 211 steps while standing still.
+- **Why:** headless Chromium sends its own all-zero `devicemotion` readings between the simulated ones (each 0 → 9.8 jump looked like a step), and moving the person from Playwright loops let `evaluate` latency decouple distance from steps.
+- **Fix:** ignore readings below 3 or above 40 m/s²; drive position, phone shake and compass from one in-page 50 ms timer.
+- **Rule:** check the step count while standing still; never move a simulated person from the test runner's loop.
+
 ### 2026-11-23 · Browser compass is wrong when the phone is upright
 
 - **Hit:** on a real Android phone the arrows (GPS and BLE) barely turned while the user rotated with the phone at the chest.

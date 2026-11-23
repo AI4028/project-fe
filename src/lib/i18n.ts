@@ -100,6 +100,7 @@ const patterns: [RegExp, (...parts: string[]) => string][] = [
   [/^나침반 (\d+)°$/, (heading) => `Compass ${heading}°`],
   [/^돌아본 범위 (\d+)° \/ 360°$/, (deg) => `Turned ${deg}° of 360°`],
   [/^1미터 기준을 (-?\d+)dBm으로 맞췄어요\.$/, (value) => `Set the 1 m reference to ${value} dBm.`],
+  [/^신호 온도 (\d+)%$/, (percent) => `Signal heat ${percent}%`],
   [/^(.+) 매장 정보 보기$/, (name) => `View details for ${name}`],
   [/^(.+) 옵션 선택$/, (name) => `Choose options for ${name}`],
   [/^(.+) 옵션과 수량 수정$/, (name) => `Edit options and quantity for ${name}`],
