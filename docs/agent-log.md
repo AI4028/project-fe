@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-23 · Browser compass needs a tap, even in Chromium
+
+- **Hit:** simulated `deviceorientationabsolute` events never turned the direction arrow in Playwright.
+- **Why:** current Chromium, like iOS Safari, has `DeviceOrientationEvent.requestPermission`, so `useHeading` waits for a tap; headless Chromium then denies it because there is no sensor.
+- **Fix:** the direction screen shows "나침반 허용하고 화살표 보기"; tests override `requestPermission` to resolve `'granted'` before dispatching events.
+- **Rule:** start compass/orientation from a user tap and keep the no-compass fallback (absolute direction words); in Playwright, stub `requestPermission` first.
+
 ### 2026-11-21 · Web speech and microphone status
 
 - **Hit:** Automatic spoken guidance stayed silent in the web build.
