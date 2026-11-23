@@ -1,5 +1,5 @@
 import { AppNavigation } from './app-navigation';
-import { useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, useRef, type ReactNode } from 'react';
 import { ActivityIndicator, Image, Platform, ScrollView, View } from 'react-native';
 import { Link, router, useFocusEffect, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { useApp } from '@/providers/app-provider';
 import { cn } from '@/lib/utils';
 import { brandColors, layout } from '@/lib/theme';
 import { useTranslation } from '@/lib/i18n';
+import { useScreenFocus } from '@/lib/use-screen-focus';
 
 export function NavLink({
   href,
@@ -89,6 +90,8 @@ export function Screen({
       return () => setFocused(false);
     }, []),
   );
+  const heading = useRef(null);
+  useScreenFocus(heading);
   return (
     <SafeAreaView className="flex-1 bg-card" edges={['top', 'left', 'right']}>
       <View className="flex-1 bg-background">
@@ -136,7 +139,7 @@ export function Screen({
                   </View>
                 )}
                 <View className="max-w-3xl gap-2">
-                  <Text variant="h1" className="text-left">
+                  <Text ref={heading} variant="h1" className="text-left">
                     {title}
                   </Text>
                   {subtitle && <Text variant="muted">{subtitle}</Text>}
