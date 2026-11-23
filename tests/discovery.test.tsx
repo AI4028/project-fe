@@ -428,6 +428,11 @@ test('map selection previews a store and only the explicit detail action navigat
   await screen.findByLabelText('첫 번째 카페 지도 핀');
   await fireEvent.press(screen.getByLabelText('두 번째 카페 지도 핀'));
   expect(router.push).not.toHaveBeenCalled();
+  expect(screen.getByText('서울 종로')).toBeTruthy();
+  expect(screen.queryByLabelText('장소 선택')).toBeNull();
+  await fireEvent.press(screen.getByLabelText('닫기'));
+  expect(screen.queryByText('서울 종로')).toBeNull();
+  await fireEvent.press(screen.getByLabelText('두 번째 카페 지도 핀'));
   await fireEvent.press(screen.getByText('매장 정보 · 메뉴'));
   expect(router.push).toHaveBeenCalledWith({ pathname: '/store', params: { storeId: 'two' } });
   await fireEvent.press(screen.getByText('키오스크에 연결해 주문하기'));

@@ -311,6 +311,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
         </Button>
       </View>
     ) : null;
+  const mapNotice = position && !failed ? null : notice;
+  const mapSearchIssue =
+    placeError ||
+    (placeStatus &&
+      (placeStatus.generalSearch === 'not-configured' ||
+        placeStatus.generalSearch === 'unavailable' ||
+        ['needs-location', 'outside-coverage', 'not-recorded'].includes(placeStatus.status)));
   const searchFeedback = (
     <>
       {!!placeError && (
@@ -615,10 +622,23 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                 ]}
               />
             </View>
+            {view === 'map' && (
+              <View className="flex-row flex-wrap items-center justify-between gap-2 px-4 pb-2">
+                {resultCount}
+                {position && !submitted ? (
+                  <Button variant="ghost" onPress={resetSearch}>
+                    <Text>전체 매장 보기</Text>
+                  </Button>
+                ) : (
+                  !!mapStores.length && <Text variant="muted">핀을 눌러 장소 정보 보기</Text>
+                )}
+              </View>
+            )}
             <View className="min-h-0 flex-1">
               {view === 'map' && (
                 <View className="flex-1">
                   <StoreMap
+                    selectedId={selectedId}
                     stores={mapStores}
                     position={position}
                     onSelect={(store) => {
@@ -679,52 +699,25 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                   <SubmissionRecovery />
                 </ScrollView>
               )}
-              {view === 'map' &&
-                (notice || placeError || placeStatus || placeLoading || noResults) && (
-                  <View className="absolute left-3 right-3 top-3" style={{ maxHeight: '55%' }}>
-                    <ScrollView
-                      contentContainerClassName="gap-3 rounded-2xl border border-border bg-card p-3"
-                      keyboardShouldPersistTaps="handled"
-                    >
-                      {notice}
-                      {searchFeedback}
-                      {(submitted || position || placeLoading) && resultCount}
-                      {emptyResults}
-                      {!!placeError && (
-                        <Button
-                          variant="outline"
-                          onPress={() =>
-                            void Linking.openURL(placeSearchUrl(submitted)).catch(app.report)
-                          }
-                        >
-                          <Text>지도 앱에서 검색</Text>
-                        </Button>
-                      )}
-                    </ScrollView>
-                  </View>
-                )}
-              {view === 'map' && !selected && !!stores.length && (
-                <View className="absolute bottom-4 left-3 right-20">
+              {view === 'map' && (mapNotice || mapSearchIssue || noResults) && (
+                <View className="absolute left-3 right-3 top-3" style={{ maxHeight: '55%' }}>
                   <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerClassName="gap-2"
+                    contentContainerClassName="gap-3 rounded-2xl border border-border bg-card p-3"
                     keyboardShouldPersistTaps="handled"
-                    accessibilityLabel="장소 선택"
                   >
-                    {stores.map((store) => (
+                    {mapNotice}
+                    {searchFeedback}
+                    {emptyResults}
+                    {!!placeError && (
                       <Button
-                        key={store.storeId}
                         variant="outline"
-                        className="max-w-64 items-start"
-                        accessibilityLabel={`${language === 'en' ? store.nameEn || store.name : store.name} 매장 정보 보기`}
-                        onPress={() => setSelectedId(store.storeId)}
+                        onPress={() =>
+                          void Linking.openURL(placeSearchUrl(submitted)).catch(app.report)
+                        }
                       >
-                        <Text translate={false} className="text-left">
-                          {language === 'en' ? store.nameEn || store.name : store.name}
-                        </Text>
+                        <Text>지도 앱에서 검색</Text>
                       </Button>
-                    ))}
+                    )}
                   </ScrollView>
                 </View>
               )}
@@ -745,6 +738,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
             </View>
             {selected && (view === 'map' || selected.directoryOnly) && (
               <ScrollView
+                contentContainerClassName="px-2 pb-1"
                 style={{ flexGrow: 0, maxHeight: '46%' }}
                 keyboardShouldPersistTaps="handled"
               >
