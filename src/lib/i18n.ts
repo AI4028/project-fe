@@ -4,6 +4,26 @@ import english from './locales/en.json';
 export type Language = 'ko' | 'en';
 export const LanguageContext = createContext<Language>('ko');
 const messages: Record<string, string> = english;
+const directionWords: Record<string, string> = {
+  정면: 'straight ahead',
+  '오른쪽 앞': 'ahead on your right',
+  오른쪽: 'on your right',
+  '오른쪽 뒤': 'behind you on the right',
+  뒤쪽: 'behind you',
+  '왼쪽 뒤': 'behind you on the left',
+  왼쪽: 'on your left',
+  '왼쪽 앞': 'ahead on your left',
+};
+const compassWords: Record<string, string> = {
+  북: 'north',
+  북동: 'northeast',
+  동: 'east',
+  남동: 'southeast',
+  남: 'south',
+  남서: 'southwest',
+  서: 'west',
+  북서: 'northwest',
+};
 const itemCount = (count: string) => `${count} ${count === '1' ? 'item' : 'items'}`;
 const patterns: [RegExp, (...parts: string[]) => string][] = [
   [/^장바구니 (\d+)개 · ([\d,]+)원$/, (count, total) => `Cart · ${itemCount(count)} · ₩${total}`],
@@ -31,6 +51,28 @@ const patterns: [RegExp, (...parts: string[]) => string][] = [
   [
     /^현재 위치 기준 3km 이내 매장 · 위치 오차 약 (\d+)m$/,
     (accuracy) => `Stores within 3 km · location accuracy about ${accuracy} m`,
+  ],
+  [
+    /^매장은 (정면|오른쪽 앞|오른쪽|오른쪽 뒤|뒤쪽|왼쪽 뒤|왼쪽|왼쪽 앞), (\d+)시 방향으로 약 ([\d.]+k?m) 떨어져 있어요\.$/,
+    (side, clock, distance) =>
+      `The venue is ${directionWords[side] ?? side}, at ${clock} o'clock, about ${distance} away.`,
+  ],
+  [
+    /^매장은 (북|북동|동|남동|남|남서|서|북서)쪽으로 약 ([\d.]+k?m) 떨어져 있어요\.$/,
+    (heading, distance) =>
+      `The venue is about ${distance} to the ${compassWords[heading] ?? heading}.`,
+  ],
+  [
+    /^(정면|오른쪽 앞|오른쪽|오른쪽 뒤|뒤쪽|왼쪽 뒤|왼쪽|왼쪽 앞) · (\d+)시 방향$/,
+    (side, clock) => `${directionWords[side] ?? side} · ${clock} o'clock`,
+  ],
+  [
+    /^(북|북동|동|남동|남|남서|서|북서)쪽 방향$/,
+    (heading) => `To the ${compassWords[heading] ?? heading}`,
+  ],
+  [
+    /^위치 정확도가 낮아요 \(약 (\d+)m\)\. 건물 밖에서 더 정확해요\.$/,
+    (meters) => `Location accuracy is low (about ${meters} m). It is more accurate outdoors.`,
   ],
   [/^(.+) 매장 정보 보기$/, (name) => `View details for ${name}`],
   [/^(.+) 옵션 선택$/, (name) => `Choose options for ${name}`],
