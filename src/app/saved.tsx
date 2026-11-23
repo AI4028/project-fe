@@ -125,8 +125,9 @@ function SavedMenus() {
   const saved = useSavedMenus(app.api.base);
   const [results, setResults] = useState<{ key: string; values: Map<string, Lookup> }>();
   const [revision, setRevision] = useState(0);
+  const pairedStoreId = app.connection?.kioskId ? app.connection.storeId : undefined;
   const storeIds = JSON.stringify([...new Set(saved.entries.map((entry) => entry.storeId))]);
-  const key = JSON.stringify([app.api.base, storeIds, revision]);
+  const key = JSON.stringify([app.api.base, storeIds, pairedStoreId, revision]);
 
   useFocusEffect(
     useCallback(() => {
@@ -137,7 +138,9 @@ function SavedMenus() {
         void Promise.all(
           ids.map(async (id): Promise<[string, Lookup]> => {
             try {
-              return [id, { status: 'ready', store: await app.api.store(id) }];
+              const store =
+                id === pairedStoreId ? await app.selectStore(id) : await app.api.store(id);
+              return [id, { status: 'ready', store }];
             } catch (reason) {
               return [
                 id,
@@ -155,7 +158,7 @@ function SavedMenus() {
       return () => {
         active = false;
       };
-    }, [app.api, key, storeIds]),
+    }, [app.api, key, pairedStoreId, storeIds]),
   );
 
   if (saved.error)
@@ -190,9 +193,17 @@ function SavedMenus() {
       {saved.entries.map((entry) => {
         const lookup = lookups?.get(entry.storeId);
         const store = lookup?.status === 'ready' ? lookup.store : undefined;
-        const item = store?.menu?.find((item) => item.id === entry.itemId);
+        const item =
+          entry.storeId === pairedStoreId
+            ? store?.menu?.find((item) => item.id === entry.itemId)
+            : undefined;
         const available =
           store && item?.available && store.hasOrderTerminal !== false && !store.orderingPaused;
+        const canPair =
+          store &&
+          entry.storeId !== pairedStoreId &&
+          store.hasOrderTerminal !== false &&
+          !store.orderingPaused;
         const name =
           (language === 'en' ? item?.nameEn || item?.name : item?.name) || entry.itemName;
         const storeName =
@@ -248,6 +259,15 @@ function SavedMenus() {
                 >
                   메뉴 고르기
                 </NavLink>
+              ) : canPair ? (
+                <NavLink
+                  href={{
+                    pathname: '/connect',
+                    params: { storeId: entry.storeId, itemId: entry.itemId },
+                  }}
+                >
+                  키오스크에 연결해 주문하기
+                </NavLink>
               ) : lookup ? (
                 <>
                   <Text>
@@ -257,9 +277,13 @@ function SavedMenus() {
                         ? '이 매장은 휴대폰 주문을 받을 수 없어요. 매장 직원에게 문의해 주세요.'
                         : '현재 판매하지 않는 메뉴예요.'}
                   </Text>
-                  {store ? (
+                  {store && entry.storeId === pairedStoreId ? (
                     <NavLink href={{ pathname: '/menu', params: { storeId: entry.storeId } }}>
                       매장의 다른 메뉴 보기
+                    </NavLink>
+                  ) : store ? (
+                    <NavLink href={{ pathname: '/store', params: { storeId: entry.storeId } }}>
+                      매장 정보 보기
                     </NavLink>
                   ) : (
                     <NavLink href="/">매장 둘러보기</NavLink>

@@ -51,8 +51,10 @@ See [backend integration](docs/backend-readiness.md) before running it.
 2. **Review the store.** Details show branch/address, registered access information,
    ordering methods, and indoor descriptions. Missing facts, provenance, contact,
    and availability remain unknown. Store details can be opened with
-   `/store?storeId=...`; menus can be previewed before connecting.
-3. **Confirm the connection.** Code/link input first uses `GET /kiosks/{id}` and
+   `/store?storeId=...`. Pair with a kiosk to open its menu.
+3. **Confirm the connection.** The kiosk broadcasts its ID and a rotating code over BLE.
+   The phone reads both and looks up the kiosk’s registered store and address. QR
+   and manual code entry use the same validation. Store lookup uses `GET /kiosks/{id}` and
    `GET /stores/{id}` to show the actual store. A code for a different selected
    store is blocked. The user confirms before a session is created. Busy/expired
    codes offer retry, another code, leaving, and direct staff assistance. No queue

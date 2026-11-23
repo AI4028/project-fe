@@ -58,7 +58,7 @@ beforeEach(async () => {
       return { data: { kioskId: 'GK01', storeId: 'cafe', name: '카페' } };
     if (path === '/devices') return { data: { token: 'dev_test', deviceId: 'd1' } };
     if (path === '/sessions' && method === 'POST') return { data: connection };
-    if (path === '/stores/cafe') return { data: store };
+    if (path === '/sessions/s1/store') return { data: store };
     if (path === '/sessions/s1')
       return {
         data: { ...connection, status: 'active', cart: { lines: [], total: 0, summary: '' } },
@@ -199,37 +199,18 @@ test.each([true, false])(
   },
 );
 
-test('obtains a server cart and submits without pairing to a kiosk', async () => {
-  const previous = route;
-  route = (path, method) => {
-    if (path === '/stores/cafe/sessions')
-      return {
-        data: {
-          ...connection,
-          kioskId: null,
-          status: 'active',
-          cart: { lines: [], total: 0, summary: '' },
-        },
-      };
-    return previous(path, method);
-  };
+test('requires a paired kiosk before fetching a menu or changing the cart', async () => {
   const { result } = await mount();
-  await act(() => result.current.updateCart([{ itemId: 'coffee', qty: 1, options: {} }], 'cafe'));
-  expect(result.current.connection?.kioskId).toBeNull();
-  expect(result.current.store?.storeId).toBe('cafe');
-  expect(result.current.cart.total).toBe(2500);
-  expect(await AsyncStorage.getItem(`session:${result.current.api.base}`)).toBe('s1');
-  await act(() => result.current.submit('counter', ''));
-  expect(result.current.order?.orderId).toBe('o1');
-  const requested = fetchMock.mock.calls.map(([url]) => new URL(url).pathname);
-  const posted = fetchMock.mock.calls.find(([url]) => url.endsWith('/sessions/s1/order'));
-  expect(JSON.parse(posted![1].body)).toMatchObject({
-    paymentMethod: 'counter',
-    simulatePayment: false,
+  await act(async () => {
+    await expect(result.current.selectStore('cafe')).rejects.toMatchObject({
+      code: 'kiosk-pairing-required',
+    });
+    await expect(
+      result.current.updateCart([{ itemId: 'coffee', qty: 1, options: {} }], 'cafe'),
+    ).rejects.toMatchObject({ code: 'kiosk-pairing-required' });
   });
-  expect(requested).toContain('/stores/cafe/sessions');
-  expect(requested).not.toContain('/sessions');
-  expect(requested).not.toContain('/kiosks/GK01');
+  expect(result.current.connection).toBeNull();
+  expect(fetchMock).not.toHaveBeenCalled();
 });
 
 test('keeps independently saved preferences when changes overlap', async () => {
@@ -473,42 +454,19 @@ test('help submission means sent, not acknowledged or assistance received', asyn
   });
 });
 
-test('ignores a stale preview store response after connecting to another store', async () => {
-  const storeB = { ...store, storeId: 'branch', name: '브랜치' };
-  const connectionB = { sessionId: 's2', kioskId: 'GK02', storeId: 'branch' };
+test('clears an active legacy cart without unlocking its menu', async () => {
+  device = 'dev_test';
+  await AsyncStorage.setItem('session:http://127.0.0.1:8000', 's1');
   const previous = route;
-  route = (path, method) => {
-    if (path === '/kiosks/GK02')
-      return { data: { kioskId: 'GK02', storeId: 'branch', name: '브랜치' } };
-    if (path === '/sessions' && method === 'POST') return { data: connectionB };
-    if (path === '/stores/branch') return { data: storeB };
-    if (path === '/sessions/s2')
-      return {
-        data: { ...connectionB, status: 'active', cart: { lines: [], total: 0, summary: '' } },
-      };
-    return previous(path, method);
-  };
-  let release = () => {};
-  const waitForCafe = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  global.fetch = jest.fn(async (url: string, init: RequestInit) => {
-    const path = new URL(url).pathname;
-    if (path === '/stores/cafe') await waitForCafe;
-    const response = route(path, init.method ?? 'GET');
-    return {
-      ok: (response.status ?? 200) < 400,
-      status: response.status ?? 200,
-      json: async () => response.data,
-    };
-  }) as unknown as typeof fetch;
+  route = (path, method) =>
+    path === '/sessions/s1'
+      ? { data: { ...connection, kioskId: null, status: 'active', cart } }
+      : previous(path, method);
   const { result } = await mount();
-  const preview = result.current.selectStore('cafe');
-  await act(() => result.current.connect('GK02', 'ABCDEFGH'));
-  await waitFor(() => expect(result.current.store?.storeId).toBe('branch'));
-  release();
-  await preview;
-  await waitFor(() => expect(result.current.store?.storeId).toBe('branch'));
+  expect(result.current.connection).toBeNull();
+  expect(result.current.items).toEqual([]);
+  expect(await AsyncStorage.getItem('session:http://127.0.0.1:8000')).toBeNull();
+  expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/store'))).toBe(false);
 });
 
 test('replays the exact persisted request when the first submission has no known result', async () => {
@@ -536,37 +494,20 @@ test('replays the exact persisted request when the first submission has no known
   expect(await AsyncStorage.getItem('submission:http://127.0.0.1:8000')).toBeNull();
 });
 
-test('keeps the original cart on a rejected switch and releases it only after the new cart is saved', async () => {
+test('does not switch carts to a store without pairing there', async () => {
   const { result } = await mount();
   const line = { itemId: 'coffee', qty: 1, options: {} };
   await act(() => result.current.connect('GK01', 'ABCDEFGH'));
   await act(() => result.current.updateCart([line]));
-  const previous = route;
-  let rejectCart = true;
-  route = (path, method) => {
-    if (path === '/stores/next') return { data: { ...store, storeId: 'next' } };
-    if (path === '/stores/next/cart')
-      return rejectCart
-        ? { status: 409, data: { error: 'ordering-paused' } }
-        : { data: { sessionId: 's2', storeId: 'next', kioskId: null, cart } };
-    if (path === '/sessions/s1/end') return { data: { type: 'ended' } };
-    return previous(path, method);
-  };
+  fetchMock.mockClear();
   await act(async () => {
-    await expect(result.current.updateCart([line], 'next', 's1')).rejects.toMatchObject({
-      code: 'ordering-paused',
+    await expect(result.current.updateCart([line], 'next')).rejects.toMatchObject({
+      code: 'kiosk-pairing-required',
     });
   });
-  expect(result.current.connection?.sessionId).toBe('s1');
+  expect(result.current.connection).toMatchObject(connection);
   expect(result.current.items).toEqual([line]);
-  const key = `session:${result.current.api.base}`;
-  expect(await AsyncStorage.getItem(key)).toBe('s1');
-  expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/s1/end'))).toBe(false);
-  rejectCart = false;
-  await act(() => result.current.updateCart([line], 'next', 's1'));
-  expect(result.current.connection?.sessionId).toBe('s2');
-  expect(await AsyncStorage.getItem(key)).toBe('s2');
-  expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/s1/end'))).toBe(true);
+  expect(fetchMock).not.toHaveBeenCalled();
 });
 
 test.each(['ordering-paused', 'unknown-item'])(

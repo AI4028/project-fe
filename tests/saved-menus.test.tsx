@@ -33,5 +33,5 @@ test('a saved item at a browse-only store explains why it cannot be ordered', as
     await screen.findByText('이 매장은 휴대폰 주문을 받을 수 없어요. 매장 직원에게 문의해 주세요.'),
   ).toBeTruthy();
   expect(screen.queryByText('메뉴 고르기')).toBeNull();
-  expect(screen.getByText('매장의 다른 메뉴 보기')).toBeTruthy();
+  expect(screen.queryByText('매장의 다른 메뉴 보기')).toBeNull();
 });

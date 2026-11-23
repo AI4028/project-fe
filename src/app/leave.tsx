@@ -12,9 +12,18 @@ import { errorMessage } from '@/lib/api';
 
 export default function Leave() {
   const app = useApp();
-  const { storeId } = useLocalSearchParams<{ storeId?: string }>();
+  const { storeId, itemId, next, from, section } = useLocalSearchParams<{
+    storeId?: string;
+    itemId?: string;
+    next?: string;
+    from?: string;
+    section?: string;
+  }>();
   const [error, setError] = useState('');
-  const target = storeId ? { pathname: '/menu' as const, params: { storeId } } : ('/' as const);
+  const target = storeId
+    ? { pathname: '/connect' as const, params: { storeId, itemId, next, from, section } }
+    : ('/' as const);
+  const browse = storeId ? { pathname: '/store' as const, params: { storeId } } : ('/' as const);
 
   return (
     <Screen title="매장을 바꿀까요?" reading voice={false}>
@@ -52,12 +61,12 @@ export default function Leave() {
             <Text>
               {app.items.length
                 ? storeId
-                  ? '비우고 새 매장 메뉴 보기'
+                  ? '비우고 새 키오스크에 연결하기'
                   : '비우고 다른 매장 찾기'
                 : '다른 매장 찾기'}
             </Text>
           </Button>
-          <NavLink href={target} variant="ghost">
+          <NavLink href={browse} variant="ghost">
             장바구니 유지하고 둘러보기
           </NavLink>
         </View>
@@ -69,7 +78,7 @@ export default function Leave() {
           description="이미 제출한 주문은 주문 상태 화면에서 확인해 주세요."
         >
           <NavLink href={target} variant="default">
-            {storeId ? '새 매장 메뉴 보기' : '매장 찾기로'}
+            {storeId ? '새 키오스크에 연결하기' : '매장 찾기로'}
           </NavLink>
         </EmptyState>
       )}

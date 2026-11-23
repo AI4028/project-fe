@@ -48,6 +48,7 @@ export default function Connect() {
     kioskId?: string;
     token?: string;
     storeId?: string;
+    itemId?: string;
     next?: string;
     from?: string;
     section?: string;
@@ -137,7 +138,12 @@ export default function Connect() {
                 section: params.section,
               },
             }
-          : '/menu',
+          : params.itemId
+            ? {
+                pathname: '/menu/[itemId]',
+                params: { itemId: params.itemId, storeId: candidate.store.storeId },
+              }
+            : '/menu',
       );
     } catch (reason) {
       if (scanned && reason instanceof ApiError && reason.code === 'token-invalid') {
@@ -176,18 +182,25 @@ export default function Connect() {
           <CardContent className="gap-4 pt-6">
             <Icon as={Check} size={28} className="text-primary" />
             <Text variant="h3">
-              {app.connection.kioskId
-                ? `${app.store?.name}에 연결되어 있습니다`
-                : '장바구니가 열려 있어요'}
+              {app.store?.name
+                ? `${app.store.name}에 연결되어 있습니다`
+                : '키오스크에 연결되었어요.'}
             </Text>
-            <Text>
-              {app.connection.kioskId
-                ? '주문을 이어서 진행할 수 있어요.'
-                : '이미 담은 메뉴가 있어요. 바로 주문하거나 장바구니를 비우고 기기 코드로 연결할 수 있어요.'}
-            </Text>
+            <Text>주문을 이어서 진행할 수 있어요.</Text>
             <NavLink href="/menu">메뉴로 이어가기</NavLink>
-            <NavLink href="/leave">
-              {app.connection.kioskId ? '다른 매장으로 변경' : '장바구니 비우고 기기 코드로 연결'}
+            <NavLink
+              href={{
+                pathname: '/leave',
+                params: {
+                  storeId: params.storeId,
+                  itemId: params.itemId,
+                  next: params.next,
+                  from: params.from,
+                  section: params.section,
+                },
+              }}
+            >
+              다른 매장으로 변경
             </NavLink>
           </CardContent>
         </Card>
@@ -297,8 +310,7 @@ export default function Connect() {
                   </CardContent>
                 </Card>
                 <Text variant="muted">
-                  코드를 찾기 어렵다면 직원에게 요청하세요. 다음 화면에서 매장을 확인하고 연결할 수
-                  있어요.
+                  카메라로 키오스크의 QR 코드를 스캔하거나 화면에 표시된 코드를 입력하세요.
                 </Text>
               </View>
             )}
@@ -362,7 +374,7 @@ export default function Connect() {
           params: { storeId: params.storeId, from: params.from, section: params.section },
         }}
       >
-        코드 없이 이용하기 · 직원에게 문의
+        직원에게 문의
       </NavLink>
       <NavLink
         href={params.storeId ? { pathname: '/store', params: { storeId: params.storeId } } : '/'}

@@ -2,9 +2,10 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Api, ApiError, errorMessage } from '@/lib/api';
 import Connect from '@/app/connect';
 import StoreDetails from '@/app/store';
+import { MenuScreen } from '@/components/menu-screen';
 import { router } from 'expo-router';
 
-let mockParams: { next?: string; storeId?: string };
+let mockParams: { next?: string; storeId?: string; kioskId?: string; token?: string };
 let mockAndroidScanAvailable = false;
 const mockScanAndroid = jest.fn();
 const mockLink = jest.fn();
@@ -17,6 +18,8 @@ jest.mock('@/lib/android-kiosk-ble', () => ({
 
 jest.mock('@rn-primitives/slot', () => ({ Slot: jest.fn() }));
 jest.mock('@/components/place-actions', () => ({ PlaceBookmark: () => null }));
+jest.mock('@/components/item-options-sheet', () => ({ ItemOptionsSheet: () => null }));
+jest.mock('@/lib/use-saved-menus', () => ({ useSavedMenus: () => ({ ready: false }) }));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View }));
 jest.mock('expo-router', () => ({
   router: { replace: jest.fn(), push: jest.fn() },
@@ -26,7 +29,12 @@ jest.mock('expo-router', () => ({
 jest.mock('@/components/screen', () => {
   const { Text, View } = require('react-native');
   return {
-    Screen: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
+    Screen: ({ children, footer }: { children: React.ReactNode; footer?: React.ReactNode }) => (
+      <View>
+        {children}
+        {footer}
+      </View>
+    ),
     NavLink: ({ children, href }: { children: React.ReactNode; href: unknown }) => {
       mockLink(children, href);
       return <Text>{children}</Text>;
@@ -47,6 +55,8 @@ const mockApp = {
   busy: false,
   demo: false,
   connection: null,
+  items: [],
+  selectStore: jest.fn(),
   pendingSubmission: null,
   api: {
     kioskInfo: jest.fn(),
@@ -86,6 +96,18 @@ test.each([
   await checkStore();
   await fireEvent.press(screen.getByText('이 매장이 맞아요 · 연결하기'));
   expect(router.replace).toHaveBeenCalledWith(destination);
+});
+
+test('a kiosk QR link fills the pairing fields and still asks for confirmation', async () => {
+  mockParams = { kioskId: 'GK01', token: 'ABCDEFGH' };
+  mockApp.api.store.mockResolvedValue(store);
+  await render(<Connect />);
+  expect(screen.getByDisplayValue('GK01')).toBeTruthy();
+  expect(screen.getByDisplayValue('ABCDEFGH')).toBeTruthy();
+  await fireEvent.press(screen.getByText('연결할 매장 확인하기'));
+  expect(mockApp.connect).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByText('이 매장이 맞아요 · 연결하기'));
+  expect(mockApp.connect).toHaveBeenCalledWith('GK01', 'ABCDEFGH', store.storeId);
 });
 
 test('staff pause call and the Korean message', async () => {
@@ -242,6 +264,15 @@ test('store details open a store-scoped kiosk scan and unrelated stores are excl
   expect(screen.getByText('GIST 카페')).toBeTruthy();
   expect(screen.queryByText('온기 카페')).toBeNull();
   expect(mockApp.api.store).not.toHaveBeenCalledWith('ongi');
+});
+
+test('a direct menu or item link requires pairing before loading the menu', async () => {
+  await render(<MenuScreen storeId={store.storeId} initialItemId="americano" />);
+  expect(mockApp.selectStore).not.toHaveBeenCalled();
+  expect(mockLink).toHaveBeenCalledWith('키오스크 연결', {
+    pathname: '/connect',
+    params: { storeId: store.storeId, itemId: 'americano' },
+  });
 });
 
 test('an expired Android advertisement prompts a new scan after the server rejects it', async () => {

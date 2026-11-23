@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-23 · Update tests when removing the code-free cart path
+
+- **Hit:** TypeScript reported `Expected 1-2 arguments, but got 3` in a cart test.
+- **Why:** The third argument belonged to the old code-free store switch flow.
+- **Fix:** Test that switching stores requires a new kiosk pairing and that the old cart stays available until the user leaves it.
+- **Rule:** Check both the menu routes and the provider when changing the pairing gate.
+
 ### 2026-11-23 · Preserve signing when publishing a branch
 
 - **Hit:** A sandboxed `git commit` failed with `gpg failed to sign the data`.
