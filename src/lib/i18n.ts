@@ -24,6 +24,8 @@ const compassWords: Record<string, string> = {
   서: 'west',
   북서: 'northwest',
 };
+const distanceStepEn = (step: string) =>
+  messages[step] ?? step.replace(/^약 (\d+)m$/, 'About $1 m');
 const itemCount = (count: string) => `${count} ${count === '1' ? 'item' : 'items'}`;
 const patterns: [RegExp, (...parts: string[]) => string][] = [
   [/^장바구니 (\d+)개 · ([\d,]+)원$/, (count, total) => `Cart · ${itemCount(count)} · ₩${total}`],
@@ -74,6 +76,30 @@ const patterns: [RegExp, (...parts: string[]) => string][] = [
     /^위치 정확도가 낮아요 \(약 (\d+)m\)\. 건물 밖에서 더 정확해요\.$/,
     (meters) => `Location accuracy is low (about ${meters} m). It is more accurate outdoors.`,
   ],
+  [/^약 (\d+)m$/, (meters) => `About ${meters} m`],
+  [/^([A-Z0-9]{4}) 키오스크$/, (id) => `Kiosk ${id}`],
+  [/^연결 코드 ([0-9A-Z]{8})$/, (code) => `Connection code ${code}`],
+  [/^([A-Z0-9]{4}) 키오스크 바로 앞이에요\.$/, (id) => `You're right in front of kiosk ${id}.`],
+  [
+    /^([A-Z0-9]{4}) 키오스크 신호를 찾았어요\. (.+?)(?:이에요|예요)\.$/,
+    (id, step) => `Found the signal of kiosk ${id}. ${distanceStepEn(step)}.`,
+  ],
+  [
+    /^키오스크는 (정면|오른쪽 앞|오른쪽|오른쪽 뒤|뒤쪽|왼쪽 뒤|왼쪽|왼쪽 앞), (\d+)시 방향, (.+?)(?:이에요|예요)\.$/,
+    (side, clock, step) =>
+      `The kiosk is ${directionWords[side] ?? side}, at ${clock} o'clock, ${distanceStepEn(step).toLowerCase()}.`,
+  ],
+  [
+    /^신호 (-?\d+)dBm · 1m 기준 (-?\d+)dBm$/,
+    (rssi, ref) => `Signal ${rssi} dBm · 1 m reference ${ref} dBm`,
+  ],
+  [
+    /^나침반 (\d+)° · 키오스크 방위 (\d+)°$/,
+    (heading, bearing) => `Compass ${heading}° · kiosk bearing ${bearing}°`,
+  ],
+  [/^나침반 (\d+)°$/, (heading) => `Compass ${heading}°`],
+  [/^돌아본 범위 (\d+)° \/ 360°$/, (deg) => `Turned ${deg}° of 360°`],
+  [/^1미터 기준을 (-?\d+)dBm으로 맞췄어요\.$/, (value) => `Set the 1 m reference to ${value} dBm.`],
   [/^(.+) 매장 정보 보기$/, (name) => `View details for ${name}`],
   [/^(.+) 옵션 선택$/, (name) => `Choose options for ${name}`],
   [/^(.+) 옵션과 수량 수정$/, (name) => `Edit options and quantity for ${name}`],

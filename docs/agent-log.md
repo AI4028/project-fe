@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-23 · Browser compass is wrong when the phone is upright
+
+- **Hit:** on a real Android phone the arrows (GPS and BLE) barely turned while the user rotated with the phone at the chest.
+- **Why:** `360 − alpha` from `deviceorientationabsolute` is the heading only with the phone flat; held upright the Euler angles swap roles.
+- **Fix:** `headingFromOrientation(alpha, beta, gamma)`: horizontal direction of the phone's top plus its back, from the full rotation matrix.
+- **Rule:** never use `alpha` alone as a heading; test headings at beta 0, 45 and 90.
+
 ### 2026-11-23 · Test signal noise must be random, not a sine of the heading
 
 - **Hit:** BLE direction tests failed ("no-clear-direction", 33° error) at some kiosk bearings with `Math.sin(heading * 7.3) * noise` as jitter.

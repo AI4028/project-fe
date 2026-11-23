@@ -5,6 +5,7 @@ import { ArrowUp, Compass, MapPin, Volume2 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { Problem } from '@/components/feedback';
+import { KioskFinder } from '@/components/kiosk-finder';
 import { NavLink, Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -31,7 +32,7 @@ export default function Direction() {
   const [error, setError] = useState('');
   const [fix, setFix] = useState<Fix | null>(null);
   const [locationState, setLocationState] = useState<LocationState>('asking');
-  const { heading, status: compassStatus, request: allowCompass } = useHeading(!!store?.location);
+  const { heading, status: compassStatus, request: allowCompass } = useHeading(!!storeId);
   const lastSpoken = useRef({ key: '', at: 0 });
   const arrivedOnce = useRef(false);
 
@@ -198,10 +199,23 @@ export default function Direction() {
             휴대폰을 몸 앞에 수평으로 들고 천천히 돌려 보세요. 화살표가 매장 쪽을 가리켜요. 차도와
             계단에 주의하고, 입구는 매장 안내나 직원에게 확인해 주세요.
           </Text>
-          <NavLink href="/find-kiosk">매장 안에서: 블루투스로 키오스크 찾기 (테스트)</NavLink>
           {storeId && (
             <NavLink href={{ pathname: '/guide', params: { storeId } }}>길 안내로 돌아가기</NavLink>
           )}
+        </View>
+      )}
+      {storeId && (
+        <View className="mt-8 gap-3 border-t border-border pt-6">
+          <Text variant="h3">매장 안에서: 키오스크 찾기</Text>
+          <Text variant="muted">
+            매장 가까이 오면 키오스크의 블루투스 신호로 거리와 방향을 안내해요. Android Chrome에서
+            테스트할 수 있어요.
+          </Text>
+          <KioskFinder
+            heading={heading}
+            compassStatus={compassStatus}
+            allowCompass={allowCompass}
+          />
         </View>
       )}
     </Screen>

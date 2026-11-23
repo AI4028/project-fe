@@ -103,3 +103,32 @@ export function estimateDirection(
 export function signalFaded(strengthAtEstimate: number, current: number, dropDb = 6): boolean {
   return strengthAtEstimate - current >= dropDb;
 }
+
+export type Trend = 'closer' | 'further' | 'steady';
+
+/**
+ * Walking guidance that works with one beacon: compare the smoothed signal now
+ * with a few seconds ago. Stronger → closer, weaker → further.
+ */
+export function rssiTrend(
+  history: readonly { at: number; rssi: number }[],
+  now: number,
+  windowMs = 5000,
+  thresholdDb = 4,
+): Trend {
+  const recent = history.filter((h) => now - h.at <= windowMs);
+  if (recent.length < 4) return 'steady';
+  const half = Math.floor(recent.length / 2);
+  const earlier = smoothRssi(
+    recent.slice(0, half).map((h) => h.rssi),
+    half,
+  );
+  const later = smoothRssi(
+    recent.slice(half).map((h) => h.rssi),
+    recent.length - half,
+  );
+  if (earlier == null || later == null) return 'steady';
+  if (later - earlier >= thresholdDb) return 'closer';
+  if (earlier - later >= thresholdDb) return 'further';
+  return 'steady';
+}

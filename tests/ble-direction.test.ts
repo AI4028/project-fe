@@ -89,3 +89,25 @@ test('compass heading works flat and held upright', () => {
   // Tilted 45° still agrees.
   expect(headingFromOrientation(200, 45, 0)).toBeCloseTo(160, 5);
 });
+
+test('tells whether the customer is getting closer or further', () => {
+  const { rssiTrend } = jest.requireActual('@/lib/ble-direction');
+  const walk = (from: number, to: number) =>
+    Array.from({ length: 10 }, (_, i) => ({ at: i * 300, rssi: from + ((to - from) * i) / 9 }));
+  expect(rssiTrend(walk(-80, -66), 2700)).toBe('closer');
+  expect(rssiTrend(walk(-62, -76), 2700)).toBe('further');
+  expect(rssiTrend(walk(-70, -71), 2700)).toBe('steady');
+  expect(rssiTrend([], 0)).toBe('steady');
+});
+
+test('kiosk guidance reads well in English', () => {
+  const { translate } = jest.requireActual('@/lib/i18n');
+  expect(translate('키오스크는 오른쪽, 3시 방향, 약 3m예요.', 'en')).toBe(
+    "The kiosk is on your right, at 3 o'clock, about 3 m.",
+  );
+  expect(translate('GK01 키오스크 신호를 찾았어요. 10m 이상이에요.', 'en')).toBe(
+    'Found the signal of kiosk GK01. 10 m or more.',
+  );
+  expect(translate('연결 코드 7H3KQ9ZC', 'en')).toBe('Connection code 7H3KQ9ZC');
+  expect(translate('가까워지고 있어요', 'en')).toBe('Getting closer');
+});
