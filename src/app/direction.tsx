@@ -198,6 +198,7 @@ export default function Direction() {
             휴대폰을 몸 앞에 수평으로 들고 천천히 돌려 보세요. 화살표가 매장 쪽을 가리켜요. 차도와
             계단에 주의하고, 입구는 매장 안내나 직원에게 확인해 주세요.
           </Text>
+          <NavLink href="/find-kiosk">매장 안에서: 블루투스로 키오스크 찾기 (테스트)</NavLink>
           {storeId && (
             <NavLink href={{ pathname: '/guide', params: { storeId } }}>길 안내로 돌아가기</NavLink>
           )}

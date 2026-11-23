@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-23 · Test signal noise must be random, not a sine of the heading
+
+- **Hit:** BLE direction tests failed ("no-clear-direction", 33° error) at some kiosk bearings with `Math.sin(heading * 7.3) * noise` as jitter.
+- **Why:** with 6° steps that sine changes slowly across a turn, so it acts as a second fake signal lobe, not noise.
+- **Fix:** seeded pseudo-random jitter (LCG, uniform ±noise dB); direction is a circular mean of 30° sectors weighted by (value − mean)². Max error 23° at ±4 dB.
+- **Rule:** simulate RSSI noise with a seeded random source and check every bearing, not one.
+
 ### 2026-11-23 · Browser compass needs a tap, even in Chromium
 
 - **Hit:** simulated `deviceorientationabsolute` events never turned the direction arrow in Playwright.
