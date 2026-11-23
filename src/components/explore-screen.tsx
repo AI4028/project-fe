@@ -25,6 +25,7 @@ import { displayPlace } from '@/lib/place-search';
 import { useTranslation } from '@/lib/i18n';
 import { errorMessage } from '@/lib/api';
 import { layout } from '@/lib/theme';
+import { useScreenFocus } from '@/lib/use-screen-focus';
 
 type Presentation = 'list' | 'map';
 
@@ -35,6 +36,8 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
   const [savingView, setSavingView] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const mic = useRef<{ start: () => void }>(null);
+  const heading = useRef(null);
+  useScreenFocus(heading);
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [panelTop, setPanelTop] = useState(64);
@@ -458,6 +461,11 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
   return (
     <SafeAreaView className="flex-1 bg-card" edges={['top', 'left', 'right']}>
       <View className="min-h-0 flex-1 bg-background">
+        {Platform.OS === 'web' && (
+          <Text ref={heading} variant="h1" className="sr-only">
+            매장 찾기
+          </Text>
+        )}
         <VoiceSearch
           open={voiceOpen}
           mic={mic}
