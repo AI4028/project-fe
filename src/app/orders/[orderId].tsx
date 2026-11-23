@@ -11,7 +11,7 @@ import { Icon } from '@/components/ui/icon';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Problem } from '@/components/feedback';
 import { OrderProgress } from '@/components/order-progress';
-import { OrderLines } from '@/components/order-lines';
+import { OrderLines, TotalRow } from '@/components/order-lines';
 import { useApp } from '@/providers/app-provider';
 import { type Order, type OrderStatus, type Store } from '@/lib/types';
 import { money } from '@/lib/cart';
@@ -254,10 +254,7 @@ export default function OrderScreen() {
               ) : (
                 <Text translate={false}>{order.summary}</Text>
               )}
-              <View className="flex-row flex-wrap justify-between gap-2">
-                <Text>합계</Text>
-                <Text className="font-bold">{money(order.total)}</Text>
-              </View>
+              <TotalRow total={order.total} />
               {!!order.note && (
                 <Text>
                   요청 사항: <Text translate={false}>{order.note}</Text>

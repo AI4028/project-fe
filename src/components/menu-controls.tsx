@@ -3,6 +3,7 @@ import { Minus, Plus } from 'lucide-react-native';
 import { Button } from './ui/button';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
+import { SpokenGroup } from './spoken-group';
 import { useTranslation } from '@/lib/i18n';
 import { optionSummary } from '@/lib/cart';
 import { cn } from '@/lib/utils';
@@ -65,9 +66,11 @@ export function CartLineSummary({ line }: { line: PricedLine }) {
   const name = language === 'en' ? line.nameEn || line.name : line.name;
   return (
     <View className="gap-1">
-      <Text translate={false} className="text-lg font-bold">
-        {name} × {line.qty}
-      </Text>
+      <SpokenGroup label={`${name} ${t(`${line.qty}개`)}`}>
+        <Text translate={false} className="text-lg font-bold">
+          {`${name} × ${line.qty}`}
+        </Text>
+      </SpokenGroup>
       <Text variant="muted" translate={false}>
         {optionSummary(line, t) || t('추가 옵션 없음')}
       </Text>
