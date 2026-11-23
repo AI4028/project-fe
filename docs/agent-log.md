@@ -425,3 +425,7 @@ Directions can stay mounted while the customer opens Help and enters a kiosk cod
 ### 2026-11-21 · Recover checkout after a lost response
 
 A replay can return a definite rejection if a venue pauses orders or removes an item. Release the pending submission and retain the cart in that case. An unreadable success response can mean the order was committed. Keep its recovery data and look up the order before allowing another submission.
+
+### 2026-11-23 · Test web focus without jsdom
+
+A `@jest-environment jsdom` docblock fails before any test runs: the React Native Jest preset redefines `window`. Tests for web-only DOM code replace `global.document` with a small fake that has just the fields the code reads, as in `tests/screen-focus.test.tsx`.
