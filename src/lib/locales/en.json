@@ -1,4 +1,18 @@
 {
+  "층수": "Floor",
+  "직원 도움": "Staff assistance",
+  "문의 가능": "Available",
+  "지원 불가": "Unavailable",
+  "엘리베이터 이용 여부는 매장에 확인해 주세요.": "Ask the store whether an elevator is available.",
+  "엘리베이터가 있어요.": "The store has an elevator.",
+  "엘리베이터가 없어요.": "The store has no elevator.",
+  "방문 전에 매장에 문의해 주세요.": "Ask the store about the entrance before visiting.",
+  "입구에 단차 없이 들어갈 수 있어요.": "You can enter without going up a step.",
+  "입구를 이용할 때 단차에 유의해 주세요.": "Watch for a step at the entrance.",
+  "필요한 도움을 받을 수 있는지 방문 전에 확인해 주세요.": "Check before visiting whether staff can provide the help you need.",
+  "필요한 도움을 직원에게 요청할 수 있어요.": "You can ask staff for help.",
+  "직원 도움이 제공되지 않는 매장이에요.": "Staff assistance is unavailable at this store.",
+  "추가 시설 정보": "More facility details",
   "확인할 도움 요청이 없어요.": "There is no help request to acknowledge.",
   "입구 단차": "Entrance step",
   "접근 정보 접기": "Hide access information",
@@ -951,5 +965,7 @@
   "커피": "Coffee",
   "음료": "Drinks",
   "베이커리": "Bakery",
-  "영업시간": "Hours"
+  "영업시간": "Hours",
+  "1층": "1st floor",
+  "2층": "2nd floor"
 }

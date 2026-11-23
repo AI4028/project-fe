@@ -7,12 +7,13 @@ import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { Accessibility, Navigation, ShoppingBag } from 'lucide-react-native';
+import { Navigation, ShoppingBag } from 'lucide-react-native';
 import { OrderingPaused, Problem } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
-import { accessDetails, knownText } from '@/lib/location';
+import { knownText } from '@/lib/location';
 import { errorMessage } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
+import { StoreAccessibility } from '@/components/store-accessibility';
 import { PlaceBookmark } from '@/components/place-actions';
 import type { Store } from '@/lib/types';
 export default function StoreDetails() {
@@ -132,22 +133,9 @@ export default function StoreDetails() {
           </Card>
           {store.orderingPaused && <OrderingPaused />}
           <View className="flex-row flex-wrap gap-4">
-            <Card
-              className="min-w-0 rounded-3xl"
-              style={width >= 760 ? { width: '48%' } : { width: '100%' }}
-            >
-              <CardContent className="gap-4 pt-6">
-                <View className="h-11 w-11 items-center justify-center rounded-2xl bg-secondary">
-                  <Icon as={Accessibility} size={22} className="text-primary" />
-                </View>
-                <Text variant="h3">접근성 정보</Text>
-                {accessDetails(store, t).map((detail, index) => (
-                  <Text key={index} translate={false}>
-                    {detail}
-                  </Text>
-                ))}
-              </CardContent>
-            </Card>
+            <View className="min-w-0" style={{ width: width >= 760 ? '48%' : '100%' }}>
+              <StoreAccessibility key={store.storeId} store={store} />
+            </View>
             <Card
               className="min-w-0 rounded-3xl"
               style={width >= 760 ? { width: '48%' } : { width: '100%' }}
