@@ -25,6 +25,22 @@ export function StoreCard({
   const { t, language } = useTranslation();
   const hours = (language === 'en' && store.hoursEn) || store.hours;
   const name = language === 'en' ? store.nameEn || store.name : store.name;
+  const walk = store.walkingRoute;
+  const distance = walk?.distanceM ?? store.distanceM;
+  const minutes = walk && Math.ceil(walk.durationS / 60);
+  const distanceLabel =
+    distance == null
+      ? ''
+      : distance >= 1000
+        ? `${(distance / 1000).toFixed(1)} km`
+        : `${Math.round(distance)} m`;
+  const distanceText = walk
+    ? language === 'en'
+      ? `${distanceLabel} walk · about ${minutes} min`
+      : `도보 ${distanceLabel} · 약 ${minutes}분`
+    : [distanceLabel, t('직선거리'), store.walkingRoute === null && t('도보 경로 확인 불가')]
+        .filter(Boolean)
+        .join(' · ');
   return (
     <View className="gap-2 rounded-3xl border border-border bg-card p-3">
       <View className="flex-row items-start gap-1">
@@ -32,7 +48,7 @@ export function StoreCard({
           variant="ghost"
           onPress={onPress}
           accessibilityLabel={`${name} 매장 정보 보기`}
-          accessibilityHint={`${venueAddress(store, language) || t('주소 확인 필요')}. ${accessibilitySummary(store).split(' · ').map(t).join(' · ')}`}
+          accessibilityHint={`${showDistance && distance != null ? distanceText + '. ' : ''}${venueAddress(store, language) || t('주소 확인 필요')}. ${accessibilitySummary(store).split(' · ').map(t).join(' · ')}`}
           className="min-w-0 flex-1 flex-col items-stretch gap-3 rounded-2xl p-2"
         >
           <View className="flex-row items-start gap-3">
@@ -51,14 +67,11 @@ export function StoreCard({
               </Text>
             </View>
           </View>
-          {showDistance && store.distanceM != null && (
+          {showDistance && distance != null && (
             <View className="flex-row items-center gap-2">
               <Icon as={MapPin} size={16} className="text-primary" accessible={false} />
-              <Text variant="small">
-                {store.distanceM >= 1000
-                  ? `${(store.distanceM / 1000).toFixed(1)} km`
-                  : `${Math.round(store.distanceM)} m`}{' '}
-                · {t('직선거리')}
+              <Text variant="small" translate={false}>
+                {distanceText}
               </Text>
             </View>
           )}

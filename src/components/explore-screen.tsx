@@ -130,7 +130,8 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
             (store) => store.location && distanceM(position, store.location) <= 5000,
           )
         : registered;
-    const merged = [...filterStores(nearbyRegistered, submitted, 'all'), ...places];
+    const local = filterStores(nearbyRegistered, submitted, 'all');
+    const merged = position && !submitted ? [...places, ...local] : [...local, ...places];
     const seen = new Set<string>();
     const filtered = merged.filter((store) => {
       if (seen.has(store.storeId)) return false;
@@ -143,7 +144,13 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
             ...store,
             distanceM: store.location ? Math.round(distanceM(position, store.location)) : undefined,
           }))
-          .sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity))
+          .sort((a, b) => {
+            if (a.walkingRoute && b.walkingRoute)
+              return a.walkingRoute.distanceM - b.walkingRoute.distanceM;
+            if (a.walkingRoute) return -1;
+            if (b.walkingRoute) return 1;
+            return (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity);
+          })
       : filtered;
   }, [registered, places, position, submitted]);
   const selected = stores.find((store) => store.storeId === selectedId);
@@ -190,7 +197,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
       }
       if (id !== request.current) return;
       setPosition({ lat: coords.latitude, lng: coords.longitude });
-      setLocationMessage('현재 위치를 표시합니다. 거리는 직선거리예요.');
+      setLocationMessage('현재 위치를 표시합니다.');
     } catch (error) {
       if (id !== request.current) return;
       const code =

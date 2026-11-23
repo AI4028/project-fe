@@ -100,6 +100,8 @@
   "자료 제공 지역 밖이에요.": "Outside this dataset's coverage.",
   "주변에 등록된 자료가 없어요. 시설이 없다는 뜻은 아니에요.": "No nearby records. This does not mean the facility is absent.",
   "등록된 시설 정보": "Recorded facilities",
+  "현재 위치를 표시합니다.": "Showing your location.",
+  "도보 경로 확인 불가": "Walking route unavailable",
   "직선거리": "Straight-line distance",
   "역 기준 위치": "Approximate station location",
   "자료 출처": "Data source",

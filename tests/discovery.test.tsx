@@ -186,6 +186,40 @@ test('find nearby clears the old query and exposes nearby results in the list', 
   expect(screen.getByPlaceholderText('매장 또는 메뉴 검색').props.value).toBe('');
 });
 
+test('nearby ranks routed cafes by walking distance ahead of straight-line fallbacks', async () => {
+  const ranked = [
+    {
+      ...stores[0],
+      location: { lat: 37.5445, lng: 127.056 },
+      walkingRoute: { distanceM: 1200, durationS: 901 },
+    },
+    {
+      ...stores[1],
+      location: { lat: 37.5455, lng: 127.056 },
+      walkingRoute: { distanceM: 650, durationS: 480 },
+    },
+    { ...stores[2], location: { lat: 37.5445, lng: 127.056 }, walkingRoute: null },
+  ];
+  mockApi.stores.mockResolvedValue(ranked.map(({ walkingRoute, ...store }) => store));
+  mockApi.searchPlaces.mockResolvedValue({
+    places: ranked,
+    status: 'results',
+    generalSearch: 'available',
+  });
+  await render(<Discovery />);
+  await fireEvent.press(screen.getByLabelText('내 주변에서 찾기'));
+  await screen.findByText('도보 650 m · 약 8분');
+  expect(screen.getByText('도보 1.2 km · 약 16분')).toBeTruthy();
+  expect(screen.getByText(/직선거리 · 도보 경로 확인 불가/)).toBeTruthy();
+  expect(
+    screen.getAllByLabelText(/매장 정보 보기$/).map((card) => card.props.accessibilityLabel),
+  ).toEqual([
+    '두 번째 카페 매장 정보 보기',
+    '첫 번째 카페 매장 정보 보기',
+    '정보 없는 카페 매장 정보 보기',
+  ]);
+});
+
 test('location denial stays visible even when ordering is offline', async () => {
   mockApi.stores.mockRejectedValueOnce(new TypeError('offline'));
   jest
