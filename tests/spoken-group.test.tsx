@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react-native';
 import { Platform } from 'react-native';
 import { OrderLines, TotalRow } from '@/components/order-lines';
+import { OrderProgress } from '@/components/order-progress';
 import { LanguageContext } from '@/lib/i18n';
 import type { PricedLine } from '@/lib/types';
 
@@ -29,6 +30,21 @@ test('native reads the total and each order line as one phrase', async () => {
 
   expect(screen.getByLabelText('카페라떼 1개, 4,000원')).toBeTruthy();
   expect(screen.getByLabelText('합계, 4,000원')).toBeTruthy();
+});
+
+test('order progress reads only the current status and step', async () => {
+  const view = await render(<OrderProgress status="preparing" />);
+  expect(screen.getByLabelText('준비 중, 주문 4단계 중 3단계')).toBeTruthy();
+
+  await view.rerender(
+    <LanguageContext.Provider value="en">
+      <OrderProgress status="submitted" />
+    </LanguageContext.Provider>,
+  );
+  expect(screen.getByLabelText('Sent, Order step 1 of 4')).toBeTruthy();
+
+  await view.rerender(<OrderProgress status="cancelled" />);
+  expect(screen.getByText('주문 취소')).toBeTruthy();
 });
 
 test('web reads a hidden phrase and hides the visible pieces', async () => {
