@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import {
   bearingDeg,
@@ -120,13 +120,20 @@ const mockApp = {
       accessibility: {},
       location: { lat: 35.2281, lng: 126.8433 },
     }),
+    walkRoute: jest.fn(),
   },
   announce: jest.fn(),
   readAloud: jest.fn(),
 };
 jest.mock('@/providers/app-provider', () => ({ useApp: () => mockApp }));
 
-test('shows distance, direction words and a rotated arrow, and announces them', async () => {
+beforeEach(() => {
+  mockApp.announce.mockClear();
+  mockApp.api.walkRoute.mockReset();
+});
+
+test('without a walking route, falls back to a straight-line arrow and announces it', async () => {
+  mockApp.api.walkRoute.mockRejectedValue(new Error('offline'));
   await render(<Direction />);
   await waitFor(() => expect(screen.getByText('100m')).toBeTruthy());
   expect(screen.getByText('오른쪽 · 3시 방향')).toBeTruthy();
@@ -135,5 +142,53 @@ test('shows distance, direction words and a rotated arrow, and announces them', 
   expect(StyleSheet.flatten(arrow.props.style).transform).toEqual([{ rotate: '90deg' }]);
   expect(mockApp.announce).toHaveBeenCalledWith(
     '매장은 오른쪽, 3시 방향으로 약 100m 떨어져 있어요.',
+  );
+});
+
+test('walks the route turn by turn: current step, what comes next, and announcements', async () => {
+  // North 66 m to a corner, then on to the venue.
+  const corner = { lat: 35.2278, lng: 126.8433 };
+  mockApp.api.walkRoute.mockResolvedValue({
+    status: 'ok',
+    distanceM: 100,
+    durationS: 80,
+    source: { name: '길동무', url: 'https://gildongmu.dodoplanet.space', license: 'MIT' },
+    steps: [
+      {
+        instruction: '65m 이동',
+        turn: null,
+        action: null,
+        distanceM: 66,
+        path: [{ lat: 35.2272, lng: 126.8433 }, corner],
+      },
+      {
+        instruction: '오른쪽으로 도세요. 그 후 35m 이동',
+        turn: '오른쪽으로 도세요',
+        action: 'right',
+        distanceM: 35,
+        path: [corner, { lat: 35.2281, lng: 126.8433 }],
+      },
+    ],
+  });
+  await render(<Direction />);
+  await waitFor(() => expect(screen.getByText('앞으로 65m 이동하세요.')).toBeTruthy());
+  expect(mockApp.api.walkRoute).toHaveBeenCalledWith(
+    { lat: 35.2272, lng: 126.8433 },
+    { lat: 35.2281, lng: 126.8433 },
+    'ko',
+  );
+  expect(screen.getByText('총 100m 남았어요')).toBeTruthy();
+  expect(screen.getByLabelText('1. 오른쪽으로 도세요. 그 후 35m 이동')).toBeTruthy();
+  expect(screen.queryByTestId('direction-arrow', { includeHiddenElements: true })).toBeNull();
+  expect(mockApp.announce).toHaveBeenCalledWith(
+    '앞으로 65m 이동하세요. 다음: 오른쪽으로 도세요. 그 후 35m 이동',
+  );
+  // This test device can't read Bluetooth, so it says so instead of a scanner.
+  expect(screen.getByText(/키오스크 블루투스 신호를 읽을 수 없어요/)).toBeTruthy();
+
+  await fireEvent.press(screen.getByText('근처에 도착했어요'));
+  expect(screen.getByTestId('route-arrived')).toBeTruthy();
+  expect(mockApp.announce).toHaveBeenLastCalledWith(
+    '매장 근처에 도착했어요. 입구는 매장 안내나 직원에게 확인해 주세요.',
   );
 });

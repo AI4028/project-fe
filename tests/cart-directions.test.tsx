@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Linking, Text as MockText, View as MockView } from 'react-native';
 import { CartScreen } from '@/components/cart-screen';
 import Guide from '@/app/guide';
-import { directionsUrl } from '@/lib/navigation';
 import { PlaceActions } from '@/components/place-actions';
 
 const store = {
@@ -10,6 +9,7 @@ const store = {
   name: 'Cafe',
   address: '',
   accessibility: {},
+  location: { lat: 35.2281, lng: 126.8433 },
   menu: [
     {
       id: 'tea',
@@ -89,13 +89,17 @@ test('an existing cart editor cannot cover Directions or reopen when returning t
   expect(screen.queryByText('Edit cart sheet')).toBeNull();
 });
 
-test('registered store directions open the map without a device capability detour', async () => {
+test('directions stay in the app instead of switching to a map app', async () => {
   const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
   try {
     await render(<Guide />);
-    expect(screen.queryByText('방향 안내 시작')).toBeNull();
-    await fireEvent.press(screen.getByText('지도 앱에서 길찾기'));
-    expect(open).toHaveBeenCalledWith(directionsUrl(store));
+    expect(screen.queryByText('지도 앱에서 길찾기')).toBeNull();
+    await fireEvent.press(screen.getByText('길 안내 시작'));
+    expect(mockPush).toHaveBeenLastCalledWith({
+      pathname: '/direction',
+      params: { storeId: 'cafe' },
+    });
+    expect(open).not.toHaveBeenCalled();
   } finally {
     open.mockRestore();
   }

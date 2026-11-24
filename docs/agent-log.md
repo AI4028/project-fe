@@ -456,3 +456,7 @@ A replay can return a definite rejection if a venue pauses orders or removes an 
 ### 2026-11-23 · Test web focus without jsdom
 
 A `@jest-environment jsdom` docblock fails before any test runs: the React Native Jest preset redefines `window`. Tests for web-only DOM code replace `global.document` with a small fake that has just the fields the code reads, as in `tests/screen-focus.test.tsx`.
+
+### 2026-11-24 · Walk to the venue inside the app
+
+Directions no longer open Kakao Maps or Google Maps. `/direction` asks our backend for a walking route (`GET /route/walk`, which proxies 길동무/Gildongmu because its API sends no CORS headers) and shows the current step and the steps after it. Leaving the line for two fixes in a row asks for a new route, at most every 20 s. Without a route it falls back to the straight-line arrow. Once the kiosk's Bluetooth signal is heard, the kiosk finder moves to the top and speaks instead of the route.

@@ -13,6 +13,8 @@ import type {
   PlaceSearchResult,
   AccessibilityRecords,
 } from './types';
+import type { Position } from './location';
+import type { WalkRoute } from './walk-route';
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -126,6 +128,16 @@ export class Api {
   };
   accessibilityNearby = (lat: number, lng: number) =>
     this.request<AccessibilityRecords>(`/accessibility/nearby?lat=${lat}&lng=${lng}&radiusM=300`);
+  walkRoute = (from: Position, to: Position, lang: 'ko' | 'en') => {
+    const params = new URLSearchParams({
+      originLat: String(from.lat),
+      originLng: String(from.lng),
+      destLat: String(to.lat),
+      destLng: String(to.lng),
+      lang,
+    });
+    return this.request<WalkRoute>(`/route/walk?${params}`);
+  };
   nearby = async (lat: number, lng: number) =>
     (await this.request<Store[]>(`/stores/nearby?lat=${lat}&lng=${lng}&radiusM=3000`)).map(
       this.withMedia,

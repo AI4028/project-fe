@@ -76,6 +76,11 @@ const patterns: [RegExp, (...parts: string[]) => string][] = [
     /^위치 정확도가 낮아요 \(약 (\d+)m\)\. 건물 밖에서 더 정확해요\.$/,
     (meters) => `Location accuracy is low (about ${meters} m). It is more accurate outdoors.`,
   ],
+  [
+    /^앞으로 ([\d.]+k?m) 이동하세요\.(?: 다음: (.+))?$/,
+    (distance, next) => `Walk ahead ${distance}.${next ? ` Next: ${next}` : ''}`,
+  ],
+  [/^총 ([\d.]+k?m) 남았어요$/, (distance) => `${distance} to go`],
   [/^약 (\d+)m$/, (meters) => `About ${meters} m`],
   [/^([A-Z0-9]{4}) 키오스크$/, (id) => `Kiosk ${id}`],
   [/^연결 코드 ([0-9A-Z]{8})$/, (code) => `Connection code ${code}`],
