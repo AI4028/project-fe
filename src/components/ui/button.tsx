@@ -7,8 +7,7 @@ import { useTranslation } from '@/lib/i18n';
 
 const buttonVariants = cva(
   cn(
-    // content-center: React Native starts wrapped rows at the top unless told otherwise.
-    'group shrink-0 flex-row content-center items-center justify-center gap-2 rounded-[14px] shadow-none',
+    'group shrink-0 flex-row items-center justify-center gap-2 rounded-[14px] shadow-none',
     Platform.select({
       web: 'focus-visible:border-ring focus-visible:ring-ring aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive outline-none transition-all focus-visible:ring-[3px] focus-visible:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0',
     }),
@@ -27,8 +26,7 @@ const buttonVariants = cva(
           }),
         ),
         outline: cn(
-          // Unselected/plain actions stay white so the beige `secondary` reads as selected.
-          'border-[1.5px] border-primary bg-card active:bg-accent',
+          'border-[1.5px] border-primary bg-secondary active:bg-accent',
           Platform.select({
             web: 'hover:bg-accent dark:hover:bg-input/50',
           }),

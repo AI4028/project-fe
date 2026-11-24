@@ -45,7 +45,6 @@ export type Store = {
   location?: { lat: number; lng: number } | null;
   geofenceRadiusM?: number;
   distanceM?: number;
-  walkingRoute?: { distanceM: number; durationS: number } | null;
   insideGeofence?: boolean;
   orderingMethods?: string[];
   hasOrderTerminal?: boolean;

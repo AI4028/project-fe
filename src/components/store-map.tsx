@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform } from 'react-native';
 import { MapUnavailable } from './map-unavailable';
 import { brandColors, layout } from '@/lib/theme';
 import { useTranslation } from '@/lib/i18n';
@@ -9,19 +9,11 @@ import type { Position } from '@/lib/location';
 export type StoreMapProps = {
   fill?: boolean;
   query?: string;
-  selectedId?: string | null;
   stores: Store[];
   position: Position | null;
   onSelect: (store: Store) => void;
 };
-export default function StoreMap({
-  stores,
-  position,
-  selectedId,
-  onSelect,
-  fill,
-  query,
-}: StoreMapProps) {
+export default function StoreMap({ stores, position, onSelect, fill, query }: StoreMapProps) {
   const { t, language } = useTranslation();
   const ref = useRef<MapView>(null);
   const center = (query ? stores.find((store) => store.location)?.location : null) ??
@@ -49,35 +41,15 @@ export default function StoreMap({
         latitudeDelta: 0.025,
         longitudeDelta: 0.025,
       }}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
     >
       {position && (
         <Marker
           coordinate={{ latitude: position.lat, longitude: position.lng }}
           title={t('내 위치')}
-          anchor={{ x: 0.5, y: 0.5 }}
-        >
-          <View
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: 13,
-              backgroundColor: '#514ede44',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <View
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: 9,
-                borderWidth: 3,
-                borderColor: 'white',
-                backgroundColor: '#4443c9',
-              }}
-            />
-          </View>
-        </Marker>
+          pinColor="blue"
+        />
       )}
       {stores.map(
         (store) =>
@@ -86,8 +58,7 @@ export default function StoreMap({
               key={store.storeId}
               coordinate={{ latitude: store.location.lat, longitude: store.location.lng }}
               title={language === 'en' ? store.nameEn || store.name : store.name}
-              pinColor={selectedId === store.storeId ? '#832e15' : '#bc4b21'}
-              zIndex={selectedId === store.storeId ? 4 : 2}
+              pinColor={brandColors.walnut}
               onPress={() => onSelect(store)}
             />
           ),

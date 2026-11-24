@@ -133,8 +133,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
             (store) => store.location && distanceM(position, store.location) <= 5000,
           )
         : registered;
-    const local = filterStores(nearbyRegistered, submitted, 'all');
-    const merged = position && !submitted ? [...places, ...local] : [...local, ...places];
+    const merged = [...filterStores(nearbyRegistered, submitted, 'all'), ...places];
     const seen = new Set<string>();
     const filtered = merged.filter((store) => {
       if (seen.has(store.storeId)) return false;
@@ -147,13 +146,7 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
             ...store,
             distanceM: store.location ? Math.round(distanceM(position, store.location)) : undefined,
           }))
-          .sort((a, b) => {
-            if (a.walkingRoute && b.walkingRoute)
-              return a.walkingRoute.distanceM - b.walkingRoute.distanceM;
-            if (a.walkingRoute) return -1;
-            if (b.walkingRoute) return 1;
-            return (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity);
-          })
+          .sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity))
       : filtered;
   }, [registered, places, position, submitted]);
   const selected = stores.find((store) => store.storeId === selectedId);
@@ -171,51 +164,26 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
     setLocating(true);
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      let coords: { latitude: number; longitude: number };
-      if (Platform.OS === 'web') {
-        // Request from the tap itself. Some browsers cannot query permission beforehand.
-        const result = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            maximumAge: 60000,
-            timeout: 20000,
-          });
-        });
-        coords = result.coords;
-      } else {
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (id !== request.current) return;
-        if (!permission.granted) {
-          setLocationMessage(
-            '위치 권한이 꺼져 있어요. 기기 설정에서 허용하거나 장소 이름을 검색해 주세요.',
-          );
-          return;
-        }
-        const result = await Promise.race([
-          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-          new Promise<never>((_, reject) => {
-            timeout = setTimeout(() => reject(new Error('location-timeout')), 12000);
-          }),
-        ]);
-        coords = result.coords;
-      }
+      const permission = await Location.requestForegroundPermissionsAsync();
       if (id !== request.current) return;
-      setPosition({ lat: coords.latitude, lng: coords.longitude });
-      setLocationMessage('현재 위치를 표시합니다.');
-    } catch (error) {
-      if (id !== request.current) return;
-      const code =
-        Platform.OS === 'web' && error && typeof error === 'object' && 'code' in error
-          ? error.code
-          : undefined;
-      if (code === 1) {
+      if (!permission.granted) {
         setLocationMessage(
-          '브라우저가 이 사이트의 위치 요청을 거부했어요. 사이트 설정에서 위치를 허용한 뒤 다시 시도해 주세요.',
+          '위치 권한이 꺼져 있어요. 기기 설정에서 허용하거나 장소 이름을 검색해 주세요.',
         );
-      } else if (code === 3) {
-        setLocationMessage('위치 확인 시간이 초과됐어요. 다시 시도하거나 장소를 검색해 주세요.');
-      } else {
-        setLocationMessage('위치를 확인하지 못했어요. 검색으로 장소를 찾아주세요.');
+        return;
       }
+      const result = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('location-timeout')), 12000);
+        }),
+      ]);
+      if (id !== request.current) return;
+      setPosition({ lat: result.coords.latitude, lng: result.coords.longitude });
+      setLocationMessage('현재 위치를 표시합니다. 거리는 직선거리예요.');
+    } catch {
+      if (id === request.current)
+        setLocationMessage('위치를 확인하지 못했어요. 검색으로 장소를 찾아주세요.');
     } finally {
       clearTimeout(timeout);
       if (id === request.current) setLocating(false);
@@ -314,13 +282,6 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
         </Button>
       </View>
     ) : null;
-  const mapNotice = position && !failed ? null : notice;
-  const mapSearchIssue =
-    placeError ||
-    (placeStatus &&
-      (placeStatus.generalSearch === 'not-configured' ||
-        placeStatus.generalSearch === 'unavailable' ||
-        ['needs-location', 'outside-coverage', 'not-recorded'].includes(placeStatus.status)));
   const searchFeedback = (
     <>
       {!!placeError && (
@@ -418,10 +379,14 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
     app.settings.saveRecentSearches === false
       ? []
       : (app.settings.recentSearches ?? []).filter(matchesDraft);
-  const suggestions = new Set<string>();
+  const suggestions = new globalThis.Map<string, '매장' | '메뉴'>();
   for (const store of registered) {
     const name = (language === 'en' && store.nameEn) || store.name;
-    if (matchesDraft(name)) suggestions.add(name);
+    if (matchesDraft(name)) suggestions.set(name, '매장');
+    for (const item of store.menuSuggestions ?? []) {
+      const term = (language === 'en' && item.nameEn) || item.name;
+      if (matchesDraft(term) && !suggestions.has(term)) suggestions.set(term, '메뉴');
+    }
   }
   const searchOptions = searchOpen && (recent.length > 0 || suggestions.size > 0) && (
     <View
@@ -444,16 +409,16 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
         {!!suggestions.size && <Text variant="h2">추천 검색어</Text>}
         {Array.from(suggestions)
           .slice(0, 6)
-          .map((term) => (
+          .map(([term, kind]) => (
             <Button
               key={term}
               variant="ghost"
               className="justify-between"
-              accessibilityLabel={`${term}, ${t('매장')}`}
+              accessibilityLabel={`${term}, ${t(kind)}`}
               onPress={() => search(term)}
             >
               <Text translate={false}>{term}</Text>
-              <Text variant="muted">매장</Text>
+              <Text variant="muted">{kind}</Text>
             </Button>
           ))}
       </ScrollView>
@@ -610,13 +575,6 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
               )}
             </View>
             {searchOptions}
-            {!searchOpen && !app.connection && (
-              <View className="px-6 pt-2">
-                <Button variant="secondary" onPress={() => router.push('/connect')}>
-                  <Text>키오스크 연결</Text>
-                </Button>
-              </View>
-            )}
             <View className="px-3 py-2">
               <SegmentedControl
                 mapChoice
@@ -630,23 +588,10 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                 ]}
               />
             </View>
-            {view === 'map' && (
-              <View className="flex-row flex-wrap items-center justify-between gap-2 px-4 pb-2">
-                {resultCount}
-                {position && !submitted ? (
-                  <Button variant="ghost" onPress={resetSearch}>
-                    <Text>전체 매장 보기</Text>
-                  </Button>
-                ) : (
-                  !!mapStores.length && <Text variant="muted">핀을 눌러 장소 정보 보기</Text>
-                )}
-              </View>
-            )}
             <View className="min-h-0 flex-1">
               {view === 'map' && (
                 <View className="flex-1">
                   <StoreMap
-                    selectedId={selectedId}
                     stores={mapStores}
                     position={position}
                     onSelect={(store) => {
@@ -707,25 +652,52 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
                   <SubmissionRecovery />
                 </ScrollView>
               )}
-              {view === 'map' && (mapNotice || mapSearchIssue || noResults) && (
-                <View className="absolute left-3 right-3 top-3" style={{ maxHeight: '55%' }}>
+              {view === 'map' &&
+                (notice || placeError || placeStatus || placeLoading || noResults) && (
+                  <View className="absolute left-3 right-3 top-3" style={{ maxHeight: '55%' }}>
+                    <ScrollView
+                      contentContainerClassName="gap-3 rounded-2xl border border-border bg-card p-3"
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      {notice}
+                      {searchFeedback}
+                      {(submitted || position || placeLoading) && resultCount}
+                      {emptyResults}
+                      {!!placeError && (
+                        <Button
+                          variant="outline"
+                          onPress={() =>
+                            void Linking.openURL(placeSearchUrl(submitted)).catch(app.report)
+                          }
+                        >
+                          <Text>지도 앱에서 검색</Text>
+                        </Button>
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
+              {view === 'map' && !selected && !!stores.length && (
+                <View className="absolute bottom-4 left-3 right-20">
                   <ScrollView
-                    contentContainerClassName="gap-3 rounded-2xl border border-border bg-card p-3"
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerClassName="gap-2"
                     keyboardShouldPersistTaps="handled"
+                    accessibilityLabel="장소 선택"
                   >
-                    {mapNotice}
-                    {searchFeedback}
-                    {emptyResults}
-                    {!!placeError && (
+                    {stores.map((store) => (
                       <Button
+                        key={store.storeId}
                         variant="outline"
-                        onPress={() =>
-                          void Linking.openURL(placeSearchUrl(submitted)).catch(app.report)
-                        }
+                        className="max-w-64 items-start"
+                        accessibilityLabel={`${language === 'en' ? store.nameEn || store.name : store.name} 매장 정보 보기`}
+                        onPress={() => setSelectedId(store.storeId)}
                       >
-                        <Text>지도 앱에서 검색</Text>
+                        <Text translate={false} className="text-left">
+                          {language === 'en' ? store.nameEn || store.name : store.name}
+                        </Text>
                       </Button>
-                    )}
+                    ))}
                   </ScrollView>
                 </View>
               )}
@@ -746,7 +718,6 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
             </View>
             {selected && (view === 'map' || selected.directoryOnly) && (
               <ScrollView
-                contentContainerClassName="px-2 pb-1"
                 style={{ flexGrow: 0, maxHeight: '46%' }}
                 keyboardShouldPersistTaps="handled"
               >

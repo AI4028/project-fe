@@ -6,7 +6,6 @@ import { Text } from './ui/text';
 import { SpokenGroup } from './spoken-group';
 import { useTranslation } from '@/lib/i18n';
 import { optionSummary } from '@/lib/cart';
-import { cn } from '@/lib/utils';
 import type { PricedLine } from '@/lib/types';
 
 export function QuantityStepper({
@@ -28,7 +27,7 @@ export function QuantityStepper({
     <View
       className={
         compact
-          ? 'flex-row flex-wrap items-center gap-3'
+          ? 'flex-row flex-wrap items-center gap-2'
           : 'flex-row items-center justify-between gap-3'
       }
     >
@@ -42,7 +41,7 @@ export function QuantityStepper({
         <Icon as={Minus} size={20} accessible={false} />
       </Button>
       <Text
-        className={cn('text-xl font-extrabold', compact && 'min-w-8 text-center')}
+        className="font-bold"
         accessibilityLabel={t(`${qty}개`)}
         accessibilityLiveRegion="polite"
       >
