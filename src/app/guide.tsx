@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
+import { StoreAccessibility } from '@/components/store-accessibility';
 import { Problem } from '@/components/feedback';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -162,22 +163,19 @@ export default function Guide() {
                 <Text>{accessOpen ? '접근 정보 접기' : '등록된 접근 정보 보기'}</Text>
               </Button>
               {accessOpen && (
-                <Card>
-                  <CardContent className="gap-3 pt-6">
-                    <Text variant="h3">접근성 정보</Text>
-                    {details.map((detail, index) => (
-                      <Text key={index} translate={false}>
-                        {detail}
-                      </Text>
-                    ))}
-                    <Text variant="h3">매장에 등록된 실내 이동 안내</Text>
-                    <Text>{knownText(store.indoorDirections)}</Text>
-                    <Button variant="outline" onPress={() => app.readAloud(description)}>
-                      <Icon as={Volume2} size={19} className="text-primary" accessible={false} />
-                      <Text>안내 듣기</Text>
-                    </Button>
-                  </CardContent>
-                </Card>
+                <View className="gap-4">
+                  <StoreAccessibility key={store.storeId} store={store} />
+                  <Card>
+                    <CardContent className="gap-3 pt-6">
+                      <Text variant="h3">매장에 등록된 실내 이동 안내</Text>
+                      <Text>{knownText(store.indoorDirections)}</Text>
+                      <Button variant="outline" onPress={() => app.readAloud(description)}>
+                        <Icon as={Volume2} size={19} className="text-primary" accessible={false} />
+                        <Text>안내 듣기</Text>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </View>
               )}
               {app.connection?.kioskId && app.connection.storeId === store.storeId ? (
                 <NavLink href={{ pathname: '/menu', params: { storeId: store.storeId } }}>
