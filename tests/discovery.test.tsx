@@ -40,6 +40,15 @@ const stores: Store[] = [
   },
   { storeId: 'unknown', name: '정보 없는 카페', address: '광주', accessibility: {} },
 ];
+const station: Store = {
+  storeId: 'station:seongsu',
+  name: '성수역',
+  address: '서울 성수동',
+  accessibility: {},
+  directoryOnly: true,
+  placeKind: 'station',
+  location: { lat: 37.544, lng: 127.056 },
+};
 const mockApi = { stores: jest.fn(), nearby: jest.fn(), searchPlaces: jest.fn() };
 const mockRememberSearch = jest.fn().mockResolvedValue(undefined);
 const mockUpdateSettings = jest.fn().mockResolvedValue(undefined);
@@ -159,7 +168,7 @@ test('denied microphone keeps a typed query available', async () => {
   expect(mockApi.searchPlaces).not.toHaveBeenCalled();
 });
 
-test('find nearby clears the old query and exposes nearby results in the list', async () => {
+test('find nearby clears the old query and shows cafes without station results', async () => {
   mockApi.stores.mockResolvedValue([{ ...stores[0], location: { lat: 35.1, lng: 129.1 } }]);
   await render(<Discovery />);
   await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
@@ -174,6 +183,7 @@ test('find nearby clears the old query and exposes nearby results in the list', 
         placeKind: 'venue',
         location: { lat: 37.5446, lng: 127.056 },
       },
+      station,
     ],
     status: 'results',
     generalSearch: 'available',
@@ -181,9 +191,22 @@ test('find nearby clears the old query and exposes nearby results in the list', 
   await fireEvent.press(screen.getByLabelText('내 주변에서 찾기'));
   await screen.findByLabelText('Nearby cafe 매장 정보 보기');
   expect(mockApi.searchPlaces).toHaveBeenLastCalledWith('', 'all', { lat: 37.5445, lng: 127.056 });
+  expect(screen.queryByLabelText('성수역 매장 정보 보기')).toBeNull();
   expect(screen.queryByLabelText('첫 번째 카페 매장 정보 보기')).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
   expect(screen.getByPlaceholderText('매장 또는 메뉴 검색').props.value).toBe('');
+});
+
+test('find nearby shows the empty state when an older server finds only stations', async () => {
+  mockApi.searchPlaces.mockResolvedValueOnce({
+    places: [station],
+    status: 'results',
+    generalSearch: 'available',
+  });
+  await render(<Discovery />);
+  await fireEvent.press(screen.getByLabelText('내 주변에서 찾기'));
+  await screen.findByText('검색 결과가 없어요');
+  expect(screen.queryByLabelText('성수역 매장 정보 보기')).toBeNull();
 });
 
 test('nearby ranks routed cafes by walking distance ahead of straight-line fallbacks', async () => {
@@ -384,6 +407,7 @@ test('map search and nearby stay on the visual map for the submitted query', asy
         placeKind: 'venue',
         location: { lat: 37.5445, lng: 127.056 },
       },
+      station,
     ],
     status: 'results',
     generalSearch: 'available',
@@ -397,6 +421,7 @@ test('map search and nearby stay on the visual map for the submitted query', asy
   await fireEvent.changeText(screen.getByPlaceholderText('매장 또는 메뉴 검색'), 'Nearby');
   await fireEvent.press(screen.getByLabelText('검색 실행'));
   await screen.findByLabelText('Nearby cafe 지도 핀');
+  expect(screen.getByLabelText('성수역 지도 핀')).toBeTruthy();
   expect(screen.getByTestId('store-map')).toBeTruthy();
   await fireEvent.press(screen.getByLabelText('내 주변에서 찾기'));
   await waitFor(() =>
@@ -406,6 +431,8 @@ test('map search and nearby stay on the visual map for the submitted query', asy
     }),
   );
   expect(screen.getByTestId('store-map')).toBeTruthy();
+  await screen.findByLabelText('Nearby cafe 지도 핀');
+  expect(screen.queryByLabelText('성수역 지도 핀')).toBeNull();
   expect(screen.queryByText('가까운 장소')).toBeNull();
 });
 
@@ -464,16 +491,7 @@ test('ordering notice can be dismissed without hiding the map or location contro
 
 test('station search is available in the text list without relying on map SDK results', async () => {
   mockApi.searchPlaces.mockResolvedValueOnce({
-    places: [
-      {
-        ...stores[0],
-        storeId: 'station:seongsu',
-        name: '성수역',
-        directoryOnly: true,
-        placeKind: 'station',
-        location: { lat: 37.544, lng: 127.056 },
-      },
-    ],
+    places: [station],
     status: 'results',
     generalSearch: 'not-configured',
   });

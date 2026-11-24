@@ -127,16 +127,18 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
     [],
   );
   const stores = useMemo(() => {
+    const findingNearby = position && !submitted;
     const nearbyRegistered =
-      position && !submitted
+      findingNearby
         ? registered.filter(
             (store) => store.location && distanceM(position, store.location) <= 5000,
           )
         : registered;
     const local = filterStores(nearbyRegistered, submitted, 'all');
-    const merged = position && !submitted ? [...places, ...local] : [...local, ...places];
+    const merged = findingNearby ? [...places, ...local] : [...local, ...places];
     const seen = new Set<string>();
     const filtered = merged.filter((store) => {
+      if (findingNearby && store.placeKind && store.placeKind !== 'venue') return false;
       if (seen.has(store.storeId)) return false;
       seen.add(store.storeId);
       return true;
@@ -395,7 +397,9 @@ export function ExploreScreen({ initialView }: { initialView: Presentation }) {
       !failed &&
       !placeError &&
       !stores.length &&
-      (!placeStatus || placeStatus.status === 'empty'));
+      (!placeStatus ||
+        placeStatus.status === 'empty' ||
+        (!!position && placeStatus.status === 'results')));
   const emptyResults = noResults && (
     <View className="gap-3 rounded-2xl border border-border bg-card p-4">
       <Text variant="h3" accessibilityLiveRegion="polite">
