@@ -7,6 +7,30 @@ export type HeadingStatus = 'waiting' | 'ok' | 'needs-permission' | 'unavailable
 type OrientationEventWithCompass = DeviceOrientationEvent & { webkitCompassHeading?: number };
 type OrientationPermission = { requestPermission?: () => Promise<'granted' | 'denied'> };
 
+const RAD = Math.PI / 180;
+
+/**
+ * Compass heading from an absolute orientation event (W3C Z-X'-Y'' angles),
+ * valid whether the phone lies flat or is held upright: the horizontal
+ * direction of "top of the phone" plus "out of the back of the phone".
+ * Flat, this equals 360 − alpha; upright, it is where the back camera faces.
+ */
+export function headingFromOrientation(
+  alpha: number,
+  beta: number,
+  gamma: number,
+  screenAngle = 0,
+): number {
+  const [cA, sA] = [Math.cos(alpha * RAD), Math.sin(alpha * RAD)];
+  const [cB, sB] = [Math.cos(beta * RAD), Math.sin(beta * RAD)];
+  const [cG, sG] = [Math.cos(gamma * RAD), Math.sin(gamma * RAD)];
+  // Device y axis (top) and −z axis (back) in east/north coordinates.
+  const east = -sA * cB + (-cA * sG - sA * sB * cG);
+  const north = cA * cB + (-sA * sG + cA * sB * cG);
+  const heading = Math.atan2(east, north) / RAD + screenAngle;
+  return ((heading % 360) + 360) % 360;
+}
+
 /**
  * Where the top of the phone points, in degrees from north (clockwise).
  * Native: the platform compass. Web: deviceorientation(absolute); iOS Safari
@@ -67,7 +91,12 @@ export function useHeading(active = true) {
     const onOrientation = (event: Event) => {
       const e = event as OrientationEventWithCompass;
       if (typeof e.webkitCompassHeading === 'number') accept(e.webkitCompassHeading);
-      else if (e.absolute && typeof e.alpha === 'number') accept(360 - e.alpha);
+      else if (e.absolute && typeof e.alpha === 'number') {
+        const screenAngle =
+          (globalThis as unknown as { screen?: { orientation?: { angle?: number } } }).screen
+            ?.orientation?.angle ?? 0;
+        accept(headingFromOrientation(e.alpha, e.beta ?? 0, e.gamma ?? 0, screenAngle));
+      }
     };
     target.addEventListener('deviceorientationabsolute', onOrientation);
     target.addEventListener('deviceorientation', onOrientation);

@@ -5,6 +5,7 @@ import { ArrowUp, Compass, MapPin, Volume2 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { Problem } from '@/components/feedback';
+import { KioskFinder } from '@/components/kiosk-finder';
 import { NavLink, Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -31,7 +32,7 @@ export default function Direction() {
   const [error, setError] = useState('');
   const [fix, setFix] = useState<Fix | null>(null);
   const [locationState, setLocationState] = useState<LocationState>('asking');
-  const { heading, status: compassStatus, request: allowCompass } = useHeading(!!store?.location);
+  const { heading, status: compassStatus, request: allowCompass } = useHeading(!!storeId);
   const lastSpoken = useRef({ key: '', at: 0 });
   const arrivedOnce = useRef(false);
 
@@ -201,6 +202,20 @@ export default function Direction() {
           {storeId && (
             <NavLink href={{ pathname: '/guide', params: { storeId } }}>길 안내로 돌아가기</NavLink>
           )}
+        </View>
+      )}
+      {storeId && (
+        <View className="mt-8 gap-3 border-t border-border pt-6">
+          <Text variant="h3">매장 안에서: 키오스크 찾기</Text>
+          <Text variant="muted">
+            매장 가까이 오면 키오스크의 블루투스 신호로 거리와 방향을 안내해요. Android Chrome에서
+            테스트할 수 있어요.
+          </Text>
+          <KioskFinder
+            heading={heading}
+            compassStatus={compassStatus}
+            allowCompass={allowCompass}
+          />
         </View>
       )}
     </Screen>

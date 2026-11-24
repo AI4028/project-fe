@@ -75,6 +75,9 @@ describe('direction math', () => {
 // Screen: a phone ~100 m south of the venue, facing west.
 jest.mock('@rn-primitives/slot', () => ({ Slot: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: require('react-native').View }));
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
 jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ storeId: 'gist-cafe' }) }));
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn().mockResolvedValue(undefined),

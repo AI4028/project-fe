@@ -23,6 +23,26 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-23 · Simulate walking inside the page, and filter impossible motion readings
+
+- **Hit:** the walk-and-learn arrow was 80–90° off in Playwright but right in Node with the same path; the page had counted 211 steps while standing still.
+- **Why:** headless Chromium sends its own all-zero `devicemotion` readings between the simulated ones (each 0 → 9.8 jump looked like a step), and moving the person from Playwright loops let `evaluate` latency decouple distance from steps.
+- **Fix:** ignore readings below 3 or above 40 m/s²; drive position, phone shake and compass from one in-page 50 ms timer.
+- **Rule:** check the step count while standing still; never move a simulated person from the test runner's loop.
+
+### 2026-11-23 · Browser compass is wrong when the phone is upright
+
+- **Hit:** on a real Android phone the arrows (GPS and BLE) barely turned while the user rotated with the phone at the chest.
+- **Why:** `360 − alpha` from `deviceorientationabsolute` is the heading only with the phone flat; held upright the Euler angles swap roles.
+- **Fix:** `headingFromOrientation(alpha, beta, gamma)`: horizontal direction of the phone's top plus its back, from the full rotation matrix.
+- **Rule:** never use `alpha` alone as a heading; test headings at beta 0, 45 and 90.
+
+### 2026-11-23 · Test signal noise must be random, not a sine of the heading
+
+- **Hit:** BLE direction tests failed ("no-clear-direction", 33° error) at some kiosk bearings with `Math.sin(heading * 7.3) * noise` as jitter.
+- **Why:** with 6° steps that sine changes slowly across a turn, so it acts as a second fake signal lobe, not noise.
+- **Fix:** seeded pseudo-random jitter (LCG, uniform ±noise dB); direction is a circular mean of 30° sectors weighted by (value − mean)². Max error 23° at ±4 dB.
+- **Rule:** simulate RSSI noise with a seeded random source and check every bearing, not one.
 ### 2026-11-23 · Wait for nearby results before testing a map pin
 
 - **Hit:** The store name captured by the browser check changed before selection.
