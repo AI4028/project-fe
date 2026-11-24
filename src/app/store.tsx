@@ -7,12 +7,13 @@ import { Screen, NavLink } from '@/components/screen';
 import { Text } from '@/components/ui/text';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { Accessibility, Navigation, ShoppingBag } from 'lucide-react-native';
+import { Navigation, ShoppingBag } from 'lucide-react-native';
 import { OrderingPaused, Problem } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
-import { accessDetails, knownText } from '@/lib/location';
+import { knownText } from '@/lib/location';
 import { errorMessage } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
+import { StoreAccessibility } from '@/components/store-accessibility';
 import { PlaceBookmark } from '@/components/place-actions';
 import type { Store } from '@/lib/types';
 export default function StoreDetails() {
@@ -55,27 +56,28 @@ export default function StoreDetails() {
     table: '테이블 주문',
   };
   const different = app.connection && app.connection.storeId !== id;
+  const paired = !!app.connection?.kioskId && app.connection.storeId === id;
   return (
     <Screen
       title={(language === 'en' ? store?.nameEn || store?.name : store?.name) ?? '매장 정보'}
       subtitle={venueAddress(store, language) || '방문에 필요한 정보를 한눈에 확인하세요.'}
       footer={
-        store && !store.directoryOnly ? (
+        store &&
+        !store.directoryOnly &&
+        (paired || (!store.orderingPaused && store.hasOrderTerminal !== false)) ? (
           <NavLink
-            href={{ pathname: '/menu', params: { storeId: store.storeId } }}
+            href={{ pathname: paired ? '/menu' : '/connect', params: { storeId: store.storeId } }}
             variant="default"
             icon={ShoppingBag}
           >
-            {store.orderingPaused || store.hasOrderTerminal === false
-              ? '메뉴 둘러보기'
-              : '바로 주문하기'}
+            {paired ? '메뉴 보기' : '키오스크에 연결해 주문하기'}
           </NavLink>
         ) : undefined
       }
       onTranscript={(text) => {
         if (!id) return false;
         if (/메뉴.*(읽|알려)|\bread (?:the )?menu\b/i.test(text)) {
-          const preview = store?.menu;
+          const preview = paired ? app.store?.menu : undefined;
           if (preview?.length) {
             app.readAloud(
               preview
@@ -86,12 +88,12 @@ export default function StoreDetails() {
                 .join(', '),
             );
           } else {
-            router.push({ pathname: '/menu', params: { storeId: id } });
+            router.push({ pathname: paired ? '/menu' : '/connect', params: { storeId: id } });
           }
           return true;
         }
         if (/메뉴|\bmenu\b/i.test(text)) {
-          router.push({ pathname: '/menu', params: { storeId: id } });
+          router.push({ pathname: paired ? '/menu' : '/connect', params: { storeId: id } });
           return true;
         }
         if (/길|실내|어디|\bdirections\b/i.test(text)) {
@@ -131,22 +133,9 @@ export default function StoreDetails() {
           </Card>
           {store.orderingPaused && <OrderingPaused />}
           <View className="flex-row flex-wrap gap-4">
-            <Card
-              className="min-w-0 rounded-3xl"
-              style={width >= 760 ? { width: '48%' } : { width: '100%' }}
-            >
-              <CardContent className="gap-4 pt-6">
-                <View className="h-11 w-11 items-center justify-center rounded-2xl bg-secondary">
-                  <Icon as={Accessibility} size={22} className="text-primary" />
-                </View>
-                <Text variant="h3">접근성 정보</Text>
-                {accessDetails(store, t).map((detail, index) => (
-                  <Text key={index} translate={false}>
-                    {detail}
-                  </Text>
-                ))}
-              </CardContent>
-            </Card>
+            <View className="min-w-0" style={{ width: width >= 760 ? '48%' : '100%' }}>
+              <StoreAccessibility key={store.storeId} store={store} />
+            </View>
             <Card
               className="min-w-0 rounded-3xl"
               style={width >= 760 ? { width: '48%' } : { width: '100%' }}

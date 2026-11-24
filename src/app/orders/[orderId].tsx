@@ -11,7 +11,7 @@ import { Icon } from '@/components/ui/icon';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Problem } from '@/components/feedback';
 import { OrderProgress } from '@/components/order-progress';
-import { OrderLines } from '@/components/order-lines';
+import { OrderLines, TotalRow } from '@/components/order-lines';
 import { useApp } from '@/providers/app-provider';
 import { type Order, type OrderStatus, type Store } from '@/lib/types';
 import { money } from '@/lib/cart';
@@ -42,7 +42,11 @@ export default function OrderScreen() {
   const { t, language } = useTranslation();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const app = useApp();
-  const [order, setOrder] = useState<Order | null>(null);
+  // Start from the order just placed or tracked, so the heading screen readers
+  // land on already names its status instead of a loading placeholder.
+  const known = useRef<Order | null>(null);
+  known.current = app.order?.orderId === orderId ? app.order : null;
+  const [order, setOrder] = useState<Order | null>(known.current);
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -72,7 +76,7 @@ export default function OrderScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setOrder(null);
+      setOrder(known.current);
       setCheckedAt(null);
       setError('');
       setActionError('');
@@ -183,12 +187,12 @@ export default function OrderScreen() {
                 {order.orderNumber}
               </Text>
               {checkedAt && (
-                <Text variant="muted" className="text-center">
-                  마지막 상태 확인:{' '}
-                  {new Date(checkedAt).toLocaleTimeString(language === 'en' ? 'en-US' : 'ko-KR', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
+                // One text node, so VoiceOver reads the label and time together.
+                <Text variant="muted" className="text-center" translate={false}>
+                  {`${t('마지막 상태 확인:')} ${new Date(checkedAt).toLocaleTimeString(
+                    language === 'en' ? 'en-US' : 'ko-KR',
+                    { hour: 'numeric', minute: '2-digit' },
+                  )}`}
                 </Text>
               )}
             </CardContent>
@@ -254,10 +258,7 @@ export default function OrderScreen() {
               ) : (
                 <Text translate={false}>{order.summary}</Text>
               )}
-              <View className="flex-row flex-wrap justify-between gap-2">
-                <Text>합계</Text>
-                <Text className="font-bold">{money(order.total)}</Text>
-              </View>
+              <TotalRow total={order.total} />
               {!!order.note && (
                 <Text>
                   요청 사항: <Text translate={false}>{order.note}</Text>

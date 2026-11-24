@@ -13,7 +13,6 @@ import { Text } from './ui/text';
 import { errorMessage } from '@/lib/api';
 import { money } from '@/lib/cart';
 import { useTranslation } from '@/lib/i18n';
-import type { Store } from '@/lib/types';
 import { useSavedMenus } from '@/lib/use-saved-menus';
 import { voiceSelection } from '@/lib/voice';
 import { useApp } from '@/providers/app-provider';
@@ -30,9 +29,9 @@ export function MenuScreen({
   const app = useApp();
   const { language, t } = useTranslation();
   const savedMenus = useSavedMenus(app.api.base);
-  const id = storeId || app.store?.storeId;
-  const connectedStoreId = app.connection?.storeId;
-  const [preview, setPreview] = useState<{ base: string; store: Store } | null>(null);
+  const id = storeId || app.connection?.storeId;
+  const pairedSessionId =
+    app.connection?.kioskId && app.connection.storeId === id ? app.connection.sessionId : undefined;
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(!!id);
   const [revision, setRevision] = useState(0);
@@ -45,18 +44,14 @@ export function MenuScreen({
   useEffect(() => setCategory(null), [id]);
   useEffect(() => {
     let active = true;
-    if (!id) {
+    if (!id || !pairedSessionId) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
-    const request =
-      connectedStoreId && connectedStoreId !== id ? app.api.store(id) : app.selectStore(id);
-    void request
-      .then((store) => {
-        if (active) setPreview({ base: app.api.base, store });
-      })
+    void app
+      .selectStore(id)
       .catch((reason) => {
         if (active) setError(errorMessage(reason));
       })
@@ -66,15 +61,10 @@ export function MenuScreen({
     return () => {
       active = false;
     };
-  }, [id, connectedStoreId, app.api, revision]);
+  }, [id, pairedSessionId, app.api, revision]);
 
-  const previewStore = preview?.base === app.api.base ? preview.store : null;
-  const store =
-    app.store?.storeId === id ? app.store : previewStore?.storeId === id ? previewStore : null;
+  const store = pairedSessionId && app.store?.storeId === id ? app.store : null;
   const storeName = store && (language === 'en' ? store.nameEn || store.name : store.name);
-  const cartStoreName =
-    app.store && (language === 'en' ? app.store.nameEn || app.store.name : app.store.name);
-  const differentCartStore = !!connectedStoreId && !!store && connectedStoreId !== store.storeId;
   const menu = store?.menu ?? [];
   const categories = [...new Set(menu.map((item) => item.category))];
   const activeCategory = category && categories.includes(category) ? category : categories[0];
@@ -85,6 +75,25 @@ export function MenuScreen({
   function closeSheet() {
     setSelected(null);
     if (initialItemId) router.replace({ pathname: '/menu', params: { storeId } });
+  }
+
+  if (!pairedSessionId) {
+    return (
+      <Screen
+        title="키오스크에 연결해 주세요"
+        subtitle="연결하면 매장 메뉴를 보고 주문할 수 있어요."
+        voice={false}
+      >
+        <SubmissionRecovery />
+        <NavLink
+          href={{ pathname: '/connect', params: { storeId: id, itemId: initialItemId } }}
+          variant="default"
+        >
+          키오스크 연결
+        </NavLink>
+        <NavLink href="/">매장 둘러보기</NavLink>
+      </Screen>
+    );
   }
 
   return (
@@ -105,6 +114,7 @@ export function MenuScreen({
           <View className="py-2">
             <Link href="/cart" asChild>
               <Button
+                role="button"
                 variant="secondary"
                 size="lg"
                 className="min-h-16 flex-wrap justify-between gap-3"
@@ -115,11 +125,7 @@ export function MenuScreen({
                     <Text className="font-bold text-primary-foreground">{qty}</Text>
                   </View>
                   <Text translate={false} className="shrink text-left">
-                    {qty
-                      ? differentCartStore && cartStoreName
-                        ? `${cartStoreName} · ${t('장바구니 보기')}`
-                        : t('장바구니 보기')
-                      : t('장바구니 비어 있음')}
+                    {qty ? t('장바구니 보기') : t('장바구니 비어 있음')}
                   </Text>
                 </View>
                 <Text className="text-lg font-extrabold text-foreground">

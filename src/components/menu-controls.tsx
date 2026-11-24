@@ -3,8 +3,10 @@ import { Minus, Plus } from 'lucide-react-native';
 import { Button } from './ui/button';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
+import { SpokenGroup } from './spoken-group';
 import { useTranslation } from '@/lib/i18n';
 import { optionSummary } from '@/lib/cart';
+import { cn } from '@/lib/utils';
 import type { PricedLine } from '@/lib/types';
 
 export function QuantityStepper({
@@ -26,7 +28,7 @@ export function QuantityStepper({
     <View
       className={
         compact
-          ? 'flex-row flex-wrap items-center gap-2'
+          ? 'flex-row flex-wrap items-center gap-3'
           : 'flex-row items-center justify-between gap-3'
       }
     >
@@ -40,7 +42,7 @@ export function QuantityStepper({
         <Icon as={Minus} size={20} accessible={false} />
       </Button>
       <Text
-        className="font-bold"
+        className={cn('text-xl font-extrabold', compact && 'min-w-8 text-center')}
         accessibilityLabel={t(`${qty}개`)}
         accessibilityLiveRegion="polite"
       >
@@ -64,9 +66,11 @@ export function CartLineSummary({ line }: { line: PricedLine }) {
   const name = language === 'en' ? line.nameEn || line.name : line.name;
   return (
     <View className="gap-1">
-      <Text translate={false} className="text-lg font-bold">
-        {name} × {line.qty}
-      </Text>
+      <SpokenGroup label={`${name} ${t(`${line.qty}개`)}`}>
+        <Text translate={false} className="text-lg font-bold">
+          {`${name} × ${line.qty}`}
+        </Text>
+      </SpokenGroup>
       <Text variant="muted" translate={false}>
         {optionSummary(line, t) || t('추가 옵션 없음')}
       </Text>
