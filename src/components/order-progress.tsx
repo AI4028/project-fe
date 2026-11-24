@@ -7,6 +7,7 @@ import { Text, TextScaleContext } from '@/components/ui/text';
 import { useTranslation } from '@/lib/i18n';
 import type { OrderStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { SpokenGroup } from '@/components/spoken-group';
 
 const stages = [
   { status: 'submitted', label: '전송' },
@@ -22,6 +23,14 @@ export function OrderProgress({ status }: { status: OrderStatus | 'sending' | 'f
   const vertical = width < (language === 'en' ? 360 : 310) || scale > 1.35;
   const activeIndex =
     status === 'picked_up' ? stages.length : stages.findIndex((s) => s.status === status);
+  // Read the current status once instead of every numbered step.
+  const step = Math.max(activeIndex, 0);
+  const summary =
+    status === 'failed'
+      ? t('전송 실패')
+      : status === 'picked_up'
+        ? t('픽업 완료')
+        : `${t((stages[step] ?? stages[0]).label)}, ${t(`주문 ${stages.length}단계 중 ${step + 1}단계`)}`;
 
   return (
     <Card className="border-0 bg-secondary py-4 shadow-none">
@@ -33,18 +42,15 @@ export function OrderProgress({ status }: { status: OrderStatus | 'sending' | 'f
             <Text className="shrink font-semibold">주문 취소</Text>
           </View>
         ) : (
-          <View className={cn(vertical ? 'gap-2' : 'flex-row')}>
+          <SpokenGroup label={summary} className={cn(vertical ? 'gap-2' : 'flex-row')}>
             {stages.map(({ status: stage, label }, index) => {
               const failed = index === 0 && status === 'failed';
               const current = index === activeIndex || (index === 0 && status === 'sending');
               const complete = index < activeIndex;
               const caption = failed ? '전송 실패' : label;
-              const state = complete ? '완료' : current ? '현재 단계' : '대기';
               return (
                 <View
                   key={stage}
-                  accessible
-                  accessibilityLabel={failed ? t(caption) : `${t(caption)}, ${t(state)}`}
                   className={cn(
                     'relative min-w-0 gap-2',
                     vertical ? 'flex-row items-center' : 'flex-1 items-center',
@@ -102,7 +108,7 @@ export function OrderProgress({ status }: { status: OrderStatus | 'sending' | 'f
                 </View>
               );
             })}
-          </View>
+          </SpokenGroup>
         )}
       </CardContent>
     </Card>
