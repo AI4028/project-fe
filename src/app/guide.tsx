@@ -1,6 +1,6 @@
 import { venueAddress } from '@/lib/catalog';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen, NavLink } from '@/components/screen';
 import { StoreAccessibility } from '@/components/store-accessibility';
@@ -9,9 +9,8 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { Accessibility, ArrowUp, MapPin, Navigation, Volume2 } from 'lucide-react-native';
+import { Accessibility, MapPin, Navigation, Volume2 } from 'lucide-react-native';
 import { accessDetails, knownText } from '@/lib/location';
-import { directionsUrl } from '@/lib/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useApp } from '@/providers/app-provider';
 import { errorMessage } from '@/lib/api';
@@ -92,7 +91,7 @@ export default function Guide() {
   return (
     <Screen
       title="매장으로 길 안내"
-      subtitle="등록된 접근 정보를 읽거나 외부 지도에서 경로를 확인할 수 있어요."
+      subtitle="매장까지 걷는 길을 안내받거나 등록된 접근 정보를 읽을 수 있어요."
       voice={false}
     >
       {!!error && (
@@ -114,41 +113,42 @@ export default function Guide() {
             </Text>
           </View>
           <View className="gap-2">
-            {!store.directoryOnly && !!store.location && (
-              <Button
-                variant="default"
-                onPress={() =>
-                  router.push({ pathname: '/direction', params: { storeId: store.storeId } })
-                }
-              >
-                <Icon
-                  as={ArrowUp}
-                  size={19}
-                  className="text-primary-foreground"
-                  accessible={false}
-                />
-                <Text>매장 방향 보기 (화살표·거리)</Text>
-              </Button>
+            {store.location ? (
+              <>
+                <Button
+                  variant="default"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/direction',
+                      params: store.directoryOnly
+                        ? {
+                            storeId: store.storeId,
+                            name: store.name,
+                            lat: String(store.location!.lat),
+                            lng: String(store.location!.lng),
+                          }
+                        : { storeId: store.storeId },
+                    })
+                  }
+                >
+                  <Icon
+                    as={Navigation}
+                    size={19}
+                    className="text-primary-foreground"
+                    accessible={false}
+                  />
+                  <Text>길 안내 시작</Text>
+                </Button>
+                <Text variant="muted">
+                  현재 위치에서 매장까지 걷는 길을 안내해요. 매장 가까이에서 키오스크 신호가 잡히면
+                  키오스크까지 안내해요.
+                </Text>
+              </>
+            ) : (
+              <Text variant="muted">
+                이 장소는 위치 정보가 없어 길을 안내할 수 없어요. 매장 직원에게 문의해 주세요.
+              </Text>
             )}
-            <Button
-              variant={!store.directoryOnly && store.location ? 'outline' : 'default'}
-              onPress={() => void Linking.openURL(directionsUrl(store)).catch(app.report)}
-            >
-              <Icon
-                as={Navigation}
-                size={19}
-                className={
-                  !store.directoryOnly && store.location
-                    ? 'text-primary'
-                    : 'text-primary-foreground'
-                }
-                accessible={false}
-              />
-              <Text>지도 앱에서 길찾기</Text>
-            </Button>
-            <Text variant="muted">
-              외부 지도에서 경로를 확인해요. 접근 가능한 경로인지는 별도 확인이 필요해요.
-            </Text>
           </View>
           {store.directoryOnly ? (
             <Text variant="muted">이 장소에는 등록된 실내 이동 안내가 없어요.</Text>

@@ -16,15 +16,23 @@ module.exports = {
           'primary',
           'secondary',
           'destructive',
+          'success',
           'muted',
           'accent',
           'popover',
           'card',
         ].map((name) => [
           name,
-          ['primary', 'secondary', 'destructive', 'muted', 'accent', 'popover', 'card'].includes(
-            name,
-          )
+          [
+            'primary',
+            'secondary',
+            'destructive',
+            'success',
+            'muted',
+            'accent',
+            'popover',
+            'card',
+          ].includes(name)
             ? { DEFAULT: `hsl(var(--${name}))`, foreground: `hsl(var(--${name}-foreground))` }
             : `hsl(var(--${name}))`,
         ]),
