@@ -33,6 +33,17 @@ pnpm ios        # or: pnpm android
 Build once, then open the development build from Metro. Expo Go works for the touch
 flow, but it has no speech recognition module.
 
+### Android kiosk scanning
+
+Rebuild the Android development client after adding the local BLE module. With
+both demo flags off, open a store and choose **Connect to a kiosk to order**, then
+choose **Find nearby kiosks** (주변 키오스크 검색).
+Android 12 and later ask for Nearby Devices access. Android 11 and earlier need
+location permission and Location Services for BLE scanning. The app scans for six
+seconds, then lets the customer confirm a discovered store. QR and manual codes
+are available when Bluetooth is off or the scan finds nothing. Web and iOS use
+the code flow or the browser-compatible demo scan when demo mode is enabled.
+
 ## Maps
 
 - **iOS** uses Apple Maps, **Android** uses Google Maps, **web** uses Kakao Maps.
@@ -40,9 +51,12 @@ flow, but it has no speech recognition module.
 
 ## Demo mode
 
-`EXPO_PUBLIC_DEMO_MODE=true` together with backend `DEMO_MODE=1` enables the demo token
-endpoint, the demo location button and `/ws/proximity` readings from the Arduino bridge.
-Direct Bluetooth scanning is not implemented yet; pair with QR or a manual code.
+Start the backend with `DEMO_MODE=1` and run Expo with `EXPO_PUBLIC_DEMO_MODE=true`.
+Open `/connect` and choose **Simulate nearby kiosk scan** (주변 데모 기기 검색).
+The scan simulates advertisements for provisioned demo kiosks (`GK01`, `OR01`,
+`MB01`, `CB01`) using real pairing tokens from the demo backend. Select a kiosk,
+verify its store, and connect to open the normal ordering session. Search again
+if the token expires. QR and manual code entry also work without BLE hardware.
 
 ## Web deploy
 

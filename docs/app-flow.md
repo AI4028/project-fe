@@ -8,9 +8,9 @@
    Accessibility preferences are available through settings and onboarding.
 2. **Find a store.** With location allowed, the map shows nearby stores and arrival
    announcements. Without it, the full accessible list still works. Unknown access info reads 확인 필요.
-3. **Choose.** Order Now opens the selected store's menu. Adding the first item
-   creates a store-scoped cart with prices from the server. QR or kiosk code
-   pairing remains available as another entry point.
+3. **Pair with the kiosk.** Search for the kiosk's BLE signal or use its QR code
+   or a manual pairing code. The app identifies the store from the kiosk ID and
+   asks you to confirm it. A paired session unlocks its menu and cart.
 4. **Order.** Pick options and quantity, edit the cart, and review the current
    quote. Payment happens at the counter or kiosk. Directions are available
    before and after ordering.
@@ -37,7 +37,7 @@ guidance are in settings.
 
 The four primary destinations are Home, Orders, Favorites and Settings. On the
 map, the search button expands into a focused field; map/list controls stay
-compact. Place previews offer Directions, Save and store-specific menu access.
+compact. Place previews offer Directions, Save and store-specific kiosk pairing.
 Saved items persist per API origin. Orders shows the current cart and the
 device's recent server-confirmed orders. Ordering-service errors appear
 as dismissible notices with a separate retry action, without a bottom error bar.

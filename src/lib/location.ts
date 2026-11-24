@@ -76,35 +76,39 @@ export const isKnown = (value?: string): value is string =>
   !!value?.trim() && !/^TODO/i.test(value.trim());
 export const knownText = (value?: string) => (isKnown(value) ? value : '확인 필요');
 
-// Use the same recorded facts for venue details, Directions and spoken guidance.
+export function facilityDetails(store: Store, t: (message: string) => string) {
+  const access = store.accessibility;
+  const rows: [string, boolean | null | undefined][] = [
+    ['자동문', access.automaticDoor],
+    ['엘리베이터', access.elevator],
+    ['장애인 화장실', access.accessibleRestroom],
+  ];
+  return rows.map(
+    ([label, value]) => `${t(label)} · ${t(value == null ? '확인 필요' : value ? '있음' : '없음')}`,
+  );
+}
+
+export function accessSourceNote(store: Store) {
+  return store.accessibility.demo
+    ? '이 데모 매장의 접근성 정보는 예시입니다.'
+    : '정보 출처와 확인 날짜는 아직 제공되지 않았습니다. 이용 가능 여부는 직원에게 확인해 주세요.';
+}
+
+export function entranceStatus(store: Store) {
+  const stepFree = store.accessibility.stepFreeEntrance;
+  return stepFree == null ? '확인 필요' : stepFree ? '턱 없는 입구' : '입구에 턱 있음';
+}
+
 export function accessDetails(store: Store, t: (message: string) => string) {
   const access = store.accessibility;
-  const availability = (value?: boolean | null) =>
-    value == null ? '확인 필요' : value ? '있음' : '없음';
-  const rows: [string, string][] = [
-    [
-      '입구 단차',
-      access.stepFreeEntrance == null
-        ? '확인 필요'
-        : access.stepFreeEntrance
-          ? '턱 없는 입구'
-          : '입구에 턱 있음',
-    ],
-    ['자동문', availability(access.automaticDoor)],
-    ['엘리베이터', availability(access.elevator)],
-    ['장애인 화장실', availability(access.accessibleRestroom)],
-  ];
   return [
     t(access.floor == null ? '층수 확인 필요' : `${access.floor}층`),
-    ...rows.map(([label, value]) => `${t(label)} · ${t(value)}`),
+    `${t('입구 단차')} · ${t(entranceStatus(store))}`,
+    ...facilityDetails(store, t),
     ...(access.staffAssistance == null
       ? []
       : [t(access.staffAssistance ? '직원 도움 가능' : '직원 도움 불가')]),
     ...(isKnown(access.notes) ? [access.notes] : []),
-    t(
-      access.demo
-        ? '이 데모 매장의 접근성 정보는 예시입니다.'
-        : '정보 출처와 확인 날짜는 아직 제공되지 않았습니다. 이용 가능 여부는 직원에게 확인해 주세요.',
-    ),
+    t(accessSourceNote(store)),
   ];
 }

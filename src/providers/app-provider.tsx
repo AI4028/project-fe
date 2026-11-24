@@ -40,6 +40,7 @@ function checkoutRejected(error: unknown): boolean {
       'bad-note',
       'price-changed',
       'ordering-paused',
+      'kiosk-pairing-required',
       'empty-order',
       'too-many-lines',
       'bad-line',
@@ -286,6 +287,7 @@ function useAppState(path: string) {
   const clearSession = useCallback(async () => {
     currentConnection.current = null;
     setConnection(null);
+    setStore(null);
     setItems([]);
     setCart(emptyCart);
     setHelpState('idle');
@@ -347,7 +349,7 @@ function useAppState(path: string) {
       const session = await api.session(connection.sessionId, device);
       if (currentApi.current !== api || currentConnection.current?.sessionId !== session.sessionId)
         return;
-      if (session.status !== 'active') {
+      if (session.status !== 'active' || !session.kioskId) {
         if (session.orderId) {
           const placed = await api.order(session.orderId, device);
           if (
@@ -362,7 +364,7 @@ function useAppState(path: string) {
       }
       if (session.helpState) setHelpState(session.helpState);
       else if (session.helpRequested) setHelpState('sent');
-      const latestStore = await api.store(session.storeId);
+      const latestStore = await api.pairedStore(session.sessionId, device);
       if (currentApi.current === api && currentConnection.current?.sessionId === session.sessionId)
         setStore(latestStore);
     }
@@ -423,8 +425,8 @@ function useAppState(path: string) {
           await rememberOrder(placed);
           return;
         }
-        if (session.status === 'active') {
-          const selected = await api.store(session.storeId);
+        if (session.status === 'active' && session.kioskId) {
+          const selected = await api.pairedStore(session.sessionId, device);
           if (!active) return;
           setStore(selected);
           setConnection(session);
@@ -513,14 +515,14 @@ function useAppState(path: string) {
     };
   }, [api, connection?.sessionId, order?.sessionId, refresh]);
   async function selectStore(id: string) {
+    const connection = currentConnection.current;
+    if (!connection?.kioskId || connection.storeId !== id)
+      throw new ApiError('kiosk-pairing-required', 409, 'Kiosk pairing required.');
     const request = ++selectStoreSeq.current;
-    if (currentConnection.current && currentConnection.current.storeId !== id)
-      throw new Error('현재 매장 연결을 종료한 후 다른 매장을 선택해 주세요.');
-    const selected = await api.store(id);
+    const selected = await api.pairedStore(connection.sessionId, await token());
+    if (currentApi.current !== api || currentConnection.current?.sessionId !== connection.sessionId)
+      throw new ApiError('kiosk-pairing-required', 409, 'Kiosk pairing required.');
     if (request !== selectStoreSeq.current) return selected;
-    if (currentApi.current !== api)
-      throw new Error('서버가 변경되었습니다. 매장을 다시 선택해 주세요.');
-    if (currentConnection.current && currentConnection.current.storeId !== id) return selected;
     setStore(selected);
     return selected;
   }
@@ -555,56 +557,27 @@ function useAppState(path: string) {
       }
     });
   }
-  async function updateCart(next: CartItem[], storeId = store?.storeId, replaceSessionId?: string) {
+  async function updateCart(next: CartItem[], storeId = store?.storeId) {
     return exclusive(async () => {
       if (pendingRef.current) throw new Error('먼저 주문 전송 결과를 확인해 주세요.');
-      let active = currentConnection.current;
-      const id = storeId ?? active?.storeId;
-      if (!id) throw new Error('먼저 매장을 선택해 주세요.');
-      if (replaceSessionId && active?.sessionId !== replaceSessionId)
-        throw new Error('장바구니가 변경되었어요. 다시 확인해 주세요.');
-      if (active && active.storeId !== id && !replaceSessionId)
-        throw new Error('장바구니의 매장을 확인한 뒤 다른 매장을 선택해 주세요.');
+      const active = currentConnection.current;
+      if (!active?.kioskId || (storeId && active.storeId !== storeId))
+        throw new ApiError('kiosk-pairing-required', 409, 'Kiosk pairing required.');
       if (next.length > 20) throw new Error('한 번에 20개 메뉴까지 담을 수 있습니다.');
-      if (!active && !next.length) return emptyCart;
-      const selected = store?.storeId === id ? store : await api.store(id);
+      const selected = store?.storeId === active.storeId ? store : await selectStore(active.storeId);
       for (const line of next) {
         const item = selected.menu?.find((entry) => entry.id === line.itemId);
         if (!item) throw new Error('메뉴를 새로고침해 주세요.');
         const error = validateItem(item, line.qty, line.options);
         if (error) throw new Error(error);
       }
-      const device = await token();
-      const previous = active;
-      let result: Cart;
-      if (!active || (replaceSessionId && active.storeId !== id)) {
-        const session = previous
-          ? await api.prepareStoreCart(id, next, device)
-          : await api.startStoreSession(id, device);
-        await AsyncStorage.setItem(`session:${api.base}`, session.sessionId);
-        ++selectStoreSeq.current;
-        active = session;
-        currentConnection.current = session;
-        setConnection(session);
-        setStore(selected);
-        setCart(session.cart);
-        setItems(restoreCart(session.cart.lines, selected.menu ?? []));
-        setCheckout({ payment: 'counter', note: '' });
-        setHelpState('idle');
-        result = previous ? session.cart : await api.cart(session.sessionId, next, device);
-      } else {
-        result = await api.cart(active.sessionId, next, device);
-      }
+      const result = await api.cart(active.sessionId, next, await token());
       setItems(next);
       setCart(result);
       announce(
         `장바구니가 변경되었습니다. 합계 ${result.total.toLocaleString('ko-KR')}원`,
         cartScope,
       );
-      if (previous && previous.sessionId !== active.sessionId) {
-        // The new cart is durable. A failed kiosk release must never undo it.
-        await api.end(previous.sessionId, device).catch(report);
-      }
       return result;
     });
   }
@@ -613,7 +586,7 @@ function useAppState(path: string) {
       if (pendingRef.current)
         throw new Error('전송 결과를 먼저 확인해 주세요. 주문을 다시 보내지 않았습니다.');
       if (!demo) payment = 'counter';
-      if (!connection || !items.length) throw new Error('연결 상태와 장바구니를 확인해 주세요.');
+      if (!connection?.kioskId || !items.length) throw new Error('연결 상태와 장바구니를 확인해 주세요.');
       const device = await token();
       const latest = await api.cart(connection.sessionId, items, device);
       setCart(latest);
