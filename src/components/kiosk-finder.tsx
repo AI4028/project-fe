@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ArrowUp, Bluetooth, Compass, RotateCw, Volume2, VolumeX } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
+import { BoardMap, BoardSetupPanel } from '@/components/board-setup';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -13,12 +14,23 @@ import {
   hotCold,
   locateBeacon,
   signalFaded,
+  smoothRssi,
   turnCoverage,
   type HeatLevel,
   type Located,
   type Sample,
   type TrackSample,
 } from '@/lib/ble-direction';
+import {
+  DEFAULT_SETUP,
+  roomBearing,
+  roomToCompass,
+  setupProblem,
+  smoothPosition,
+  trilaterate,
+  type BoardSetup,
+  type Position,
+} from '@/lib/ble-position';
 import { clockPosition, relativeDeg, sideLabel } from '@/lib/direction';
 import { useTranslation } from '@/lib/i18n';
 import { useBeeps } from '@/lib/use-beeps';
@@ -31,6 +43,10 @@ import { useApp } from '@/providers/app-provider';
 const withCopula = (label: string) => `${label}${label.endsWith('이상') ? '이에요' : '예요'}.`;
 
 const CALIBRATION_KEY = 'ble:rssiAt1m';
+const BOARDS_KEY = 'ble:boards';
+/** A position board counts as heard when its last reading is this recent. */
+const BOARD_FRESH_MS = 3000;
+const normalize = (deg: number) => ((deg % 360) + 360) % 360;
 const LOST_AFTER_MS = 5000;
 const TURN_LIMIT_MS = 25000;
 const HISTORY_MS = 25000;
@@ -98,6 +114,9 @@ export function KioskFinder({ heading, compassStatus, allowCompass }: Props) {
   const [turnTarget, setTurnTarget] = useState<TurnTarget | null>(null);
   const [located, setLocated] = useState<Located | null>(null);
   const lastLocate = useRef(0);
+  const [setup, setSetup] = useState<BoardSetup>(DEFAULT_SETUP);
+  const [boardPosition, setBoardPosition] = useState<Position | null>(null);
+  const [showSetup, setShowSetup] = useState(false);
   const [turnMessage, setTurnMessage] = useState('');
   const [soundOn, setSoundOn] = useState(true);
   const [now, setNow] = useState(Date.now());
@@ -114,7 +133,27 @@ export function KioskFinder({ heading, compassStatus, allowCompass }: Props) {
       { at, x: position.current.x, y: position.current.y, heading: facing, rssi },
     ];
   }, []);
-  const { state, beacon, start, stop } = useBleScan(onReading);
+  const { state, beacon, anchors, start, stop } = useBleScan(onReading);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(BOARDS_KEY)
+      .then((value) => {
+        if (!value) return;
+        const saved = JSON.parse(value) as Partial<BoardSetup>;
+        setSetup({
+          ...DEFAULT_SETUP,
+          ...saved,
+          spots: { ...DEFAULT_SETUP.spots, ...saved.spots },
+          rssiAt1m: { ...DEFAULT_SETUP.rssiAt1m, ...saved.rssiAt1m },
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  function changeSetup(next: BoardSetup) {
+    setSetup(next);
+    void AsyncStorage.setItem(BOARDS_KEY, JSON.stringify(next)).catch(() => {});
+  }
 
   useEffect(() => {
     void AsyncStorage.getItem(CALIBRATION_KEY)
@@ -132,7 +171,34 @@ export function KioskFinder({ heading, compassStatus, allowCompass }: Props) {
     if (state !== 'scanning' || now - lastLocate.current < LOCATE_EVERY_MS) return;
     lastLocate.current = now;
     setLocated(locateBeacon(track.current, position.current));
-  }, [state, now]);
+
+    // Three boards: the phone's position from all three signals.
+    const recent = history.current.filter((h) => now - h.at < 1500).map((h) => h.rssi);
+    const kioskRssi = smoothRssi(recent, recent.length);
+    const fresh = (at?: number) => at != null && now - at < BOARD_FRESH_MS;
+    if (
+      setupProblem(setup) ||
+      kioskRssi == null ||
+      !fresh(anchors.B?.lastSeenAt) ||
+      !fresh(anchors.C?.lastSeenAt)
+    ) {
+      setBoardPosition(null);
+      return;
+    }
+    const facingRoom =
+      heading != null && setup.forwardHeading != null
+        ? normalize(heading - setup.forwardHeading)
+        : null;
+    const next = trilaterate(
+      [
+        { spot: { x: 0, y: 0 }, rssi: kioskRssi, rssiAt1m },
+        { spot: setup.spots.B, rssi: anchors.B!.rssi, rssiAt1m: setup.rssiAt1m.B },
+        { spot: setup.spots.C, rssi: anchors.C!.rssi, rssiAt1m: setup.rssiAt1m.C },
+      ],
+      facingRoom,
+    );
+    if (next) setBoardPosition((previous) => smoothPosition(previous, next));
+  }, [state, now, anchors, setup, heading, rssiAt1m]);
 
   const finishTurn = useCallback(() => {
     setTurning(false);
@@ -163,7 +229,17 @@ export function KioskFinder({ heading, compassStatus, allowCompass }: Props) {
   }, [turning, now, finishTurn]);
 
   const lost = !!beacon && now - beacon.lastSeenAt > LOST_AFTER_MS;
-  const meters = beacon && !lost ? estimateDistanceM(beacon.rssi, rssiAt1m) : null;
+  // Three-board mode wins when it has a position; otherwise one board.
+  const boardsRaw = !lost && setup.forwardHeading != null ? boardPosition : null;
+  // Too unsure (e.g. outside the boards' triangle with the back to them):
+  // don't draw a three-board arrow; hot/cold and the one-board arrow remain.
+  const boardsUnsure =
+    !!boardsRaw &&
+    boardsRaw.uncertainty > Math.max(1.5, 0.8 * Math.hypot(boardsRaw.x, boardsRaw.y));
+  const boards = boardsRaw && !boardsUnsure ? boardsRaw : null;
+  const boardDistance = boards ? Math.hypot(boards.x, boards.y) : null;
+  const meters =
+    boardDistance ?? (beacon && !lost ? estimateDistanceM(beacon.rssi, rssiAt1m) : null);
   const step = meters != null ? distanceStep(meters) : null;
   const near = !!step?.near;
   const heat = beacon && !lost ? hotCold(history.current, now, rssiAt1m) : null;
@@ -171,8 +247,15 @@ export function KioskFinder({ heading, compassStatus, allowCompass }: Props) {
     !!turnTarget &&
     now - turnTarget.at < TURN_VALID_MS &&
     Math.hypot(position.current.x - turnTarget.x, position.current.y - turnTarget.y) < TURN_VALID_M;
-  const bearing = located?.ok ? located.bearing : turnStillValid ? turnTarget!.bearing : null;
+  const bearing = boards
+    ? roomToCompass(roomBearing(boards, { x: 0, y: 0 }), setup.forwardHeading!)
+    : located?.ok
+      ? located.bearing
+      : turnStillValid
+        ? turnTarget!.bearing
+        : null;
   const faded =
+    !boards &&
     !located?.ok &&
     turnStillValid &&
     !!beacon &&
@@ -205,17 +288,19 @@ export function KioskFinder({ heading, compassStatus, allowCompass }: Props) {
     app.announce(sentence);
   }, [sentence, app]);
 
-  const arrowSource = located?.ok
-    ? located.walked >= 2
-      ? '화살표: 걸은 길과 신호로 찾았어요'
-      : '화살표: 돌면서 받은 신호로 찾았어요'
-    : turnStillValid
-      ? '화살표: 한 바퀴 돌기로 찾았어요'
-      : !motion.available
-        ? '제자리에서 천천히 한 바퀴 돌면 화살표가 나타나요.'
-        : located?.reason === 'unclear' && located.walked >= 2.5
-          ? '방향을 바꿔 몇 걸음 더 걸어 보세요. 화살표가 나타나요.'
-          : '몇 걸음 걸어 보거나 제자리에서 천천히 돌아 보세요. 화살표가 나타나요.';
+  const arrowSource = boards
+    ? '화살표: 보드 3개로 내 위치를 찾았어요'
+    : located?.ok
+      ? located.walked >= 2
+        ? '화살표: 걸은 길과 신호로 찾았어요'
+        : '화살표: 돌면서 받은 신호로 찾았어요'
+      : turnStillValid
+        ? '화살표: 한 바퀴 돌기로 찾았어요'
+        : !motion.available
+          ? '제자리에서 천천히 한 바퀴 돌면 화살표가 나타나요.'
+          : located?.reason === 'unclear' && located.walked >= 2.5
+            ? '방향을 바꿔 몇 걸음 더 걸어 보세요. 화살표가 나타나요.'
+            : '몇 걸음 걸어 보거나 제자리에서 천천히 돌아 보세요. 화살표가 나타나요.';
 
   async function begin() {
     unlock(); // Sound needs this tap.
@@ -366,6 +451,24 @@ export function KioskFinder({ heading, compassStatus, allowCompass }: Props) {
                 {`신호 ${Math.round(beacon.rssi)}dBm · 1m 기준 ${rssiAt1m}dBm`}
               </Text>
               <Text variant="muted">{compassLine}</Text>
+              {boards && boardDistance != null && (
+                <>
+                  <Text testID="board-position" className="text-center">
+                    {`보드 3개 위치: 키오스크까지 ${boardDistance.toFixed(1)}m · 오차 약 ±${Math.max(0.5, boards.uncertainty).toFixed(1)}m`}
+                  </Text>
+                  <BoardMap setup={setup} position={boards} />
+                </>
+              )}
+              {boardsUnsure && (
+                <Text testID="board-unsure" className="text-center">
+                  보드 3개 위치가 아직 불확실해요. 보드들 사이 쪽으로 몇 걸음 움직여 보세요.
+                </Text>
+              )}
+              {!boardsRaw && (!!anchors.B || !!anchors.C) && (
+                <Text variant="muted" className="text-center">
+                  보드 B, C 신호가 잡혀요. 보드 3개 설정을 마치면 더 정확해져요.
+                </Text>
+              )}
             </>
           )}
         </View>
@@ -424,6 +527,26 @@ export function KioskFinder({ heading, compassStatus, allowCompass }: Props) {
           <Icon as={Compass} size={19} className="text-primary" accessible={false} />
           <Text>나침반 허용하기</Text>
         </Button>
+      )}
+      {state === 'scanning' && (
+        <>
+          <Button variant="outline" onPress={() => setShowSetup((value) => !value)}>
+            <Text>{showSetup ? '보드 3개 설정 닫기' : '보드 3개 설정 열기'}</Text>
+          </Button>
+          {showSetup && (
+            <>
+              <BoardSetupPanel
+                setup={setup}
+                onChange={changeSetup}
+                heading={heading}
+                kioskRssi={beacon && !lost ? beacon.rssi : null}
+                anchors={anchors}
+                now={now}
+              />
+              {!boards && <BoardMap setup={setup} position={null} />}
+            </>
+          )}
+        </>
       )}
       {state === 'scanning' && (
         <Button variant="ghost" onPress={stop}>
