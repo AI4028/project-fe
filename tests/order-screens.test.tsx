@@ -174,7 +174,7 @@ test('staff help for a direct order shows sent only after confirmation and then 
 test('before ordering, help offers kiosk pairing without claiming a request was sent', async () => {
   mockParams = { storeId: 'cafe' };
   await render(<Help />);
-  expect(await screen.findByText('키오스크 연결 후 도움 요청하기')).toBeTruthy();
+  expect(await screen.findByText('키오스크 코드로 연결해 도움 요청하기')).toBeTruthy();
   expect(screen.queryByText('앱으로 직원 도움 요청하기')).toBeNull();
   expect(screen.queryByText('도움 요청을 보냈어요')).toBeNull();
   expect(mockApp.requestOrderHelp).not.toHaveBeenCalled();
@@ -194,7 +194,7 @@ test('a venue without a terminal offers its recorded phone number and handles an
   try {
     await render(<Help />);
     await screen.findByText('현재 이 매장에는 앱으로 새 도움 요청을 보낼 수 없어요.');
-    expect(screen.queryByText('키오스크 연결 후 도움 요청하기')).toBeNull();
+    expect(screen.queryByText('키오스크 코드로 연결해 도움 요청하기')).toBeNull();
     await fireEvent.press(screen.getByText('(062-715-0000)'));
     expect(open).toHaveBeenCalledWith('tel:0627150000');
     await screen.findByText('전화 앱을 열 수 없어요. 표시된 번호로 전화해 주세요.');

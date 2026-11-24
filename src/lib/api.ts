@@ -136,15 +136,15 @@ export class Api {
   demoToken = (id: string) => this.request<Heartbeat>(`/kiosks/${encodeURIComponent(id)}/token`);
   connect = (kioskId: string, token: string, device: string) =>
     this.request<Connection>('/sessions', 'POST', { kioskId, token }, device);
-  pairedStore = async (sessionId: string, device: string) =>
-    this.withMedia(
-      await this.request<Store>(
-        `/sessions/${encodeURIComponent(sessionId)}/store`,
-        'GET',
-        undefined,
-        device,
-      ),
+  startStoreSession = (storeId: string, device: string) =>
+    this.request<Session>(
+      `/stores/${encodeURIComponent(storeId)}/sessions`,
+      'POST',
+      undefined,
+      device,
     );
+  prepareStoreCart = (id: string, items: CartItem[], device: string) =>
+    this.request<Session>(`/stores/${encodeURIComponent(id)}/cart`, 'PUT', { items }, device);
   session = (id: string, device: string) =>
     this.request<Session>(`/sessions/${id}`, 'GET', undefined, device);
   cart = (id: string, items: CartItem[], device: string) =>
@@ -226,7 +226,6 @@ const messages: Record<string, string> = {
   'price-changed': '가격이 변경되었습니다. 장바구니를 새로고침하고 다시 확인해 주세요.',
   'idempotency-conflict': '이전 주문과 내용이 다릅니다. 주문 결과를 먼저 확인해 주세요.',
   'token-invalid': '연결 코드가 만료되었습니다. 키오스크에서 새 코드를 확인해 주세요.',
-  'kiosk-pairing-required': '메뉴를 보거나 주문하려면 먼저 키오스크에 연결해 주세요.',
   'kiosk-not-found': '매장 기기 코드를 찾을 수 없습니다. 4자리 코드를 다시 확인해 주세요.',
   'store-not-found': '매장 정보를 찾을 수 없습니다.',
   'ordering-paused':

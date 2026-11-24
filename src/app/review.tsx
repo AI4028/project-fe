@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { View } from 'react-native';
 import { ArrowRight, Check, Circle, CreditCard, MapPin, Store } from 'lucide-react-native';
 import { Screen, NavLink } from '@/components/screen';
-import { OrderLines, TotalRow } from '@/components/order-lines';
+import { OrderLines } from '@/components/order-lines';
 import { OrderProgress } from '@/components/order-progress';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -165,11 +165,10 @@ export default function Review() {
                 </View>
               )}
               <OrderLines lines={checkedCart.lines} />
-              <TotalRow
-                heading
-                total={checkedCart.total}
-                className="flex-row flex-wrap items-baseline justify-between gap-3 pt-1"
-              />
+              <View className="flex-row flex-wrap items-baseline justify-between gap-3 pt-1">
+                <Text variant="h2">합계</Text>
+                <Text variant="h2">{money(checkedCart.total)}</Text>
+              </View>
               <Text variant="muted">매장에서 확인한 금액입니다.</Text>
             </CardContent>
           </Card>

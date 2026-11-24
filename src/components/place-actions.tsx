@@ -32,7 +32,6 @@ export function PlaceBookmark({ store }: { store: Store }) {
 }
 
 export function PlaceActions({ store }: { store: Store }) {
-  const { connection } = useApp();
   const params = { storeId: store.storeId };
   const guide = store.directoryOnly
     ? {
@@ -43,7 +42,7 @@ export function PlaceActions({ store }: { store: Store }) {
         lng: String(store.location?.lng ?? ''),
       }
     : params;
-  const paired = !!connection?.kioskId && connection.storeId === store.storeId;
+  const preview = store.orderingPaused || store.hasOrderTerminal === false;
   return (
     <View className="flex-row flex-wrap gap-2">
       <Button
@@ -54,24 +53,21 @@ export function PlaceActions({ store }: { store: Store }) {
         <Icon as={Navigation} size={18} className="text-primary" accessible={false} />
         <Text className="shrink text-center">길 안내</Text>
       </Button>
-      {!store.directoryOnly &&
-        (paired || (!store.orderingPaused && store.hasOrderTerminal !== false)) && (
-          <Button
-            variant="default"
-            className="min-w-28 flex-1"
-            onPress={() => router.push({ pathname: paired ? '/menu' : '/connect', params })}
-          >
-            <Icon
-              as={ShoppingBag}
-              size={18}
-              className="text-primary-foreground"
-              accessible={false}
-            />
-            <Text className="shrink text-center">
-              {paired ? '메뉴 보기' : '키오스크에 연결해 주문하기'}
-            </Text>
-          </Button>
-        )}
+      {!store.directoryOnly && (
+        <Button
+          variant={preview ? 'outline' : 'default'}
+          className="min-w-28 flex-1"
+          onPress={() => router.push({ pathname: '/menu', params })}
+        >
+          <Icon
+            as={ShoppingBag}
+            size={18}
+            className={preview ? 'text-primary' : 'text-primary-foreground'}
+            accessible={false}
+          />
+          <Text className="shrink text-center">{preview ? '메뉴 보기' : '바로 주문하기'}</Text>
+        </Button>
+      )}
     </View>
   );
 }

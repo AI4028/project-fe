@@ -8,7 +8,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { Accessibility, ArrowUp, MapPin, Navigation, Volume2 } from 'lucide-react-native';
+import { Accessibility, MapPin, Navigation, Volume2 } from 'lucide-react-native';
 import { accessDetails, knownText } from '@/lib/location';
 import { directionsUrl } from '@/lib/navigation';
 import { useTranslation } from '@/lib/i18n';
@@ -113,34 +113,14 @@ export default function Guide() {
             </Text>
           </View>
           <View className="gap-2">
-            {!store.directoryOnly && !!store.location && (
-              <Button
-                variant="default"
-                onPress={() =>
-                  router.push({ pathname: '/direction', params: { storeId: store.storeId } })
-                }
-              >
-                <Icon
-                  as={ArrowUp}
-                  size={19}
-                  className="text-primary-foreground"
-                  accessible={false}
-                />
-                <Text>매장 방향 보기 (화살표·거리)</Text>
-              </Button>
-            )}
             <Button
-              variant={!store.directoryOnly && store.location ? 'outline' : 'default'}
+              variant="default"
               onPress={() => void Linking.openURL(directionsUrl(store)).catch(app.report)}
             >
               <Icon
                 as={Navigation}
                 size={19}
-                className={
-                  !store.directoryOnly && store.location
-                    ? 'text-primary'
-                    : 'text-primary-foreground'
-                }
+                className="text-primary-foreground"
                 accessible={false}
               />
               <Text>지도 앱에서 길찾기</Text>
@@ -179,15 +159,11 @@ export default function Guide() {
                   </CardContent>
                 </Card>
               )}
-              {app.connection?.kioskId && app.connection.storeId === store.storeId ? (
-                <NavLink href={{ pathname: '/menu', params: { storeId: store.storeId } }}>
-                  메뉴 보기
-                </NavLink>
-              ) : !store.orderingPaused && store.hasOrderTerminal !== false ? (
-                <NavLink href={{ pathname: '/connect', params: { storeId: store.storeId } }}>
-                  키오스크에 연결해 주문하기
-                </NavLink>
-              ) : null}
+              <NavLink href={{ pathname: '/menu', params: { storeId: store.storeId } }}>
+                {store.hasOrderTerminal === false || store.orderingPaused
+                  ? '메뉴 보기'
+                  : '먼저 주문하기'}
+              </NavLink>
               <NavLink
                 href={{
                   pathname: '/help',

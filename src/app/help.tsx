@@ -213,7 +213,8 @@ export default function Help() {
         store.hasOrderTerminal !== false && (
           <>
             <Text variant="muted">
-              이 매장의 키오스크에 연결하면 앱으로 직원에게 도움을 요청할 수 있어요.
+              이 매장의 장바구니를 열거나 키오스크에 연결하면 앱으로 직원에게 도움을 요청할 수
+              있어요.
             </Text>
             <NavLink
               href={{
@@ -221,7 +222,7 @@ export default function Help() {
                 params: { storeId: store.storeId, next: 'help', from, section },
               }}
             >
-              키오스크 연결 후 도움 요청하기
+              키오스크 코드로 연결해 도움 요청하기
             </NavLink>
           </>
         )}

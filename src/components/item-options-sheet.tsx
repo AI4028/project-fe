@@ -73,14 +73,15 @@ export function ItemOptionsSheet({
   const [missing, setMissing] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmStoreChange, setConfirmStoreChange] = useState(false);
   const savingRef = useRef(false);
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   const groupHeaders = useRef<Record<string, ComponentRef<typeof View> | null>>({});
   const groupPositions = useRef<Record<string, number>>({});
   const name = language === 'en' ? item.nameEn || item.name : item.name;
+  const previousStoreName =
+    app.store && (language === 'en' ? app.store.nameEn || app.store.name : app.store.name);
   const orderReady =
-    !!app.connection?.kioskId &&
-    app.connection.storeId === store.storeId &&
     item.available &&
     !store.orderingPaused &&
     store.hasOrderTerminal !== false &&
@@ -97,7 +98,7 @@ export function ItemOptionsSheet({
     });
   }
 
-  async function save() {
+  async function save(changeStore = false) {
     if (savingRef.current || !orderReady || app.busy) return;
     const required = item.options.find((group) => {
       const value = options[group.id];
@@ -116,14 +117,25 @@ export function ItemOptionsSheet({
       return;
     }
     setError('');
+    const differentStore = !!app.connection && app.connection.storeId !== store.storeId;
+    if (differentStore && !changeStore) {
+      setConfirmStoreChange(true);
+      return;
+    }
     savingRef.current = true;
     setSaving(true);
     try {
       const line = { itemId: item.id, qty, options };
       const next = edit
         ? replaceCartItem(app.items, edit.index, edit.original, line)
-        : [...app.items, line];
-      await app.updateCart(next, store.storeId);
+        : differentStore
+          ? [line]
+          : [...app.items, line];
+      await app.updateCart(
+        next,
+        store.storeId,
+        differentStore ? app.connection?.sessionId : undefined,
+      );
       onClose();
     } catch (reason) {
       setError(errorMessage(reason));
@@ -159,175 +171,209 @@ export function ItemOptionsSheet({
     return false;
   }
 
+  const close = () => {
+    if (savingRef.current) return;
+    if (confirmStoreChange) setConfirmStoreChange(false);
+    else onClose();
+  };
+
   return (
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) close();
       }}
     >
       <DialogContent presentation="sheet" className="gap-3">
-        <DialogTitle>{edit ? '담긴 메뉴 수정' : <>{name}</>}</DialogTitle>
-        <ScrollView
-          ref={scroll}
-          keyboardShouldPersistTaps="handled"
-          className="shrink"
-          contentContainerClassName="gap-4 pb-2"
-        >
-          {edit ? (
-            <DialogDescription>
-              {name} · {t('옵션과 수량을 바꿔요.')}
-            </DialogDescription>
-          ) : (
-            <View className="gap-1">
-              {!!description && <DialogDescription>{description}</DialogDescription>}
-              <Text className="text-lg font-bold">{money(item.price)}</Text>
+        {confirmStoreChange ? (
+          <>
+            <DialogTitle>장바구니의 매장과 선택한 매장이 달라요</DialogTitle>
+            <View className="gap-2 rounded-xl bg-secondary p-4">
+              {previousStoreName && (
+                <Text translate={false} className="font-bold">
+                  {previousStoreName}
+                </Text>
+              )}
+              <DialogDescription>새 매장으로 바꾸면 기존 장바구니가 비워져요.</DialogDescription>
             </View>
-          )}
-          {store.hasOrderTerminal === false && (
-            <Problem message="이 매장은 휴대폰 주문을 받을 수 없어요. 매장 직원에게 문의해 주세요." />
-          )}
-          {!item.available && <Problem message="지금은 품절이에요" />}
-          {store.orderingPaused && <Problem message="지금은 주문을 받지 않고 있어요" />}
-          {!!error && <Problem message={error} />}
-          {item.options.map((group) => {
-            const invalid = missing === group.id;
-            const selectedValue = options[group.id];
-            const ids = Array.isArray(selectedValue)
-              ? selectedValue
-              : selectedValue
-                ? [selectedValue]
-                : [];
-            const limit = group.maxChoices || group.choices.length;
-            return (
-              <View
-                key={group.id}
-                className="gap-2"
-                onLayout={(event) => {
-                  groupPositions.current[group.id] = event.nativeEvent.layout.y;
-                }}
-              >
-                <View
-                  ref={(node) => {
-                    groupHeaders.current[group.id] = node;
-                  }}
-                  accessible
-                  accessibilityRole="header"
-                  tabIndex={-1}
-                >
-                  <View className="flex-row flex-wrap items-baseline gap-x-2">
-                    <Text className={cn('font-bold', invalid && 'text-destructive')}>
-                      {group.name}
-                    </Text>
-                    <Text
-                      variant="small"
-                      className={cn('font-bold', invalid && 'text-destructive')}
+            {!!error && <Problem message={error} />}
+            <Button disabled={blocked} onPress={close}>
+              <Text>기존 장바구니 유지</Text>
+            </Button>
+            <Button variant="outline" disabled={blocked} onPress={() => void save(true)}>
+              <Text>비우고 새 매장에서 주문하기</Text>
+            </Button>
+          </>
+        ) : (
+          <>
+            <DialogTitle>{edit ? '담긴 메뉴 수정' : <>{name}</>}</DialogTitle>
+            <ScrollView
+              ref={scroll}
+              keyboardShouldPersistTaps="handled"
+              className="shrink"
+              contentContainerClassName="gap-4 pb-2"
+            >
+              {edit ? (
+                <DialogDescription>
+                  {name} · {t('옵션과 수량을 바꿔요.')}
+                </DialogDescription>
+              ) : (
+                <View className="gap-1">
+                  {!!description && <DialogDescription>{description}</DialogDescription>}
+                  <Text className="text-lg font-bold">{money(item.price)}</Text>
+                </View>
+              )}
+              {store.hasOrderTerminal === false && (
+                <Problem message="이 매장은 휴대폰 주문을 받을 수 없어요. 매장 직원에게 문의해 주세요." />
+              )}
+              {!item.available && <Problem message="지금은 품절이에요" />}
+              {store.orderingPaused && <Problem message="지금은 주문을 받지 않고 있어요" />}
+              {!!error && <Problem message={error} />}
+              {item.options.map((group) => {
+                const invalid = missing === group.id;
+                const selectedValue = options[group.id];
+                const ids = Array.isArray(selectedValue)
+                  ? selectedValue
+                  : selectedValue
+                    ? [selectedValue]
+                    : [];
+                const limit = group.maxChoices || group.choices.length;
+                return (
+                  <View
+                    key={group.id}
+                    className="gap-2"
+                    onLayout={(event) => {
+                      groupPositions.current[group.id] = event.nativeEvent.layout.y;
+                    }}
+                  >
+                    <View
+                      ref={(node) => {
+                        groupHeaders.current[group.id] = node;
+                      }}
+                      accessible
+                      accessibilityRole="header"
+                      tabIndex={-1}
                     >
-                      {group.required ? (group.type === 'single' ? '필수 1개' : '필수') : '선택'}
-                    </Text>
-                  </View>
-                  {invalid && (
-                    <Text
-                      accessibilityRole="alert"
-                      className="text-destructive"
-                    >{`${group.name} 옵션을 선택해 주세요.`}</Text>
-                  )}
-                </View>
-                <View
-                  className="gap-2"
-                  accessibilityRole={group.type === 'single' ? 'radiogroup' : undefined}
-                  accessibilityLabel={t(group.name)}
-                >
-                  {group.choices.map((choice) => {
-                    const selected = ids.includes(choice.id);
-                    const unavailable = choice.available === false;
-                    const disabled =
-                      blocked ||
-                      (unavailable && !(selected && (group.type === 'multi' || !group.required)));
-                    return (
-                      <Button
-                        key={choice.id}
-                        variant={selected ? 'secondary' : 'outline'}
-                        className={cn(
-                          'min-h-14 w-full justify-between rounded-xl px-3',
-                          selected && 'border-primary',
-                          invalid && 'border-destructive',
-                        )}
-                        disabled={disabled}
-                        accessibilityRole={group.type === 'multi' ? 'checkbox' : 'radio'}
-                        accessibilityState={{ checked: selected, disabled }}
-                        accessibilityLabel={[
-                          t(choice.name),
-                          choice.priceDelta ? t(money(choice.priceDelta)) : '',
-                          unavailable ? t('품절') : '',
-                        ]
-                          .filter(Boolean)
-                          .join(', ')}
-                        onPress={() => {
-                          const next = { ...options };
-                          if (group.type === 'multi') {
-                            if (!selected && ids.length >= limit) {
-                              app.announce(`${t('최대')} ${t(`${limit}개`)}`);
-                              return;
-                            }
-                            next[group.id] = selected
-                              ? ids.filter((id) => id !== choice.id)
-                              : [...ids, choice.id];
-                          } else if (selected && !group.required) delete next[group.id];
-                          else next[group.id] = choice.id;
-                          setOptions(next);
-                          if (next[missing]?.length) setMissing('');
-                          setError('');
-                        }}
-                      >
-                        <Icon
-                          as={selected ? Check : group.type === 'single' ? Circle : Square}
-                          size={20}
-                          className="text-primary"
-                          accessible={false}
-                        />
-                        <View className="min-w-0 flex-1">
-                          <Text className="text-left text-foreground">{choice.name}</Text>
-                          {unavailable && (
-                            <Text variant="small" className="text-left">
-                              품절
-                            </Text>
-                          )}
-                        </View>
-                        <Text
-                          translate={false}
-                          className="text-right text-lg font-bold text-foreground"
-                        >
-                          {choice.priceDelta >= 0 ? '+' : '−'}
-                          {t(money(Math.abs(choice.priceDelta)))}
+                      <View className="flex-row flex-wrap items-baseline gap-x-2">
+                        <Text className={cn('font-bold', invalid && 'text-destructive')}>
+                          {group.name}
                         </Text>
-                      </Button>
-                    );
-                  })}
-                </View>
-              </View>
-            );
-          })}
-          {app.settings.voiceInput && <VoiceControls onTranscript={onTranscript} />}
-        </ScrollView>
-        <View className="gap-2 border-t border-border pt-2">
-          <Text className="font-bold">수량</Text>
-          <QuantityStepper qty={qty} onChange={setQty} disabled={blocked} />
-          <Button
-            size="lg"
-            variant={missing ? 'secondary' : 'default'}
-            disabled={blocked || !orderReady}
-            onPress={() => void save()}
-          >
-            <Text className="shrink text-center">
-              {missing
-                ? t(
-                    `${item.options.find((group) => group.id === missing)?.name} 옵션을 선택해 주세요.`,
-                  )
-                : `${t(`${qty}개`)} · ${t(estimated)} ${t(edit ? '수정 완료' : '담기')}`}
-            </Text>
-          </Button>
-        </View>
+                        <Text
+                          variant="small"
+                          className={cn('font-bold', invalid && 'text-destructive')}
+                        >
+                          {group.required
+                            ? group.type === 'single'
+                              ? '필수 1개'
+                              : '필수'
+                            : '선택'}
+                        </Text>
+                      </View>
+                      {invalid && (
+                        <Text
+                          accessibilityRole="alert"
+                          className="text-destructive"
+                        >{`${group.name} 옵션을 선택해 주세요.`}</Text>
+                      )}
+                    </View>
+                    <View
+                      className="gap-2"
+                      accessibilityRole={group.type === 'single' ? 'radiogroup' : undefined}
+                      accessibilityLabel={t(group.name)}
+                    >
+                      {group.choices.map((choice) => {
+                        const selected = ids.includes(choice.id);
+                        const unavailable = choice.available === false;
+                        const disabled =
+                          blocked ||
+                          (unavailable &&
+                            !(selected && (group.type === 'multi' || !group.required)));
+                        return (
+                          <Button
+                            key={choice.id}
+                            variant={selected ? 'secondary' : 'outline'}
+                            className={cn(
+                              'min-h-14 w-full justify-between rounded-xl px-3',
+                              selected && 'border-primary',
+                              invalid && 'border-destructive',
+                            )}
+                            disabled={disabled}
+                            accessibilityRole={group.type === 'multi' ? 'checkbox' : 'radio'}
+                            accessibilityState={{ checked: selected, disabled }}
+                            accessibilityLabel={[
+                              t(choice.name),
+                              choice.priceDelta ? t(money(choice.priceDelta)) : '',
+                              unavailable ? t('품절') : '',
+                            ]
+                              .filter(Boolean)
+                              .join(', ')}
+                            onPress={() => {
+                              const next = { ...options };
+                              if (group.type === 'multi') {
+                                if (!selected && ids.length >= limit) {
+                                  app.announce(`${t('최대')} ${t(`${limit}개`)}`);
+                                  return;
+                                }
+                                next[group.id] = selected
+                                  ? ids.filter((id) => id !== choice.id)
+                                  : [...ids, choice.id];
+                              } else if (selected && !group.required) delete next[group.id];
+                              else next[group.id] = choice.id;
+                              setOptions(next);
+                              if (next[missing]?.length) setMissing('');
+                              setError('');
+                            }}
+                          >
+                            <Icon
+                              as={selected ? Check : group.type === 'single' ? Circle : Square}
+                              size={20}
+                              className="text-primary"
+                              accessible={false}
+                            />
+                            <View className="min-w-0 flex-1">
+                              <Text className="text-left text-foreground">{choice.name}</Text>
+                              {unavailable && (
+                                <Text variant="small" className="text-left">
+                                  품절
+                                </Text>
+                              )}
+                            </View>
+                            <Text
+                              translate={false}
+                              className="text-right text-lg font-bold text-foreground"
+                            >
+                              {choice.priceDelta >= 0 ? '+' : '−'}
+                              {t(money(Math.abs(choice.priceDelta)))}
+                            </Text>
+                          </Button>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
+              {app.settings.voiceInput && <VoiceControls onTranscript={onTranscript} />}
+            </ScrollView>
+            <View className="gap-2 border-t border-border pt-2">
+              <Text className="font-bold">수량</Text>
+              <QuantityStepper qty={qty} onChange={setQty} disabled={blocked} />
+              <Button
+                size="lg"
+                variant={missing ? 'secondary' : 'default'}
+                disabled={blocked || !orderReady}
+                onPress={() => void save()}
+              >
+                <Text className="shrink text-center">
+                  {missing
+                    ? t(
+                        `${item.options.find((group) => group.id === missing)?.name} 옵션을 선택해 주세요.`,
+                      )
+                    : `${t(`${qty}개`)} · ${t(estimated)} ${t(edit ? '수정 완료' : '담기')}`}
+                </Text>
+              </Button>
+            </View>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

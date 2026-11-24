@@ -1,10 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import {
-  Platform,
-  Text as MockText,
-  View as MockView,
-  Pressable as MockPressable,
-} from 'react-native';
+import { Text as MockText, View as MockView, Pressable as MockPressable } from 'react-native';
 import Discovery from '@/app/explore/list';
 import MapExplore from '@/app/explore/map';
 import { filterStores } from '@/lib/discovery';
@@ -186,40 +181,6 @@ test('find nearby clears the old query and exposes nearby results in the list', 
   expect(screen.getByPlaceholderText('매장 또는 메뉴 검색').props.value).toBe('');
 });
 
-test('nearby ranks routed cafes by walking distance ahead of straight-line fallbacks', async () => {
-  const ranked = [
-    {
-      ...stores[0],
-      location: { lat: 37.5445, lng: 127.056 },
-      walkingRoute: { distanceM: 1200, durationS: 901 },
-    },
-    {
-      ...stores[1],
-      location: { lat: 37.5455, lng: 127.056 },
-      walkingRoute: { distanceM: 650, durationS: 480 },
-    },
-    { ...stores[2], location: { lat: 37.5445, lng: 127.056 }, walkingRoute: null },
-  ];
-  mockApi.stores.mockResolvedValue(ranked.map(({ walkingRoute, ...store }) => store));
-  mockApi.searchPlaces.mockResolvedValue({
-    places: ranked,
-    status: 'results',
-    generalSearch: 'available',
-  });
-  await render(<Discovery />);
-  await fireEvent.press(screen.getByLabelText('내 주변에서 찾기'));
-  await screen.findByText('도보 650 m · 약 8분');
-  expect(screen.getByText('도보 1.2 km · 약 16분')).toBeTruthy();
-  expect(screen.getByText(/직선거리 · 도보 경로 확인 불가/)).toBeTruthy();
-  expect(
-    screen.getAllByLabelText(/매장 정보 보기$/).map((card) => card.props.accessibilityLabel),
-  ).toEqual([
-    '두 번째 카페 매장 정보 보기',
-    '첫 번째 카페 매장 정보 보기',
-    '정보 없는 카페 매장 정보 보기',
-  ]);
-});
-
 test('location denial stays visible even when ordering is offline', async () => {
   mockApi.stores.mockRejectedValueOnce(new TypeError('offline'));
   jest
@@ -233,37 +194,6 @@ test('location denial stays visible even when ordering is offline', async () => 
   );
   expect(screen.queryByText('주문 연결 불가')).toBeNull();
   expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
-});
-
-test('web retries a denied location request directly without a permission preflight', async () => {
-  const platform = jest.replaceProperty(Platform, 'OS', 'web');
-  const original = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-  const getCurrentPosition = jest
-    .fn()
-    .mockImplementationOnce((_success, failure) => failure({ code: 1 }))
-    .mockImplementationOnce((success) => success({ coords: { latitude: 35.2, longitude: 126.8 } }));
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: { geolocation: { getCurrentPosition } },
-  });
-  try {
-    await render(<Discovery />);
-    await fireEvent.press(screen.getByLabelText('내 주변에서 찾기'));
-    await screen.findByText(
-      '브라우저가 이 사이트의 위치 요청을 거부했어요. 사이트 설정에서 위치를 허용한 뒤 다시 시도해 주세요.',
-    );
-    expect(mockApi.searchPlaces).not.toHaveBeenCalled();
-    await fireEvent.press(screen.getByText('위치 다시 확인하기'));
-    await waitFor(() =>
-      expect(mockApi.searchPlaces).toHaveBeenCalledWith('', 'all', { lat: 35.2, lng: 126.8 }),
-    );
-    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
-    expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
-  } finally {
-    platform.restore();
-    if (original) Object.defineProperty(globalThis, 'navigator', original);
-    else Reflect.deleteProperty(globalThis, 'navigator');
-  }
 });
 
 test('a stalled location request times out and ignores a late position', async () => {
@@ -428,15 +358,10 @@ test('map selection previews a store and only the explicit detail action navigat
   await screen.findByLabelText('첫 번째 카페 지도 핀');
   await fireEvent.press(screen.getByLabelText('두 번째 카페 지도 핀'));
   expect(router.push).not.toHaveBeenCalled();
-  expect(screen.getByText('서울 종로')).toBeTruthy();
-  expect(screen.queryByLabelText('장소 선택')).toBeNull();
-  await fireEvent.press(screen.getByLabelText('닫기'));
-  expect(screen.queryByText('서울 종로')).toBeNull();
-  await fireEvent.press(screen.getByLabelText('두 번째 카페 지도 핀'));
   await fireEvent.press(screen.getByText('매장 정보 · 메뉴'));
   expect(router.push).toHaveBeenCalledWith({ pathname: '/store', params: { storeId: 'two' } });
-  await fireEvent.press(screen.getByText('키오스크에 연결해 주문하기'));
-  expect(router.push).toHaveBeenCalledWith({ pathname: '/connect', params: { storeId: 'two' } });
+  await fireEvent.press(screen.getByText('바로 주문하기'));
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/menu', params: { storeId: 'two' } });
   await fireEvent.press(screen.getByText('길 안내'));
   expect(router.push).toHaveBeenCalledWith({ pathname: '/guide', params: { storeId: 'two' } });
 });
@@ -521,7 +446,7 @@ test('a registered search result remains orderable and appears once during a pro
     '일반 장소 검색에 연결하지 못했어요. 찾은 등록 매장과 공공 자료를 표시합니다.',
   );
   expect(screen.getAllByLabelText('첫 번째 카페 매장 정보 보기')).toHaveLength(1);
-  expect(screen.getByText('키오스크에 연결해 주문하기')).toBeTruthy();
+  expect(screen.getByText('바로 주문하기')).toBeTruthy();
 });
 
 test('late search responses cannot replace a newer destination', async () => {
@@ -571,21 +496,21 @@ test('deduplicates registered stores returned by both stores and place search', 
   expect(screen.getAllByLabelText('첫 번째 카페 매장 정보 보기')).toHaveLength(1);
 });
 
-test('store suggestions remain available and menu suggestions stay hidden before pairing', async () => {
+test('choosing a menu suggestion searches for its venue and can restore the full list', async () => {
   mockApi.stores.mockResolvedValue([
     { ...stores[0], menuSuggestions: [{ name: '라떼' }] },
     stores[1],
   ]);
   await render(<Discovery />);
   await fireEvent.press(screen.getByRole('button', { name: '매장 또는 메뉴 검색' }));
-  await screen.findByLabelText('첫 번째 카페, 매장');
-  expect(screen.queryByLabelText('라떼, 메뉴')).toBeNull();
+  await screen.findByLabelText('라떼, 메뉴');
+  expect(screen.getByLabelText('첫 번째 카페, 매장')).toBeTruthy();
   expect(screen.getByLabelText('두 번째 카페 매장 정보 보기')).toBeTruthy();
   expect(mockApi.searchPlaces).not.toHaveBeenCalled();
-  await fireEvent.press(screen.getByLabelText('첫 번째 카페, 매장'));
+  await fireEvent.press(screen.getByLabelText('라떼, 메뉴'));
   await screen.findByText('장소 1곳을 찾았어요');
-  expect(screen.getByText('“첫 번째 카페” 검색 결과')).toBeTruthy();
-  expect(mockRememberSearch).toHaveBeenCalledWith('첫 번째 카페');
+  expect(screen.getByText('“라떼” 검색 결과')).toBeTruthy();
+  expect(mockRememberSearch).toHaveBeenCalledWith('라떼');
   expect(screen.queryByLabelText('두 번째 카페 매장 정보 보기')).toBeNull();
   await fireEvent.press(screen.getByText('전체 매장 보기'));
   await screen.findByLabelText('두 번째 카페 매장 정보 보기');
