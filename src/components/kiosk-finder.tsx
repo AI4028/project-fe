@@ -37,6 +37,7 @@ import { useBeeps } from '@/lib/use-beeps';
 import { useBleScan } from '@/lib/use-ble-scan';
 import type { HeadingStatus } from '@/lib/use-heading';
 import { STEP_LENGTH_M, requestMotionPermission, useWalking } from '@/lib/use-walking';
+import { cn } from '@/lib/utils';
 import { useApp } from '@/providers/app-provider';
 
 // "약 3m" → "약 3m예요.", "10m 이상" → "10m 이상이에요."
@@ -72,6 +73,8 @@ type Props = {
   heading: number | null;
   compassStatus: HeadingStatus;
   allowCompass: () => Promise<void>;
+  /** Told whether a live kiosk signal is being heard, so the screen can lead with it. */
+  onBeacon?: (heard: boolean) => void;
 };
 
 type TurnTarget = { bearing: number; strength: number; at: number; x: number; y: number };
@@ -87,7 +90,7 @@ type TurnTarget = { bearing: number; strength: number; at: number; x: number; y:
  *   Turning on the spot and walking both count. The guided turn is a fallback.
  * - Distance: signal strength in steps, with a 1 m calibration.
  */
-export function KioskFinder({ heading, compassStatus, allowCompass }: Props) {
+export function KioskFinder({ heading, compassStatus, allowCompass, onBeacon }: Props) {
   const app = useApp();
   const { t } = useTranslation();
   const headingRef = useRef<number | null>(heading);
@@ -229,6 +232,8 @@ export function KioskFinder({ heading, compassStatus, allowCompass }: Props) {
   }, [turning, now, finishTurn]);
 
   const lost = !!beacon && now - beacon.lastSeenAt > LOST_AFTER_MS;
+  const heard = state === 'scanning' && !!beacon && !lost;
+  useEffect(() => onBeacon?.(heard), [heard, onBeacon]);
   // Three-board mode wins when it has a position; otherwise one board.
   const boardsRaw = !lost && setup.forwardHeading != null ? boardPosition : null;
   // Too unsure (e.g. outside the boards' triangle with the back to them):
@@ -393,24 +398,49 @@ export function KioskFinder({ heading, compassStatus, allowCompass }: Props) {
               </Text>
               <Text>{`연결 코드 ${beacon.token}`}</Text>
               <View
-                className="my-4 h-40 w-40 items-center justify-center rounded-full border-4 border-primary"
-                accessible={false}
-                importantForAccessibility="no-hide-descendants"
+                testID="kiosk-tile"
+                className={cn(
+                  'my-2 w-full items-center gap-2 rounded-3xl p-6',
+                  near && !lost ? 'bg-success' : 'bg-secondary',
+                )}
               >
-                {showArrow ? (
-                  <View testID="kiosk-arrow" style={{ transform: [{ rotate: `${relative}deg` }] }}>
-                    <Icon as={ArrowUp} size={96} className="text-primary" />
-                  </View>
-                ) : (
-                  <Icon as={near ? Bluetooth : Compass} size={72} className="text-primary" />
+                <View
+                  className="h-28 items-center justify-center"
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  {showArrow ? (
+                    <View
+                      testID="kiosk-arrow"
+                      style={{ transform: [{ rotate: `${relative}deg` }] }}
+                    >
+                      <Icon as={ArrowUp} size={96} className="text-primary" />
+                    </View>
+                  ) : near && !lost ? (
+                    <Icon as={ArrowUp} size={96} className="text-success-foreground" />
+                  ) : (
+                    <Icon as={Compass} size={72} className="text-primary" />
+                  )}
+                </View>
+                {showArrow && (
+                  <Text className="text-xl font-bold">
+                    {`${sideLabel(relative ?? 0)} · ${clockPosition(relative ?? 0)}시 방향`}
+                  </Text>
+                )}
+                <Text
+                  className={cn(
+                    'text-3xl font-extrabold',
+                    near && !lost && 'text-success-foreground',
+                  )}
+                >
+                  {lost ? '신호 없음' : (step?.label ?? '')}
+                </Text>
+                {near && !lost && (
+                  <Text className="text-center text-success-foreground">
+                    키오스크 화면을 확인해 주세요.
+                  </Text>
                 )}
               </View>
-              <Text className="text-3xl font-bold">{lost ? '신호 없음' : (step?.label ?? '')}</Text>
-              {showArrow && (
-                <Text className="text-xl font-semibold">
-                  {`${sideLabel(relative ?? 0)} · ${clockPosition(relative ?? 0)}시 방향`}
-                </Text>
-              )}
 
               {heat && (
                 <View
