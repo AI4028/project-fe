@@ -10,7 +10,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { paymentLabels, type PaymentMethod } from '@/lib/types';
+import { diningLabels, paymentLabels, type PaymentMethod } from '@/lib/types';
 import { OrderingPaused, Problem, SubmissionRecovery } from '@/components/feedback';
 import { useApp } from '@/providers/app-provider';
 import { money } from '@/lib/cart';
@@ -19,7 +19,8 @@ import { useTranslation } from '@/lib/i18n';
 
 export default function Review() {
   const app = useApp();
-  const { language } = useTranslation();
+  const { language, t } = useTranslation();
+  const { diningOption } = app.checkout;
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [priceChange, setPriceChange] = useState<CartChangedError | null>(null);
@@ -36,13 +37,13 @@ export default function Review() {
   }, [app.order]);
 
   async function submit() {
-    if (sending || app.pendingSubmission) return;
+    if (sending || app.pendingSubmission || !diningOption) return;
     setSending(true);
     setError('');
     setPriceChange(null);
     attempted.current = app.connection?.sessionId ?? null;
     try {
-      const placed = await app.submit(app.checkout.payment, app.checkout.note);
+      const placed = await app.submit(app.checkout.payment, app.checkout.note, diningOption);
       if (!attempted.current) return;
       attempted.current = null;
       router.replace({ pathname: '/orders/[orderId]', params: { orderId: placed.orderId } });
@@ -87,7 +88,7 @@ export default function Review() {
             <Button
               size="lg"
               className="w-full justify-between"
-              disabled={app.busy || !!app.store?.orderingPaused}
+              disabled={!diningOption || app.busy || !!app.store?.orderingPaused}
               onPress={() => void submit()}
             >
               <Text>{money(checkedCart.total)}</Text>
@@ -171,6 +172,36 @@ export default function Review() {
                 className="flex-row flex-wrap items-baseline justify-between gap-3 pt-1"
               />
               <Text variant="muted">매장에서 확인한 금액입니다.</Text>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-none">
+            <CardContent className="gap-3 pt-6">
+              <Text variant="h2">이용 방법</Text>
+              <Text variant="muted">매장에서 먹기 또는 포장하기를 선택해 주세요.</Text>
+              <View
+                className="gap-2"
+                accessibilityRole="radiogroup"
+                accessibilityLabel={t('이용 방법')}
+              >
+                {(['dine_in', 'takeaway'] as const).map((option) => {
+                  const selected = diningOption === option;
+                  return (
+                    <Button
+                      key={option}
+                      variant={selected ? 'secondary' : 'outline'}
+                      className="w-full justify-between"
+                      accessibilityRole="radio"
+                      accessibilityLabel={t(diningLabels[option])}
+                      accessibilityState={{ checked: selected }}
+                      onPress={() => app.setCheckout({ ...app.checkout, diningOption: option })}
+                    >
+                      <Text className="text-left">{diningLabels[option]}</Text>
+                      <Icon as={selected ? Check : Circle} size={20} accessible={false} />
+                    </Button>
+                  );
+                })}
+              </View>
             </CardContent>
           </Card>
 

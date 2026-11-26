@@ -24,6 +24,7 @@ import {
   type Cart,
   type CartItem,
   type Connection,
+  type DiningOption,
   type Order,
   type PaymentMethod,
   type Store,
@@ -126,9 +127,14 @@ function useAppState(path: string) {
   const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
   const pendingRef = useRef<string | null>(null);
   const [helpState, setHelpState] = useState<'idle' | 'sent' | 'acknowledged'>('idle');
-  const [checkout, setCheckout] = useState<{ payment: PaymentMethod; note: string }>({
+  const [checkout, setCheckout] = useState<{
+    payment: PaymentMethod;
+    note: string;
+    diningOption: DiningOption | null;
+  }>({
     payment: 'counter',
     note: '',
+    diningOption: null,
   });
   async function markPending(id: string | null) {
     // Persist before POST so a closed tab can recover an uncertain submission.
@@ -314,6 +320,7 @@ function useAppState(path: string) {
           simulatePayment?: boolean;
           payment: PaymentMethod;
           note: string;
+          diningOption?: DiningOption;
           quoteId: string;
         };
         if (saved.sessionId !== id)
@@ -327,6 +334,7 @@ function useAppState(path: string) {
             await token(),
             saved.quoteId,
             saved.simulatePayment,
+            saved.diningOption,
           );
           return rememberOrder(placed);
         } catch (error) {
@@ -543,7 +551,7 @@ function useAppState(path: string) {
         await AsyncStorage.setItem(`session:${api.base}`, result.sessionId);
         currentConnection.current = result;
         setConnection(result);
-        setCheckout({ payment: 'counter', note: '' });
+        setCheckout({ payment: 'counter', note: '', diningOption: null });
         setHelpState('idle');
         const selected = await selectStore(result.storeId);
         const session = await api.session(result.sessionId, device);
@@ -581,7 +589,7 @@ function useAppState(path: string) {
       return result;
     });
   }
-  async function submit(payment: PaymentMethod, note: string) {
+  async function submit(payment: PaymentMethod, note: string, diningOption?: DiningOption) {
     return exclusive(async () => {
       if (pendingRef.current)
         throw new Error('전송 결과를 먼저 확인해 주세요. 주문을 다시 보내지 않았습니다.');
@@ -603,6 +611,7 @@ function useAppState(path: string) {
           items,
           payment,
           note,
+          diningOption,
           quoteId: latest.quoteId,
           simulatePayment: demo,
         }),
@@ -618,6 +627,7 @@ function useAppState(path: string) {
           device,
           latest.quoteId,
           demo,
+          diningOption,
         );
       } catch (error) {
         // A timeout/5xx or already-closed session can hide a committed order.

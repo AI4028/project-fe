@@ -135,6 +135,12 @@ export const paymentLabels = {
 } as const;
 export type PaymentMethod = keyof typeof paymentLabels;
 
+export const diningLabels = {
+  dine_in: '매장에서 먹기',
+  takeaway: '포장하기',
+} as const;
+export type DiningOption = keyof typeof diningLabels;
+
 export type Order = {
   orderId: string;
   kioskId?: string | null;
@@ -150,6 +156,7 @@ export type Order = {
   summary: string;
   lines?: PricedLine[];
   paymentMethod: PaymentMethod;
+  diningOption?: DiningOption | null;
   simulatedApprovedAmount?: number | null;
   note: string;
 };

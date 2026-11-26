@@ -23,6 +23,13 @@ Newest first, four lines, no stories:
 
 ---
 
+### 2026-11-26 · Open checkout with the label for the current mode
+
+- **Hit:** The browser check could not find “주문 확인하기” in the demo cart.
+- **Why:** The demo cart calls the same action “결제 수단 선택”.
+- **Fix:** Used the visible demo button to reach order review.
+- **Rule:** Match the cart action for the current mode when testing checkout.
+
 ### 2026-11-23 · Simulate walking inside the page, and filter impossible motion readings
 
 - **Hit:** the walk-and-learn arrow was 80–90° off in Playwright but right in Node with the same path; the page had counted 211 steps while standing still.

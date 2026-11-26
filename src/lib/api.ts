@@ -2,6 +2,7 @@ import type {
   Cart,
   CartItem,
   Connection,
+  DiningOption,
   Heartbeat,
   LiveEvent,
   Order,
@@ -172,11 +173,12 @@ export class Api {
     device: string,
     quoteId?: string,
     simulatePayment?: boolean,
+    diningOption?: DiningOption,
   ) =>
     this.request<Order>(
       `/sessions/${id}/order`,
       'POST',
-      { items, paymentMethod, note, quoteId, simulatePayment },
+      { items, paymentMethod, note, quoteId, simulatePayment, diningOption },
       device,
       { 'Idempotency-Key': `order:${id}` },
     );
