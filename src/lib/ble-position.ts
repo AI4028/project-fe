@@ -136,3 +136,29 @@ export function smoothPosition(previous: Position | null, next: Position, weight
     uncertainty: previous.uncertainty + (next.uncertainty - previous.uncertainty) * weight,
   };
 }
+
+/**
+ * Which way is the customer walking, as a compass bearing? Uses the last few
+ * seconds of three-board positions; null until they have moved far enough
+ * for the direction to be meaningful. Stands in for the compass when the
+ * phone has none (or it isn't allowed).
+ */
+export function movementBearing(
+  trail: readonly (Spot & { at: number })[],
+  now: number,
+  forwardHeading: number,
+  { windowMs = 4000, minMoveM = 1, maxDetour = 1.6 } = {},
+): number | null {
+  const recent = trail.filter((p) => now - p.at <= windowMs);
+  if (recent.length < 3) return null;
+  const first = recent[0]!;
+  const last = recent.at(-1)!;
+  const moved = Math.hypot(last.x - first.x, last.y - first.y);
+  if (moved < minMoveM) return null;
+  // A wobbling estimate goes back and forth; real walking is fairly straight.
+  let path = 0;
+  for (let i = 1; i < recent.length; i++)
+    path += Math.hypot(recent[i]!.x - recent[i - 1]!.x, recent[i]!.y - recent[i - 1]!.y);
+  if (path > maxDetour * moved) return null;
+  return roomToCompass(roomBearing(first, last), forwardHeading);
+}

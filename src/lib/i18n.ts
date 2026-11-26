@@ -103,7 +103,6 @@ const patterns: [RegExp, (...parts: string[]) => string][] = [
     (heading, bearing) => `Compass ${heading}° · kiosk bearing ${bearing}°`,
   ],
   [/^나침반 (\d+)°$/, (heading) => `Compass ${heading}°`],
-  [/^돌아본 범위 (\d+)° \/ 360°$/, (deg) => `Turned ${deg}° of 360°`],
   [/^1미터 기준을 (-?\d+)dBm으로 맞췄어요\.$/, (value) => `Set the 1 m reference to ${value} dBm.`],
   [/^키오스크 보드: 신호 (-?\d+)dBm$/, (rssi) => `Kiosk board: signal ${rssi} dBm`],
   [/^보드 ([BC]): 신호 (-?\d+)dBm$/, (board, rssi) => `Board ${board}: signal ${rssi} dBm`],

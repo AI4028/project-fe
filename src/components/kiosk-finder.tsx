@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ArrowUp, Bluetooth, Compass, RotateCw, Volume2, VolumeX } from 'lucide-react-native';
+import { ArrowUp, Bluetooth, Compass, Volume2, VolumeX } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { BoardMap, BoardSetupPanel } from '@/components/board-setup';
@@ -9,20 +9,14 @@ import { Text } from '@/components/ui/text';
 import {
   DEFAULT_RSSI_AT_1M,
   distanceStep,
-  estimateDirection,
   estimateDistanceM,
   hotCold,
-  locateBeacon,
-  signalFaded,
   smoothRssi,
-  turnCoverage,
   type HeatLevel,
-  type Located,
-  type Sample,
-  type TrackSample,
 } from '@/lib/ble-direction';
 import {
   DEFAULT_SETUP,
+  movementBearing,
   roomBearing,
   roomToCompass,
   setupProblem,
@@ -36,7 +30,6 @@ import { useTranslation } from '@/lib/i18n';
 import { useBeeps } from '@/lib/use-beeps';
 import { useBleScan } from '@/lib/use-ble-scan';
 import type { HeadingStatus } from '@/lib/use-heading';
-import { STEP_LENGTH_M, requestMotionPermission, useWalking } from '@/lib/use-walking';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/providers/app-provider';
 
@@ -49,13 +42,10 @@ const BOARDS_KEY = 'ble:boards';
 const BOARD_FRESH_MS = 3000;
 const normalize = (deg: number) => ((deg % 360) + 360) % 360;
 const LOST_AFTER_MS = 5000;
-const TURN_LIMIT_MS = 25000;
 const HISTORY_MS = 25000;
-const TRACK_MEMORY_MS = 60000;
-const LOCATE_EVERY_MS = 1000;
-/** A turn-only arrow is dropped after this long or after walking this far. */
-const TURN_VALID_MS = 30000;
-const TURN_VALID_M = 3;
+const FIX_EVERY_MS = 1000;
+/** Recent three-board positions kept for the walking direction. */
+const TRAIL_MS = 6000;
 
 const heatWords: Record<HeatLevel, string> = {
   cold: '차가워요',
@@ -77,50 +67,28 @@ type Props = {
   onBeacon?: (heard: boolean) => void;
 };
 
-type TurnTarget = { bearing: number; strength: number; at: number; x: number; y: number };
-
 /**
- * Guidance to the kiosk from its single BLE beacon (the XIAO "LK…" broadcast).
- * Web: Android Chrome with the experimental Web Platform features flag.
+ * Guidance to the kiosk: the kiosk board ("LK…") plus two position boards
+ * ("LA…B/C"). Web: Android Chrome with the experimental Web Platform features flag.
  *
+ * - Arrow (three boards): the phone's position from all three signals, then
+ *   the direction to the kiosk. It turns with the compass; without a compass
+ *   it uses the direction the customer is walking. The room map also shows it.
  * - Hot/cold: heat meter, "warmer / colder", and beeps + vibration that speed
- *   up as the signal gets stronger. Works while turning or walking, no compass.
- * - Arrow: steps and compass give a rough track; the kiosk position that best
- *   explains the signal along it (distance + body shadow) gives the arrow.
- *   Turning on the spot and walking both count. The guided turn is a fallback.
- * - Distance: signal strength in steps, with a 1 m calibration.
+ *   up as the kiosk signal gets stronger. Works with the kiosk board alone.
+ * - Distance: from the position (three boards) or the kiosk signal, in steps.
  */
 export function KioskFinder({ heading, compassStatus, allowCompass, onBeacon }: Props) {
   const app = useApp();
   const { t } = useTranslation();
-  const headingRef = useRef<number | null>(heading);
-  headingRef.current = heading;
-  const position = useRef({ x: 0, y: 0 });
-  const onStep = useCallback(() => {
-    const facing = headingRef.current;
-    if (facing == null) return;
-    position.current = {
-      x: position.current.x + STEP_LENGTH_M * Math.sin((facing * Math.PI) / 180),
-      y: position.current.y + STEP_LENGTH_M * Math.cos((facing * Math.PI) / 180),
-    };
-  }, []);
-  const motion = useWalking(true, onStep);
   const [rssiAt1m, setRssiAt1m] = useState(DEFAULT_RSSI_AT_1M);
-  const [turning, setTurning] = useState(false);
-  const turningRef = useRef(false);
-  turningRef.current = turning;
-  const turnSamples = useRef<Sample[]>([]);
-  const turnStarted = useRef(0);
-  const track = useRef<TrackSample[]>([]);
   const history = useRef<{ at: number; rssi: number }[]>([]);
-  const [coverage, setCoverage] = useState(0);
-  const [turnTarget, setTurnTarget] = useState<TurnTarget | null>(null);
-  const [located, setLocated] = useState<Located | null>(null);
-  const lastLocate = useRef(0);
+  const lastFix = useRef(0);
+  const smoothed = useRef<Position | null>(null);
+  const trail = useRef<(Position & { at: number })[]>([]);
   const [setup, setSetup] = useState<BoardSetup>(DEFAULT_SETUP);
   const [boardPosition, setBoardPosition] = useState<Position | null>(null);
   const [showSetup, setShowSetup] = useState(false);
-  const [turnMessage, setTurnMessage] = useState('');
   const [soundOn, setSoundOn] = useState(true);
   const [now, setNow] = useState(Date.now());
   const lastSpoken = useRef('');
@@ -128,13 +96,6 @@ export function KioskFinder({ heading, compassStatus, allowCompass, onBeacon }: 
   const onReading = useCallback((rssi: number) => {
     const at = Date.now();
     history.current = [...history.current.filter((h) => at - h.at < HISTORY_MS), { at, rssi }];
-    const facing = headingRef.current;
-    if (facing == null) return;
-    if (turningRef.current) turnSamples.current.push({ heading: facing, rssi });
-    track.current = [
-      ...track.current.filter((s) => at - s.at < TRACK_MEMORY_MS),
-      { at, x: position.current.x, y: position.current.y, heading: facing, rssi },
-    ];
   }, []);
   const { state, beacon, anchors, start, stop } = useBleScan(onReading);
 
@@ -169,13 +130,11 @@ export function KioskFinder({ heading, compassStatus, allowCompass, onBeacon }: 
     return () => clearInterval(timer);
   }, []);
 
-  // Where is the kiosk? Re-fit about once a second (a few ms each time).
+  // Three boards: the phone's position from all three signals, about once a
+  // second (a couple of ms each time).
   useEffect(() => {
-    if (state !== 'scanning' || now - lastLocate.current < LOCATE_EVERY_MS) return;
-    lastLocate.current = now;
-    setLocated(locateBeacon(track.current, position.current));
-
-    // Three boards: the phone's position from all three signals.
+    if (state !== 'scanning' || now - lastFix.current < FIX_EVERY_MS) return;
+    lastFix.current = now;
     const recent = history.current.filter((h) => now - h.at < 1500).map((h) => h.rssi);
     const kioskRssi = smoothRssi(recent, recent.length);
     const fresh = (at?: number) => at != null && now - at < BOARD_FRESH_MS;
@@ -185,6 +144,8 @@ export function KioskFinder({ heading, compassStatus, allowCompass, onBeacon }: 
       !fresh(anchors.B?.lastSeenAt) ||
       !fresh(anchors.C?.lastSeenAt)
     ) {
+      smoothed.current = null;
+      trail.current = [];
       setBoardPosition(null);
       return;
     }
@@ -200,44 +161,21 @@ export function KioskFinder({ heading, compassStatus, allowCompass, onBeacon }: 
       ],
       facingRoom,
     );
-    if (next) setBoardPosition((previous) => smoothPosition(previous, next));
+    if (!next) return;
+    smoothed.current = smoothPosition(smoothed.current, next);
+    trail.current = [
+      ...trail.current.filter((p) => now - p.at < TRAIL_MS),
+      { ...smoothed.current, at: now },
+    ];
+    setBoardPosition(smoothed.current);
   }, [state, now, anchors, setup, heading, rssiAt1m]);
-
-  const finishTurn = useCallback(() => {
-    setTurning(false);
-    const result = estimateDirection(turnSamples.current);
-    if (result.ok) {
-      setTurnTarget({
-        bearing: result.bearing,
-        strength: result.strength,
-        at: Date.now(),
-        ...position.current,
-      });
-      setTurnMessage('방향을 찾았어요. 화살표 쪽으로 천천히 걸어 보세요.');
-    } else {
-      setTurnMessage(
-        result.reason === 'not-enough-turn'
-          ? '한 바퀴를 다 돌지 못했어요. 다시 천천히 돌아 주세요.'
-          : '방향이 분명하지 않아요. 휴대폰을 가슴 앞에 붙이고 다시 돌아 주세요.',
-      );
-    }
-  }, []);
-
-  // Guided turn: progress, and finish on a full circle or after a time limit.
-  useEffect(() => {
-    if (!turning) return;
-    const covered = turnCoverage(turnSamples.current);
-    setCoverage(covered);
-    if (covered >= 330 || now - turnStarted.current > TURN_LIMIT_MS) finishTurn();
-  }, [turning, now, finishTurn]);
 
   const lost = !!beacon && now - beacon.lastSeenAt > LOST_AFTER_MS;
   const heard = state === 'scanning' && !!beacon && !lost;
   useEffect(() => onBeacon?.(heard), [heard, onBeacon]);
-  // Three-board mode wins when it has a position; otherwise one board.
   const boardsRaw = !lost && setup.forwardHeading != null ? boardPosition : null;
   // Too unsure (e.g. outside the boards' triangle with the back to them):
-  // don't draw a three-board arrow; hot/cold and the one-board arrow remain.
+  // don't draw an arrow; hot/cold and the distance remain.
   const boardsUnsure =
     !!boardsRaw &&
     boardsRaw.uncertainty > Math.max(1.5, 0.8 * Math.hypot(boardsRaw.x, boardsRaw.y));
@@ -248,26 +186,19 @@ export function KioskFinder({ heading, compassStatus, allowCompass, onBeacon }: 
   const step = meters != null ? distanceStep(meters) : null;
   const near = !!step?.near;
   const heat = beacon && !lost ? hotCold(history.current, now, rssiAt1m) : null;
-  const turnStillValid =
-    !!turnTarget &&
-    now - turnTarget.at < TURN_VALID_MS &&
-    Math.hypot(position.current.x - turnTarget.x, position.current.y - turnTarget.y) < TURN_VALID_M;
   const bearing = boards
     ? roomToCompass(roomBearing(boards, { x: 0, y: 0 }), setup.forwardHeading!)
-    : located?.ok
-      ? located.bearing
-      : turnStillValid
-        ? turnTarget!.bearing
-        : null;
-  const faded =
-    !boards &&
-    !located?.ok &&
-    turnStillValid &&
-    !!beacon &&
-    !lost &&
-    signalFaded(turnTarget!.strength, beacon.rssi);
-  const relative = bearing != null && heading != null ? relativeDeg(bearing, heading) : null;
-  const showArrow = relative != null && !lost && !faded && !near;
+    : null;
+  // The arrow turns with the compass; without one, with the walking direction.
+  const walking =
+    boards && setup.forwardHeading != null
+      ? movementBearing(trail.current, now, setup.forwardHeading)
+      : null;
+  const facing = heading ?? walking;
+  const relative = bearing != null && facing != null ? relativeDeg(bearing, facing) : null;
+  const showArrow = relative != null && !lost && !near;
+  const fresh = (at?: number) => at != null && now - at < BOARD_FRESH_MS;
+  const boardsMissing = !fresh(anchors.B?.lastSeenAt) || !fresh(anchors.C?.lastSeenAt);
 
   const { unlock } = useBeeps(
     soundOn && state === 'scanning' && !!beacon && !lost,
@@ -294,37 +225,31 @@ export function KioskFinder({ heading, compassStatus, allowCompass, onBeacon }: 
   }, [sentence, app]);
 
   const arrowSource = boards
-    ? '화살표: 보드 3개로 내 위치를 찾았어요'
-    : located?.ok
-      ? located.walked >= 2
-        ? '화살표: 걸은 길과 신호로 찾았어요'
-        : '화살표: 돌면서 받은 신호로 찾았어요'
-      : turnStillValid
-        ? '화살표: 한 바퀴 돌기로 찾았어요'
-        : !motion.available
-          ? '제자리에서 천천히 한 바퀴 돌면 화살표가 나타나요.'
-          : located?.reason === 'unclear' && located.walked >= 2.5
-            ? '방향을 바꿔 몇 걸음 더 걸어 보세요. 화살표가 나타나요.'
-            : '몇 걸음 걸어 보거나 제자리에서 천천히 돌아 보세요. 화살표가 나타나요.';
+    ? heading != null
+      ? '화살표: 보드 3개로 내 위치를 찾았어요'
+      : walking != null
+        ? '화살표: 보드 3개와 걷는 방향으로 찾았어요 (나침반 없음)'
+        : '나침반이 없어요. 몇 걸음 걸으면 걷는 방향으로 화살표가 나타나요. 지도에도 방향이 보여요.'
+    : boardsUnsure
+      ? ''
+      : setupProblem(setup)
+        ? '보드 3개 설정을 마치면 화살표가 나타나요.'
+        : boardsMissing
+          ? '보드 B, C 신호가 필요해요. 두 보드가 켜져 있는지 확인해 주세요.'
+          : '보드 3개로 위치를 찾는 중이에요.';
 
   async function begin() {
     unlock(); // Sound needs this tap.
-    if (compassStatus === 'needs-permission') await allowCompass();
-    await start();
-    void requestMotionPermission();
+    // Start the scan first, straight from the tap: Chrome refuses a scan that
+    // isn't started by one, and waiting for the compass prompt first can use it up.
+    const scanning = start();
+    const compass = compassStatus === 'needs-permission' ? allowCompass() : Promise.resolve();
+    await Promise.all([scanning, compass]);
   }
 
   function toggleSound() {
     if (!soundOn) unlock();
     setSoundOn((value) => !value);
-  }
-
-  function startTurn() {
-    turnSamples.current = [];
-    turnStarted.current = Date.now();
-    setCoverage(0);
-    setTurnMessage('휴대폰을 가슴 앞에 붙이고 제자리에서 천천히 한 바퀴 돌아 주세요.');
-    setTurning(true);
   }
 
   async function calibrate() {
@@ -467,12 +392,7 @@ export function KioskFinder({ heading, compassStatus, allowCompass, onBeacon }: 
                 </View>
               )}
 
-              {faded && (
-                <Text accessibilityRole="alert" className="text-center">
-                  신호가 약해졌어요. 다시 한 바퀴 돌아 방향을 찾아 주세요.
-                </Text>
-              )}
-              {!lost && !near && (
+              {!lost && !near && !!arrowSource && (
                 <Text testID="kiosk-arrow-source" className="text-center">
                   {arrowSource}
                 </Text>
@@ -519,28 +439,6 @@ export function KioskFinder({ heading, compassStatus, allowCompass, onBeacon }: 
             />
             <Text>{soundOn ? '삐 소리·진동 끄기' : '삐 소리·진동 켜기'}</Text>
           </Button>
-          {turning ? (
-            <View className="gap-2 rounded-2xl bg-secondary p-5">
-              <Text className="font-bold">{turnMessage}</Text>
-              <Text>{`돌아본 범위 ${coverage}° / 360°`}</Text>
-              {heading == null && (
-                <Text accessibilityRole="alert">
-                  나침반이 없어 방향을 기록할 수 없어요. 나침반을 허용해 주세요.
-                </Text>
-              )}
-            </View>
-          ) : (
-            <Button variant={bearing != null ? 'outline' : 'default'} onPress={startTurn}>
-              <Icon
-                as={RotateCw}
-                size={19}
-                className={bearing != null ? 'text-primary' : 'text-primary-foreground'}
-                accessible={false}
-              />
-              <Text>{turnTarget ? '다시 돌아서 방향 찾기' : '한 바퀴 돌며 방향 찾기'}</Text>
-            </Button>
-          )}
-          {!turning && !!turnMessage && <Text>{turnMessage}</Text>}
           {!!sentence && (
             <Button variant="outline" onPress={readGuidance}>
               <Icon as={Volume2} size={19} className="text-primary" accessible={false} />
