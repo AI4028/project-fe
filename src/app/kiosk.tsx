@@ -1,7 +1,6 @@
 import { pickMenuPhoto } from '@/lib/pick-menu-photo';
 import { CatalogThumbnail } from '@/components/catalog-thumbnail';
 import { useTranslation } from '@/lib/i18n';
-import { paymentLabels } from '@/lib/types';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import {
@@ -27,7 +26,9 @@ import { subscribe } from '@/lib/live';
 import { secrets } from '@/lib/storage';
 import { money } from '@/lib/cart';
 import {
+  diningLabels,
   nextStatus,
+  paymentLabels,
   statusLabels,
   type Heartbeat,
   type Order,
@@ -367,6 +368,9 @@ export default function Kiosk() {
                     #{order.orderNumber} · {statusLabels[order.status]}
                   </Text>
                   <Text>{order.summary}</Text>
+                  {order.diningOption && (
+                    <Text className="font-semibold">{diningLabels[order.diningOption]}</Text>
+                  )}
                   <Text>
                     {money(order.total)} · {paymentLabels[order.paymentMethod]}
                     {order.simulatedApprovedAmount != null && <Text> · 모의 결제</Text>}

@@ -59,12 +59,38 @@ beforeEach(() => {
       summary: '크루아상 1개',
       lines: [{ itemId: 'croissant', name: '크루아상', qty: 1, options: [], lineTotal: 3000 }],
     },
-    checkout: { payment: 'counter', note: '' },
+    checkout: { payment: 'counter', note: '', diningOption: 'dine_in' },
     setCheckout: jest.fn(),
     order: null,
     pendingSubmission: null,
     submit: jest.fn().mockRejectedValue(new TypeError('Failed to fetch')),
   };
+});
+
+test('requires a named dining choice and exposes which radio button is checked', async () => {
+  mockApp.checkout = { payment: 'counter', note: '', diningOption: null };
+  mockApp.setCheckout = jest.fn((checkout) => {
+    mockApp.checkout = checkout;
+  });
+  const view = await render(<Review />);
+  const forHere = () => screen.getByRole('radio', { name: '매장에서 먹기' });
+  const toGo = () => screen.getByRole('radio', { name: '포장하기' });
+  const placeOrder = () => screen.getByRole('button', { name: /주문 완료/ });
+  expect(forHere().props.accessibilityState.checked).toBe(false);
+  expect(toGo().props.accessibilityState.checked).toBe(false);
+  expect(placeOrder()).toBeDisabled();
+
+  await fireEvent.press(forHere());
+  await view.rerender(<Review />);
+  expect(forHere().props.accessibilityState.checked).toBe(true);
+  expect(toGo().props.accessibilityState.checked).toBe(false);
+
+  await fireEvent.press(toGo());
+  await view.rerender(<Review />);
+  expect(forHere().props.accessibilityState.checked).toBe(false);
+  expect(toGo().props.accessibilityState.checked).toBe(true);
+  await fireEvent.press(placeOrder());
+  expect(mockApp.submit).toHaveBeenCalledWith('counter', '', 'takeaway');
 });
 
 test('opens the recovered order once the app learns it after a lost response', async () => {

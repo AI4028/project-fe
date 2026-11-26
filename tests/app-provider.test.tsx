@@ -479,15 +479,17 @@ test('replays the exact persisted request when the first submission has no known
     return previous(path, method);
   };
   await act(async () => {
-    await expect(result.current.submit('counter', 'note')).rejects.toThrow('offline');
+    await expect(result.current.submit('counter', 'note', 'takeaway')).rejects.toThrow('offline');
   });
   const saved = JSON.parse((await AsyncStorage.getItem('submission:http://127.0.0.1:8000'))!);
   expect(saved.quoteId).toBe('quote-1');
+  expect(saved.diningOption).toBe('takeaway');
   route = previous;
   await act(() => result.current.recoverSubmission());
   const requests = fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/order'));
   expect(requests).toHaveLength(2);
   expect(requests[0][1].body).toBe(requests[1][1].body);
+  expect(JSON.parse(requests[1][1].body).diningOption).toBe('takeaway');
   expect(requests[1][1].headers['Idempotency-Key']).toBe('order:s1');
   expect(result.current.pendingSubmission).toBeNull();
   expect(result.current.order?.orderId).toBe('o1');
