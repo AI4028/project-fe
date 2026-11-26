@@ -1,4 +1,4 @@
-import { Compass, MapPin } from 'lucide-react-native';
+import { ArrowUp, Compass, MapPin } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Button } from '@/components/ui/button';
@@ -172,6 +172,42 @@ export function BoardSetupPanel({ setup, onChange, heading, kioskRssi, anchors, 
   );
 }
 
+/** Line from the customer to the kiosk on the map, with an arrowhead toward it. */
+function kioskPath(from: { left: number; top: number }, to: { left: number; top: number }) {
+  const dx = to.left - from.left;
+  const dy = to.top - from.top;
+  const length = Math.hypot(dx, dy);
+  if (length < 24) return null; // Right next to the kiosk: nothing to draw.
+  const angle = (Math.atan2(dy, dx) * 180) / Math.PI; // Screen angle, 0 = right.
+  const head = { left: from.left + dx * 0.55, top: from.top + dy * 0.55 };
+  return (
+    <>
+      <View
+        className="absolute bg-primary"
+        style={{
+          left: (from.left + to.left) / 2 - length / 2,
+          top: (from.top + to.top) / 2 - 1.5,
+          width: length,
+          height: 3,
+          transform: [{ rotate: `${angle}deg` }],
+        }}
+      />
+      <View
+        testID="board-map-arrow"
+        className="absolute"
+        style={{
+          left: head.left - 14,
+          top: head.top - 14,
+          // ArrowUp points up (screen −90°); turn it to the line's angle.
+          transform: [{ rotate: `${angle + 90}deg` }],
+        }}
+      >
+        <Icon as={ArrowUp} size={28} className="text-primary" />
+      </View>
+    </>
+  );
+}
+
 /**
  * Small top-down map of the room: forward is up. Decorative; the same
  * information is in the text above it.
@@ -186,6 +222,8 @@ export function BoardMap({ setup, position }: { setup: BoardSetup; position: Pos
   const maxY = Math.max(...points.map((p) => p.y)) + 1;
   const scale = size / Math.max(maxX - minX, maxY - minY);
   const place = (p: Spot) => ({ left: (p.x - minX) * scale, top: (maxY - p.y) * scale });
+  // Uncertainty circle: at least the pin, at most a third of the map.
+  const ring = position ? Math.min(size / 3, Math.max(12, position.uncertainty * scale)) : 0;
   const dot = (p: Spot, label: string, strong = false) => (
     <View
       key={label}
@@ -205,7 +243,7 @@ export function BoardMap({ setup, position }: { setup: BoardSetup; position: Pos
       testID="board-map"
       accessible={false}
       importantForAccessibility="no-hide-descendants"
-      className="self-center rounded-2xl border border-border bg-muted"
+      className="self-center overflow-hidden rounded-2xl border border-border bg-muted"
       style={{ width: size + 32, height: size + 32, padding: 16 }}
     >
       <View style={{ width: size, height: size }}>
@@ -213,13 +251,14 @@ export function BoardMap({ setup, position }: { setup: BoardSetup; position: Pos
           <View
             className="absolute rounded-full border-2 border-primary"
             style={{
-              left: place(position).left - Math.max(12, position.uncertainty * scale),
-              top: place(position).top - Math.max(12, position.uncertainty * scale),
-              width: 2 * Math.max(12, position.uncertainty * scale),
-              height: 2 * Math.max(12, position.uncertainty * scale),
+              left: place(position).left - ring,
+              top: place(position).top - ring,
+              width: 2 * ring,
+              height: 2 * ring,
             }}
           />
         )}
+        {position && kioskPath(place(position), place({ x: 0, y: 0 }))}
         {dot({ x: 0, y: 0 }, 'K', true)}
         {dot(setup.spots.B, 'B')}
         {dot(setup.spots.C, 'C')}

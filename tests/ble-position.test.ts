@@ -108,3 +108,23 @@ test('three-board text reads well in English', () => {
     'Arrow: from your position (3 boards)',
   );
 });
+
+test('walking direction stands in for the compass', () => {
+  const { movementBearing } = jest.requireActual('@/lib/ble-position');
+  // Walking "right" in the room (east of forward), forward = compass 40°.
+  const walk = [0, 1, 2, 3].map((i) => ({ at: i * 1000, x: i * 0.5, y: 1 }));
+  expect(movementBearing(walk, 3000, 40)).toBeCloseTo(130, 5);
+  // Standing still (small wobble) gives nothing.
+  const still = [0, 1, 2, 3].map((i) => ({ at: i * 1000, x: 1 + (i % 2) * 0.2, y: 1 }));
+  expect(movementBearing(still, 3000, 40)).toBeNull();
+  // Back-and-forth wobble that happens to end 1 m away is not walking.
+  const zigzag = [
+    { at: 0, x: 0, y: 0 },
+    { at: 1000, x: 1.5, y: 0 },
+    { at: 2000, x: -0.5, y: 0 },
+    { at: 3000, x: 1.1, y: 0 },
+  ];
+  expect(movementBearing(zigzag, 3000, 40)).toBeNull();
+  // Old positions don't count.
+  expect(movementBearing(walk, 20000, 40)).toBeNull();
+});
